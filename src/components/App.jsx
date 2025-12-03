@@ -1,4 +1,5 @@
 // src/components/SearchFilter.jsx
+import ProviderAvatar from './components/ProviderAvatar';
 export default function SearchFilter({ sortBy, setSortBy, selectedCategory, setSelectedCategory, categories }) {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 flex flex-wrap gap-4 items-center justify-between">

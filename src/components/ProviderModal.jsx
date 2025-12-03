@@ -1,5 +1,6 @@
-import { X, Mail, MapPin, Clock, Star } from 'lucide-react';
+// src/components/ProviderModal.jsx
 import { motion } from 'framer-motion';
+import ProviderAvatar from './ProviderAvatar';
 
 export default function ProviderModal({ provider, onClose }) {
   if (!provider) return null;
@@ -9,49 +10,77 @@ export default function ProviderModal({ provider, onClose }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 50, scale: 0.9 }}
+        initial={{ y: 100, scale: 0.9 }}
         animate={{ y: 0, scale: 1 }}
-        className="bg-gradient-to-br from-slate-900 to-purple-900 rounded-3xl max-w-2xl w-full max-h-screen overflow-y-auto border border-white/20"
+        exit={{ y: 100, scale: 0.9 }}
+        className="bg-gradient-to-b from-gray-900 via-emerald-950/50 to-black rounded-3xl max-w-4xl w-full border border-emerald-800/50 shadow-4xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-8">
-          <div className="flex justify-between items-start mb-6">
-            <img
-              src={provider.logo || "/assets/placeholder.jpg"}
-              alt={provider.name}
-              className="w-24 h-24 rounded-full border-4 border-purple-500"
+        <div className="p-10">
+          {/* Top section with avatar + close button */}
+          <div className="flex justify-between items-start mb-10">
+            <ProviderAvatar 
+              name={provider.name} 
+              size="w-36 h-36" 
+              className="border-8 border-emerald-600/40 shadow-2xl"
             />
-            <button onClick={onClose} className="text-white/70 hover:text-white">
-              <X className="w-8 h-8" />
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full"
+            >
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
-          <h2 className="text-4xl font-bold mb-2">{provider.name}</h2>
-          <div className="flex items-center gap-4 text-gray-300 mb-6">
-            <div className="flex items-center gap-1">
-              <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-              <span className="text-2xl font-bold">{provider.rating}</span>
-              <span>({provider.reviews} reviews)</span>
-            </div>
-            <span className="text-3xl font-bold text-purple-400">{provider.price}</span>
+          {/* Provider Info */}
+          <h2 className="text-5xl font-black text-white mb-4">{provider.name}</h2>
+          
+          <div className="flex items-center gap-6 text-emerald-300 mb-6 text-lg">
+            <span className="flex items-center gap-2">
+              <span>LOCATION</span> {provider.location}
+            </span>
+            <span>•</span>
+            <span>{provider.years} years experience</span>
           </div>
 
-          <div className="space-y-4 text-lg">
-            <p className="flex items-center gap-3"><MapPin /> {provider.location}</p>
-            <p className="flex items-center gap-3"><Clock /> {provider.years} years in business</p>
-            <p className="leading-relaxed">{provider.description}</p>
-            <div>
-              <p className="font-semibold mb-2">Services:</p>
-              <p className="text-purple-300">{provider.services}</p>
+          <p className="text-gray-300 text-lg leading-relaxed mb-8 max-w-2xl">
+            {provider.description}
+          </p>
+
+          {/* Services */}
+          {provider.services && (
+            <div className="mb-8">
+              <h3 className="text-xl font-bold text-emerald-400 mb-3">Services Offered</h3>
+              <p className="text-gray-300">{provider.services}</p>
+            </div>
+          )}
+
+          {/* Rating & Price */}
+          <div className="flex items-center justify-between flex-wrap gap-6 mb-10">
+            <div className="flex items-center gap-3">
+              <span className="text-5xl">STAR</span>
+              <div>
+                <div className="text-4xl font-black text-yellow-400">{provider.rating}</div>
+                <div className="text-sm text-gray-400">{provider.reviews || 0} reviews</div>
+              </div>
+            </div>
+
+            <div className="text-6xl font-black text-emerald-400">
+              R{provider.price}
             </div>
           </div>
 
-          <button className="mt-8 w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 rounded-full text-xl transition transform hover:scale-105 flex items-center justify-center gap-3">
-            <Mail className="w-6 h-6" />
+          {/* Contact Button */}
+          <button className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-2xl py-6 rounded-2xl transition-all transform hover:scale-105 shadow-2xl flex items-center justify-center gap-4">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
             Contact {provider.name.split(" ")[0]}
           </button>
         </div>

@@ -1,0 +1,81 @@
+{
+  "categories": [
+    {
+      "id": "plumbing",
+      "name": "Plumbing",
+      "icon": "🔧",
+      "providers": [
+        {
+          "id": 1,
+          "name": "QuickFix Plumbing",
+          "location": "New York, NY",
+          "years": 12,
+          "price": "$$",
+          "rating": 4.8,
+          "reviews": 128,
+          "description": "24/7 emergency plumbing services. Licensed & insured.",
+          "services": "Pipe repair • Drain cleaning • Water heaters",
+          "logo": "/assets/plumbing1.jpg",
+          "contact": "quickfix@example.com"
+        },
+        {
+          "id": 2,
+          "name": "CityFlow Plumbers",
+          "location": "Brooklyn, NY",
+          "years": 8,
+          "price": "$$$",
+          "rating": 4.9,
+          "reviews": 89,
+          "description": "Modern plumbing solutions with eco-friendly options.",
+          "services": "Smart home plumbing • Leak detection",
+          "logo": "/assets/placeholder.jpg",
+          "contact": "cityflow@example.com"
+        }
+      ]
+    },
+    {
+      "id": "electricians",
+      "name": "Electricians",
+      "icon": "⚡",
+      "providers": [
+        {
+          "id": 3,
+          "name": "BrightSpark Electrical",
+          "location": "Queens, NY",
+          "years": 15,
+          "price": "$$$",
+          "rating": 5.0,
+          "reviews": 203,
+          "description": "Certified master electricians. Smart home wiring specialist.",
+          "services": "EV charging • Panel upgrades • Lighting",
+          "logo": "/assets/placeholder.jpg",
+          "contact": "brightspark@example.com"
+        }
+      ]
+    },
+    {
+      "id": "cleaning",
+      "name": "Cleaning Services",
+      "icon": "✨",
+      "providers": []
+    },
+    {
+      "id": "webdesign",
+      "name": "Web Design",
+      "icon": "💻",
+      "providers": []
+    },
+    {
+      "id": "photography",
+      "name": "Photography",
+      "icon": "📸",
+      "providers": []
+    },
+    {
+      "id": "tutoring",
+      "name": "Tutoring",
+      "icon": "📚",
+      "providers": []
+    }
+  ]
+}

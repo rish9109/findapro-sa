@@ -7,9 +7,9 @@ module.exports = {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
-        primary: '#10b981',      // Emerald green
-        accent: '#f59e0b',       // Gold/amber
-        dark: '#0f172a',         // Deep dark
+        primary: '#8b5cf6',   // purple
+        accent: '#3b82f6',    // blue
+        pink: '#ec4899',
       },
       animation: {
         'fade-in': 'fadeIn 0.6s ease-out',

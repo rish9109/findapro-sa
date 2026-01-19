@@ -175,6 +175,8 @@ export default function ProviderListingsPage() {
         created_at: new Date().toISOString()
       }
       
+      console.log('Submitting provider data:', providerData)
+      
       // Insert into Supabase
       const { data, error } = await supabase
         .from('providers')
@@ -186,31 +188,43 @@ export default function ProviderListingsPage() {
         throw error
       }
       
-      // SIMPLE EMAIL NOTIFICATION - ONE CALL
+      if (!data || data.length === 0) {
+        throw new Error('No data returned after insertion')
+      }
+      
+      const providerId = data[0].id
+      console.log('Provider created with ID:', providerId)
+      
+      // Send new listing notification to admin
       try {
-        // Send to our simple API endpoint
-        await fetch('/api/notify', {
+        console.log('Sending email notification for provider ID:', providerId)
+        
+        const emailResponse = await fetch('/api/email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify({
-            businessName: formData.businessName,
-            contactPerson: formData.contactPerson,
-            contactEmail: formData.contactEmail,
-            contactPhone: formData.contactPhone,
-            mainService: formData.mainService,
-            city: formData.city,
-            province: formData.province,
-            providerId: data[0].id
+            event: 'new_listing',
+            providerId: providerId
           })
         })
-        console.log('Admin notified via email')
-      } catch (emailError) {
-        console.log('Email notification skipped (non-critical)')
+
+        const emailResult = await emailResponse.json()
+        console.log('Admin notification result:', emailResult)
+
+        if (!emailResult.success) {
+          console.warn('Email notification had issues:', emailResult)
+          // Continue anyway - email is non-critical
+        }
+      } catch (emailError: any) {
+        console.log('Email notification failed (non-critical):', emailError.message || emailError)
         // Don't fail the form if email fails
       }
       
       // Success!
-      console.log('Provider created:', data)
+      console.log('Provider created successfully:', data)
       
       // Show success message
       alert(`
@@ -221,7 +235,7 @@ export default function ProviderListingsPage() {
         2. You'll receive an email when approved
         3. Your listing will appear in search results
         
-        Reference ID: ${data?.[0]?.id?.substring(0, 8)}
+        Reference ID: ${providerId.substring(0, 8)}
         
         Our admin team has been notified for review.
       `)
@@ -546,9 +560,234 @@ export default function ProviderListingsPage() {
             </div>
           </div>
 
-          {/* Section 4: Pricing & Terms */}
+          {/* Section 4: Location & Coverage */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">4. Pricing & Terms</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">4. Location & Coverage</h2>
+            
+            <div className="space-y-6">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Physical Address
+                </label>
+                <textarea
+                  name="physicalAddress"
+                  value={formData.physicalAddress}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Full street address"
+                />
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City *
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Johannesburg"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Province *
+                  </label>
+                  <select
+                    name="province"
+                    value={formData.province}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select province</option>
+                    {provinces.map(province => (
+                      <option key={province} value={province}>{province}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Areas Covered
+                  </label>
+                  <textarea
+                    name="serviceAreas"
+                    value={formData.serviceAreas}
+                    onChange={handleChange}
+                    rows={2}
+                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="List suburbs or areas you serve"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max Travel Distance (km)
+                  </label>
+                  <input
+                    type="number"
+                    name="travelDistance"
+                    value={formData.travelDistance}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    max="500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 5: Business Details */}
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">5. Business Details</h2>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Hours
+                </label>
+                <input
+                  type="text"
+                  name="businessHours"
+                  value={formData.businessHours}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 8:00-17:00, Mon-Fri"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Team Size
+                </label>
+                <input
+                  type="text"
+                  name="teamSize"
+                  value={formData.teamSize}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 1 person, 2-5 employees"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Callout Fee
+                </label>
+                <input
+                  type="text"
+                  name="calloutFee"
+                  value={formData.calloutFee}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., R300 or Free"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Portfolio/Website URL
+                </label>
+                <input
+                  type="url"
+                  name="portfolioUrl"
+                  value={formData.portfolioUrl}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://yourbusiness.co.za"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="emergencyService"
+                      checked={formData.emergencyService}
+                      onChange={handleChange}
+                      className="mr-2"
+                    />
+                    <label className="text-sm text-gray-700">Offer Emergency Services</label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="insurance"
+                      checked={formData.insurance}
+                      onChange={handleChange}
+                      className="mr-2"
+                    />
+                    <label className="text-sm text-gray-700">Have Insurance</label>
+                  </div>
+                </div>
+                
+                {formData.insurance && (
+                  <div className="mt-4">
+                    <input
+                      type="text"
+                      name="insuranceDetails"
+                      value={formData.insuranceDetails}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Insurance provider and coverage details"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Average Response Time (hours)
+                </label>
+                <input
+                  type="text"
+                  name="responseTime"
+                  value={formData.responseTime}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 24 hours"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Availability *
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {['weekdays', 'weekends', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => toggleAvailability(day)}
+                    className={`px-4 py-2 rounded-lg border ${
+                      formData.availability.includes(day)
+                        ? 'bg-blue-100 border-blue-500 text-blue-700'
+                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 6: Pricing & Terms */}
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">6. Pricing & Terms</h2>
             
             <div className="grid md:grid-cols-2 gap-6">
               <div>

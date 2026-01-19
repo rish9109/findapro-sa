@@ -186,6 +186,29 @@ export default function ProviderListingsPage() {
         throw error
       }
       
+      // SIMPLE EMAIL NOTIFICATION - ONE CALL
+      try {
+        // Send to our simple API endpoint
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessName: formData.businessName,
+            contactPerson: formData.contactPerson,
+            contactEmail: formData.contactEmail,
+            contactPhone: formData.contactPhone,
+            mainService: formData.mainService,
+            city: formData.city,
+            province: formData.province,
+            providerId: data[0].id
+          })
+        })
+        console.log('Admin notified via email')
+      } catch (emailError) {
+        console.log('Email notification skipped (non-critical)')
+        // Don't fail the form if email fails
+      }
+      
       // Success!
       console.log('Provider created:', data)
       
@@ -199,6 +222,8 @@ export default function ProviderListingsPage() {
         3. Your listing will appear in search results
         
         Reference ID: ${data?.[0]?.id?.substring(0, 8)}
+        
+        Our admin team has been notified for review.
       `)
       
       // Reset form
@@ -240,9 +265,6 @@ export default function ProviderListingsPage() {
         agreeMarketing: false
       })
       
-      // Optional: Redirect to success page
-      // router.push('/listings/success')
-      
     } catch (error: any) {
       console.error('Error submitting form:', error)
       alert(`Error: ${error.message || 'Failed to submit form. Please try again.'}`)
@@ -250,6 +272,7 @@ export default function ProviderListingsPage() {
       setLoading(false)
     }
   }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">

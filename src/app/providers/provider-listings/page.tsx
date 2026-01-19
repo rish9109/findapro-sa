@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function ProviderListingsPage() {
   const router = useRouter()
@@ -117,37 +118,138 @@ export default function ProviderListingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validation
+    if (!formData.acceptTerms) {
+      alert('Please accept the terms and conditions')
+      return
+    }
+    
     setLoading(true)
     
     try {
-      // Validate required fields
-      if (!formData.businessName || !formData.contactPerson || !formData.contactEmail || !formData.contactPhone) {
-        alert('Please fill in all required fields')
-        setLoading(false)
-        return
+      // Prepare data for Supabase
+      const providerData = {
+        business_name: formData.businessName,
+        business_type: formData.businessType,
+        registration_number: formData.registrationNumber,
+        vat_registered: formData.vatRegistered,
+        vat_number: formData.vatNumber,
+        
+        contact_person: formData.contactPerson,
+        contact_email: formData.contactEmail,
+        contact_phone: formData.contactPhone,
+        alternate_phone: formData.alternatePhone,
+        
+        main_service: formData.mainService,
+        other_services: formData.otherServices,
+        experience_years: formData.experienceYears,
+        qualifications: formData.qualifications,
+        certifications: formData.certifications,
+        
+        physical_address: formData.physicalAddress,
+        city: formData.city,
+        province: formData.province,
+        service_areas: formData.serviceAreas,
+        travel_distance: formData.travelDistance,
+        
+        pricing_model: formData.pricingModel,
+        hourly_rate: formData.hourlyRate,
+        callout_fee: formData.calloutFee,
+        accepts_card: formData.acceptsCard,
+        accepts_cash: formData.acceptsCash,
+        deposit_required: formData.depositRequired,
+        
+        availability: formData.availability,
+        emergency_service: formData.emergencyService,
+        response_time: formData.responseTime,
+        
+        business_hours: formData.businessHours,
+        team_size: formData.teamSize,
+        insurance: formData.insurance,
+        insurance_details: formData.insuranceDetails,
+        portfolio_url: formData.portfolioUrl,
+        
+        status: 'pending', // Needs admin approval
+        verified: false,
+        created_at: new Date().toISOString()
       }
       
-      console.log('Provider listing submitted:', formData)
+      // Insert into Supabase
+      const { data, error } = await supabase
+        .from('providers')
+        .insert([providerData])
+        .select()
       
-      // TODO: Connect to Supabase
-      // const { data, error } = await supabase
-      //   .from('providers')
-      //   .insert([{ ...formData, status: 'pending' }])
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Success!
+      console.log('Provider created:', data)
       
-      alert('✓ Your listing has been submitted for review!\nWe will contact you within 24 hours.')
-      router.push('/providers')
+      // Show success message
+      alert(`
+        ✅ Success! Your listing has been submitted.
+        
+        Next steps:
+        1. We will review your listing within 24 hours
+        2. You'll receive an email when approved
+        3. Your listing will appear in search results
+        
+        Reference ID: ${data?.[0]?.id?.substring(0, 8)}
+      `)
       
-    } catch (error) {
+      // Reset form
+      setFormData({
+        businessName: '',
+        businessType: 'sole_proprietor',
+        registrationNumber: '',
+        vatRegistered: false,
+        vatNumber: '',
+        contactPerson: '',
+        contactEmail: '',
+        contactPhone: '',
+        alternatePhone: '',
+        mainService: '',
+        otherServices: '',
+        experienceYears: '',
+        qualifications: '',
+        certifications: '',
+        physicalAddress: '',
+        city: '',
+        province: '',
+        serviceAreas: '',
+        travelDistance: '10',
+        pricingModel: 'hourly',
+        hourlyRate: '',
+        calloutFee: '',
+        acceptsCard: false,
+        acceptsCash: true,
+        depositRequired: false,
+        availability: ['weekdays', 'weekends'],
+        emergencyService: false,
+        responseTime: '24',
+        businessHours: '8:00-17:00',
+        teamSize: '1',
+        insurance: false,
+        insuranceDetails: '',
+        portfolioUrl: '',
+        acceptTerms: false,
+        agreeMarketing: false
+      })
+      
+      // Optional: Redirect to success page
+      // router.push('/listings/success')
+      
+    } catch (error: any) {
       console.error('Error submitting form:', error)
-      alert('There was an error submitting your form. Please try again.')
+      alert(`Error: ${error.message || 'Failed to submit form. Please try again.'}`)
     } finally {
       setLoading(false)
     }
   }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">

@@ -1,3 +1,4 @@
+// File: src/app/admin/pages.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -69,13 +70,14 @@ export default function ProvidersPage() {
       const reason = prompt('Enter rejection reason:')
       if (!reason) return
       
-      const result = await rejectProvider(providerId, reason)  // No adminEmail
+      const result = await rejectProvider(providerId, reason, adminEmail) // Add adminEmail
       if (result.success) fetchProviders()
     } else if (action === 'approve') {
-      const result = await approveProvider(providerId)  // No adminEmail
+      const result = await approveProvider(providerId, adminEmail) // Add adminEmail
       if (result.success) fetchProviders()
     } else if (action === 'pause') {
-      const result = await pauseProvider(providerId)  // No adminEmail
+      const reason = prompt('Enter pause reason (optional):')
+      const result = await pauseProvider(providerId, reason || undefined, adminEmail) // Add adminEmail
       if (result.success) fetchProviders()
     }
   }

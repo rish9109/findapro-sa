@@ -1,11 +1,23 @@
-// File: src/components/Header.tsx
+// File: src/components/Header.tsx (updated)
 'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { user, isLoading, logout, showAuthModal } = useAuth()
+
+  const handleLoginClick = () => {
+    showAuthModal('login')
+    setMenuOpen(false)
+  }
+
+  const handleSignupClick = () => {
+    showAuthModal('signup')
+    setMenuOpen(false)
+  }
 
   return (
     <header className="bg-white shadow sticky top-0 z-50">
@@ -29,24 +41,40 @@ export default function Header() {
             <Link href="/providers" className="text-gray-700 hover:text-blue-600 font-medium">
               Find Providers
             </Link>
-            <Link href="/providers/provider-listings" className="text-gray-700 hover:text-blue-600 font-medium">
-  List Your Service
-</Link>
-            <Link 
-              href="/login" 
-              className="border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50"
-            >
-              Login
-            </Link>
-            <Link 
-              href="/register" 
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Sign Up Free
-            </Link>
-            <Link href="/providers" className="text-gray-700 hover:text-blue-600 font-medium">
-  Find Providers
-</Link>
+            
+            {user ? (
+              <>
+                <Link href="/providers/provider-listings" className="text-gray-700 hover:text-blue-600 font-medium">
+                  List Your Service
+                </Link>
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-600">
+                    Hi, {user.user_metadata.name || user.email.split('@')[0]}
+                  </span>
+                  <button
+                    onClick={() => logout()}
+                    className="border border-red-600 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleLoginClick}
+                  className="border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={handleSignupClick}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Sign Up Free
+                </button>
+              </>
+            )}
           </nav>
           
           {/* Mobile Menu Button */}
@@ -62,13 +90,45 @@ export default function Header() {
         {menuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t pt-4">
             <div className="flex flex-col space-y-3">
-              <Link href="/" className="text-gray-700 py-2">Home</Link>
-              <Link href="/providers" className="text-gray-700 py-2">Find Providers</Link>
-              <Link href="/add-listing" className="text-gray-700 py-2">List Your Service</Link>
-              <div className="pt-2 border-t">
-                <Link href="/login" className="block py-2 text-blue-600">Login</Link>
-                <Link href="/register" className="block py-2 text-blue-600 font-medium">Sign Up</Link>
-              </div>
+              <Link href="/" className="text-gray-700 py-2" onClick={() => setMenuOpen(false)}>Home</Link>
+              <Link href="/providers" className="text-gray-700 py-2" onClick={() => setMenuOpen(false)}>Find Providers</Link>
+              
+              {user ? (
+                <>
+                  <Link href="/providers/provider-listings" className="text-gray-700 py-2" onClick={() => setMenuOpen(false)}>
+                    List Your Service
+                  </Link>
+                  <div className="pt-2 border-t">
+                    <span className="block py-2 text-gray-600">
+                      Hi, {user.user_metadata.name || user.email.split('@')[0]}
+                    </span>
+                    <button
+                      onClick={() => {
+                        logout()
+                        setMenuOpen(false)
+                      }}
+                      className="block py-2 text-red-600"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="pt-2 border-t">
+                  <button
+                    onClick={handleLoginClick}
+                    className="block py-2 text-blue-600"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={handleSignupClick}
+                    className="block py-2 text-blue-600 font-medium"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

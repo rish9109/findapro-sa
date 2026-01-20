@@ -1,5 +1,9 @@
-// File: src/components/CategoryGrid.tsx
+// File: src/components/CategoryGrid.tsx (updated)
+'use client'
+
 import Link from 'next/link'
+import ProtectedContent from './ProtectedContent'
+
 
 const categories = [
   { name: 'Plumbers', icon: '💧', count: 245, color: 'bg-blue-100 text-blue-800' },
@@ -20,17 +24,21 @@ export default function CategoryGrid() {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
       {categories.map((category) => (
-        <Link 
+        <ProtectedContent
           key={category.name}
-          href={`/providers?category=${category.name.toLowerCase()}`}
-          className="group"
+          action={`browse ${category.name.toLowerCase()}`}
         >
-          <div className={`${category.color} p-6 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}>
-            <div className="text-3xl mb-3">{category.icon}</div>
-            <h3 className="font-semibold text-lg mb-1">{category.name}</h3>
-            <p className="text-sm opacity-75">{category.count} providers</p>
-          </div>
-        </Link>
+          <Link 
+            href={`/providers?category=${category.name.toLowerCase()}`}
+            className="group block"
+          >
+            <div className={`${category.color} p-6 rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1`}>
+              <div className="text-3xl mb-3">{category.icon}</div>
+              <h3 className="font-semibold text-lg mb-1">{category.name}</h3>
+              <p className="text-sm opacity-75">{category.count} providers</p>
+            </div>
+          </Link>
+        </ProtectedContent>
       ))}
     </div>
   )

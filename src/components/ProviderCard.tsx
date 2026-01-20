@@ -1,7 +1,9 @@
-// File: src/components/ProviderCard.tsx
+// File: src/components/ProviderCard.tsx (updated)
 'use client'
 
 import { useState } from 'react'
+import ProtectedContent from './ProtectedContent'
+import Link from 'next/link'
 
 interface ProviderCardProps {
   provider: {
@@ -20,6 +22,10 @@ interface ProviderCardProps {
 
 export default function ProviderCard({ provider }: ProviderCardProps) {
   const [showContact, setShowContact] = useState(false)
+
+  const handleContactClick = () => {
+    setShowContact(true)
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100">
@@ -94,15 +100,23 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             </div>
           ) : (
             <div className="flex gap-3">
-              <button 
-                onClick={() => setShowContact(true)}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
-              >
-                Contact Provider
-              </button>
-              <button className="px-4 border border-gray-300 rounded-lg hover:bg-gray-50">
-                View Profile
-              </button>
+              <ProtectedContent action="contact this provider">
+                <button 
+                  onClick={handleContactClick}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                >
+                  Contact Provider
+                </button>
+              </ProtectedContent>
+              
+              <ProtectedContent action="view full profile">
+                <Link 
+                  href={`/providers/${provider.id}`}
+                  className="px-4 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center"
+                >
+                  View Profile
+                </Link>
+              </ProtectedContent>
             </div>
           )}
         </div>

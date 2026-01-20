@@ -143,20 +143,30 @@ export async function deleteProvider(providerId: string, reason?: string, adminE
 
 export async function reactivateProvider(providerId: string, adminEmail?: string) {
   try {
-    const { error: updateError } = await supabase
+    console.log('🔄 Reactivating provider:', providerId)
+    
+    // Update provider status
+    const { data: updatedProvider, error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'approved',
-        reactivated_at: new Date().toISOString(),
-        deleted_at: null,
-        deletion_reason: null
+        // Add reactivation timestamp if you have this column
+        // reactivated_at: new Date().toISOString()
       })
       .eq('id', providerId)
+      .select()
+      .single()
 
     if (updateError) throw updateError
 
+    if (!updatedProvider) {
+      throw new Error('Provider not found or not updated')
+    }
+
+    console.log('✅ Provider updated successfully, sending reactivation email...')
+
     // Send email to provider
-    await fetch('/api/email', {
+    const emailResponse = await fetch('/api/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -167,9 +177,20 @@ export async function reactivateProvider(providerId: string, adminEmail?: string
       }),
     })
 
-    return { success: true }
+    const emailResult = await emailResponse.json()
+    console.log('📧 Reactivation email sent:', emailResult)
+
+    return { 
+      success: true,
+      message: 'Provider reactivated successfully',
+      provider: updatedProvider,
+      emailSent: emailResult.success
+    }
   } catch (error: any) {
-    console.error('Error reactivating provider:', error)
-    return { success: false, error: error.message }
+    console.error('❌ Error reactivating provider:', error)
+    return { 
+      success: false, 
+      error: error.message || 'Unknown error'
+    }
   }
 }

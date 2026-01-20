@@ -232,7 +232,7 @@ export async function sendProviderStatusEmail(
     reject: 'listing_rejected',
     pause: 'listing_paused',
     delete: 'listing_deleted',
-    reactivate: 'listing_approved'
+    reactivate: 'listing_reactivated'
   }
 
   const templateName = templateMap[action]

@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+
 type User = {
   id: string
   email: string
@@ -195,6 +196,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       signup,
       logout,
+      showAuthModal,
+      hideAuthModal,
+      authModalVisible,
+      authModalMode
+    }}>
+      {children}
+    </AuthContext.Provider>
+  )
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      })
+  
+      if (error) {
+        return { 
+          success: false, 
+          message: error.message || 'Failed to send reset email' 
+        }
+      }
+  
+      return { 
+        success: true, 
+        message: 'Password reset email sent! Check your inbox.' 
+      }
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: error.message || 'An error occurred' 
+      }
+    }
+  }
+  
+  // Add resetPassword to the context value:
+  return (
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      isProvider,
+      login,
+      signup,
+      logout,
+      resetPassword, // Add this
       showAuthModal,
       hideAuthModal,
       authModalVisible,

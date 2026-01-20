@@ -1,10 +1,12 @@
-// File: src/app/layout.tsx (you need to create or update this)
+// File: src/app/layout.tsx
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/Header'
 import { AuthProvider } from '@/contexts/AuthContext'
 import AuthModal from '@/components/AuthModal'
+import LoadingWrapper from '@/components/LoadingWrapper'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,14 +23,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
-          <Header />
-          <AuthModal />
-          <main className="min-h-screen">
-            {children}
-          </main>
-          {/* You might want to add a Footer component here */}
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <LoadingWrapper>
+              <Header />
+              <AuthModal />
+              <main className="min-h-screen">
+                {children}
+              </main>
+            </LoadingWrapper>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

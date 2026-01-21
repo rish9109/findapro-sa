@@ -5,6 +5,7 @@ import { motion, useAnimation, useInView } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Users, ChevronRight } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 const categories = [
   { 
@@ -107,9 +108,16 @@ const categories = [
 
 export default function CategoryGrid() {
   const router = useRouter()
+  const { user, showAuthModal } = useAuth()
 
   const handleCardClick = (categoryId: string) => {
-    router.push(`/providers?category=${categoryId}`)
+    if (!user) {
+      // If user is not logged in, show the auth modal
+      showAuthModal('login')
+    } else {
+      // If user is logged in, redirect to the category page
+      router.push(`/providers?category=${categoryId}`)
+    }
   }
 
   return (

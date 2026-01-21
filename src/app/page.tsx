@@ -44,43 +44,6 @@ export default function Home() {
                 Premium quality guaranteed.
               </p>
             </div>
-
-            {/* Luxury Search Bar Area */}
-            <div className="max-w-4xl mx-auto">
-              <div className="glass-luxury rounded-2xl p-8 border border-white/10 shadow-2xl premium-hover">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-white mb-2">Find Your Perfect Pro</h2>
-                  <p className="text-white/60">Search across 50+ categories with verified reviews</p>
-                </div>
-                <SearchBar />
-                
-                {/* Quick stats */}
-                <div className="flex flex-wrap justify-center gap-6 mt-8 pt-8 border-t border-white/10">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gradient">10K+</div>
-                    <div className="text-sm text-white/60">Verified Providers</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gradient">4.9★</div>
-                    <div className="text-sm text-white/60">Avg. Rating</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gradient">24h</div>
-                    <div className="text-sm text-white/60">Response Time</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-          <div className="flex flex-col items-center">
-            <div className="text-white/40 text-sm mb-2">Explore More</div>
-            <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
-              <div className="w-1 h-3 bg-gradient-to-b from-purple-400 to-teal-400 rounded-full mt-2 animate-bounce"></div>
-            </div>
           </div>
         </div>
       </section>

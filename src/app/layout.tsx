@@ -1,11 +1,18 @@
 // File: src/app/layout.tsx
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import './globals.css'
-import Header from '../components/Header'
-import Footer from '../components/Footer'
+import Header from '@/components/Header'
+import { AuthProvider } from '@/contexts/AuthContext'
+import AuthModal from '@/components/AuthModal'
+import LoadingWrapper from '@/components/LoadingWrapper'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
-export const metadata = {
-  title: 'Find A Pro - South Africa Service Directory',
-  description: 'Find verified service providers, professionals, and contractors across South Africa',
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'FindAPro - Find Trusted Service Providers in South Africa',
+  description: 'Connect with verified professionals for home services, repairs, maintenance, and more across South Africa',
 }
 
 export default function RootLayout({
@@ -14,19 +21,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="scroll-smooth">
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body className="bg-gray-50 text-gray-900">
-        <div className="min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-grow">
-            {children}
-          </main>
-          <Footer />
-        </div>
+    <html lang="en">
+      <body className={inter.className}>
+        <ErrorBoundary>
+          <AuthProvider>
+            <LoadingWrapper>
+              <Header />
+              <AuthModal />
+              <main className="min-h-screen">
+                {children}
+              </main>
+            </LoadingWrapper>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

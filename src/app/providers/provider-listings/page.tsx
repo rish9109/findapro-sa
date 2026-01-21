@@ -4,8 +4,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import ProtectedRoute from '@/components/ProtectedRoute'
 
-export default function ProviderListingsPage() {
+// Move all the existing code into this component
+function ProviderListingsContent() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -947,5 +949,14 @@ export default function ProviderListingsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Wrap the entire component with ProtectedRoute
+export default function ProviderListingsPage() {
+  return (
+    <ProtectedRoute>
+      <ProviderListingsContent />
+    </ProtectedRoute>
   )
 }

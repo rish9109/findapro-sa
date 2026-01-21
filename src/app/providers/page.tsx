@@ -1,8 +1,9 @@
-// File: src/app/providers/page.tsx
+// File: src/app/providers/page.tsx (UPDATED VERSION)
 'use client'
 
 import { useState } from 'react'
 import ProviderCard from '@/components/ProviderCard'
+import ProtectedContent from '@/components/ProtectedContent'
 
 // Mock data for local testing
 const mockProviders = [
@@ -191,7 +192,13 @@ export default function ProvidersPage() {
         {filteredProviders.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProviders.map((provider) => (
-              <ProviderCard key={provider.id} provider={provider} />
+              <ProtectedContent 
+                key={provider.id} 
+                action="view full profile"
+                showLockIcon={true}
+              >
+                <ProviderCard provider={provider} />
+              </ProtectedContent>
             ))}
           </div>
         ) : (
@@ -205,12 +212,14 @@ export default function ProvidersPage() {
       <div className="bg-blue-50 p-8 rounded-lg text-center">
         <h3 className="text-xl font-bold mb-4">Are you a service provider?</h3>
         <p className="text-gray-700 mb-6">List your business and get more customers</p>
-        <a 
-          href="/providers/provider-listings" 
-          className="inline-block bg-green-600 text-white px-8 py-3 rounded font-semibold hover:bg-green-700"
-        >
-          List Your Service
-        </a>
+        <ProtectedContent action="list your service">
+          <a 
+            href="/providers/provider-listings" 
+            className="inline-block bg-green-600 text-white px-8 py-3 rounded font-semibold hover:bg-green-700"
+          >
+            List Your Service
+          </a>
+        </ProtectedContent>
       </div>
     </div>
   )

@@ -70,7 +70,7 @@ export async function pauseProvider(providerId: string, reason?: string, adminEm
     const { error: updateError } = await supabase
       .from('providers')
       .update({ 
-        status: 'paused',
+        status: 'pause',
         pause_reason: reason,
         reviewed_at: new Date().toISOString()
       })

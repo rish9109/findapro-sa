@@ -6,6 +6,20 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 
+// Types for our data
+interface Province {
+  id: string
+  name: string
+  code: string
+}
+
+interface ServiceCategory {
+  id: string
+  name: string
+  description?: string
+  icon?: string
+}
+
 // Move all the existing code into this component
 function ProviderListingsContent() {
   const router = useRouter()
@@ -13,6 +27,12 @@ function ProviderListingsContent() {
   const [userEmail, setUserEmail] = useState('')
   const [showServiceModal, setShowServiceModal] = useState(false)
   const [showProvinceModal, setShowProvinceModal] = useState(false)
+  
+  // NEW: State for dynamic data from Supabase
+  const [provinces, setProvinces] = useState<Province[]>([])
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+  
   const [formData, setFormData] = useState({
     // Business Information
     businessName: '',
@@ -25,6 +45,7 @@ function ProviderListingsContent() {
     
     // Service Information
     mainService: '',
+    mainServiceId: '', // NEW: Store the ID as well
     otherServices: '',
     experienceYears: '',
     certifications: '',
@@ -33,6 +54,7 @@ function ProviderListingsContent() {
     physicalAddress: '',
     city: '',
     province: '',
+    provinceId: '', // NEW: Store the ID as well
     serviceAreas: '',
     
     // Pricing & Payment
@@ -53,43 +75,46 @@ function ProviderListingsContent() {
   })
 
   useEffect(() => {
-    const getUserEmail = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user?.email) {
-        setUserEmail(session.user.email)
-        setFormData(prev => ({ ...prev, contactEmail: session.user.email }))
+    const fetchInitialData = async () => {
+      try {
+        setLoadingData(true)
+        
+        // Fetch user email
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.email) {
+          setUserEmail(session.user.email)
+          setFormData(prev => ({ ...prev, contactEmail: session.user.email }))
+        }
+        
+        // Fetch provinces from Supabase
+        const { data: provincesData, error: provincesError } = await supabase
+          .from('provinces')
+          .select('id, name, code')
+          .order('name')
+        
+        if (provincesError) throw provincesError
+        setProvinces(provincesData || [])
+        
+        // Fetch service categories from Supabase
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('service_categories')
+          .select('id, name, description, icon')
+          .eq('is_active', true)
+          .order('name')
+        
+        if (servicesError) throw servicesError
+        setServiceCategories(servicesData || [])
+        
+      } catch (error) {
+        console.error('Error fetching initial data:', error)
+        // You could set fallback data here if needed
+      } finally {
+        setLoadingData(false)
       }
     }
-    getUserEmail()
+    
+    fetchInitialData()
   }, [])
-
-  const provinces = [
-    'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal',
-    'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape', 'Western Cape'
-  ]
-
-  const serviceCategories = [
-    'Plumbing & Water',
-    'Electrical Services',
-    'Cleaning Services',
-    'Gardening & Landscaping',
-    'Painting & Decorating',
-    'Building & Construction',
-    'Carpentry & Woodwork',
-    'Mechanical & Automotive',
-    'IT & Computer Services',
-    'Security Systems',
-    'Moving & Transport',
-    'Pest Control',
-    'Home Maintenance',
-    'Event Planning',
-    'Beauty & Wellness',
-    'Health & Safety',
-    'Education & Tutoring',
-    'Financial Services',
-    'Legal Services',
-    'Other Professional Services'
-  ]
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -101,13 +126,23 @@ function ProviderListingsContent() {
     }
   }
 
-  const selectService = (service: string) => {
-    setFormData(prev => ({ ...prev, mainService: service }))
+  // Updated selectService to store both name and ID
+  const selectService = (service: ServiceCategory) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      mainService: service.name,
+      mainServiceId: service.id 
+    }))
     setShowServiceModal(false)
   }
 
-  const selectProvince = (province: string) => {
-    setFormData(prev => ({ ...prev, province }))
+  // Updated selectProvince to store both name and ID
+  const selectProvince = (province: Province) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      province: province.name,
+      provinceId: province.id 
+    }))
     setShowProvinceModal(false)
   }
 
@@ -133,6 +168,7 @@ function ProviderListingsContent() {
         alternate_phone: formData.alternatePhone,
         
         main_service: formData.mainService,
+        main_service_id: formData.mainServiceId, // NEW: Store the ID
         other_services: formData.otherServices,
         experience_years: formData.experienceYears,
         certifications: formData.certifications,
@@ -140,6 +176,7 @@ function ProviderListingsContent() {
         physical_address: formData.physicalAddress,
         city: formData.city,
         province: formData.province,
+        province_id: formData.provinceId, // NEW: Store the ID
         service_areas: formData.serviceAreas,
         
         hourly_rate: formData.hourlyRate,
@@ -221,12 +258,14 @@ function ProviderListingsContent() {
         contactPhone: '',
         alternatePhone: '',
         mainService: '',
+        mainServiceId: '',
         otherServices: '',
         experienceYears: '',
         certifications: '',
         physicalAddress: '',
         city: '',
         province: '',
+        provinceId: '',
         serviceAreas: '',
         hourlyRate: '',
         calloutFee: '',
@@ -246,6 +285,18 @@ function ProviderListingsContent() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading state while fetching data
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading form data...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -726,16 +777,19 @@ function ProviderListingsContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {serviceCategories.map((service) => (
                   <button
-                    key={service}
+                    key={service.id}
                     type="button"
                     onClick={() => selectService(service)}
                     className={`p-4 rounded-lg border text-left transition-all ${
-                      formData.mainService === service
+                      formData.mainServiceId === service.id
                         ? 'bg-gradient-to-r from-orange-600/30 to-orange-500/30 border-orange-500 text-orange-300'
                         : 'bg-gray-900/50 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600'
                     }`}
                   >
-                    {service}
+                    <div className="font-medium">{service.name}</div>
+                    {service.description && (
+                      <div className="text-sm text-gray-400 mt-1">{service.description}</div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -773,16 +827,17 @@ function ProviderListingsContent() {
               <div className="space-y-3">
                 {provinces.map((province) => (
                   <button
-                    key={province}
+                    key={province.id}
                     type="button"
                     onClick={() => selectProvince(province)}
                     className={`w-full p-4 rounded-lg border text-left transition-all ${
-                      formData.province === province
+                      formData.provinceId === province.id
                         ? 'bg-gradient-to-r from-orange-600/30 to-orange-500/30 border-orange-500 text-orange-300'
                         : 'bg-gray-900/50 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600'
                     }`}
                   >
-                    {province}
+                    <div className="font-medium">{province.name}</div>
+                    <div className="text-sm text-gray-400">Code: {province.code}</div>
                   </button>
                 ))}
               </div>

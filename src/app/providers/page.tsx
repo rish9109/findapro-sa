@@ -285,7 +285,7 @@ export default function ProvidersPage() {
     }
   }
 
-  // Handle provider card click - FIXED with category preservation
+  // page url navigation
   const handleProviderClick = (providerId: string, providerCategory?: string) => {
     // Check if user is logged in
     if (!user) {
@@ -294,21 +294,15 @@ export default function ProvidersPage() {
       return
     }
     
-  // STORE CATEGORY HERE - 
-  const categoryToStore = currentCategory || providerCategory || activeFilter
-  if (categoryToStore && categoryToStore !== 'all') {
-    sessionStorage.setItem('lastCategory', categoryToStore)
-    console.log('📌 Stored category for back navigation:', categoryToStore)
-    }
-    
-    // Build URL with category if available
-    let detailUrl = `/providers/${providerId}?ref=category`
+    // Store category in sessionStorage for navigation back
+    const categoryToStore = currentCategory || providerCategory || activeFilter
     if (categoryToStore && categoryToStore !== 'all') {
-      detailUrl += `&category=${encodeURIComponent(categoryToStore)}`
+      sessionStorage.setItem('lastCategory', categoryToStore)
+      console.log('📌 Stored category for back navigation:', categoryToStore)
     }
     
-    console.log('🔗 Navigating to:', detailUrl)
-    router.replace(detailUrl)
+    // SIMPLE NAVIGATION - like the new files
+    router.push(`/providers/${providerId}`)
   }
 
   // Get category display label

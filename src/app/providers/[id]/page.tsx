@@ -216,7 +216,6 @@ export default function ProviderModalPage() {
     }
   }, [providerId])
 
-  // FIX 6: CORRECTED close function - preserve category when going back
   const handleClose = useCallback(() => {
     console.log('🔙 Closing modal, isModal:', isModal, 'originCategory:', originCategory)
     
@@ -231,7 +230,7 @@ export default function ProviderModalPage() {
       
       const categoryToUse = categoryParam || originCategory || sessionStorage.getItem('lastCategory') || sessionStorage.getItem('providerCategory')
       
-      if (categoryToUse && categoryToUse !== 'all') {
+      if (categoryToUse) {
         backUrl = `/providers?category=${encodeURIComponent(categoryToUse)}`
         console.log('🎯 Returning to category:', categoryToUse, 'URL:', backUrl)
       }
@@ -239,14 +238,12 @@ export default function ProviderModalPage() {
       // Use replace instead of push to avoid adding to history stack
       router.replace(backUrl)
     } else {
-      // For direct access, always go back to providers with category if available
-      const lastCategory = sessionStorage.getItem('lastCategory')
-      const backUrl = lastCategory && lastCategory !== 'all' 
-        ? `/providers?category=${encodeURIComponent(lastCategory)}` 
-        : '/providers'
-      
-      console.log('🔙 Direct access, navigating to:', backUrl)
-      router.push(backUrl)
+      // For direct access, go back or to providers
+      if (window.history.length > 1) {
+        router.back()
+      } else {
+        router.push('/providers')
+      }
     }
   }, [isModal, router, originCategory, categoryParam])
 

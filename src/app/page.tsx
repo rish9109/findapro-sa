@@ -1,127 +1,195 @@
-// File: src/app/page.tsx - COMPLETELY REDESIGNED LUXURY VERSION
+// File: src/app/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
 import SearchBar from '../components/SearchBar'
 import CategoryGrid from '../components/CategoryGrid'
 
 export default function Home() {
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    // Check if mobile on mount and resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   return (
-    <div className="space-y-0">
-      {/* Hero Section - Luxury Design */}
-      <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-gradient-to-br from-luxury-dark via-luxury-navy to-luxury-midnight">
-        {/* Animated background elements */}
+    <div className="space-y-8 md:space-y-12 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
+      {/* Hero Section - Dark Theme */}
+      <section className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-gray-950 text-white pt-6 md:pt-12 pb-10 md:pb-16">
+        {/* Enhanced Background pattern with more subtle effect */}
         <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-          <div className="absolute top-3/4 left-3/4 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
-          
-          {/* Grid pattern overlay */}
-          <div className="absolute inset-0 opacity-5" style={{
-            backgroundImage: `linear-gradient(to right, #8882 1px, transparent 1px),
-                            linear-gradient(to bottom, #8882 1px, transparent 1px)`,
-            backgroundSize: '50px 50px'
-          }}></div>
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-900/50 via-transparent to-gray-900/30"></div>
+          <div className="absolute -top-20 -left-20 w-80 h-80 bg-gradient-to-br from-orange-500/10 to-yellow-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
+          {/* Subtle grid pattern */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] bg-[length:40px_40px]"></div>
         </div>
-
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              {/* Premium badge */}
-              <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-purple-500/20 to-teal-500/20 border border-purple-500/30 mb-8">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                <span className="text-sm font-semibold text-white/80">TRUSTED BY 10,000+ BUSINESSES</span>
-              </div>
-
-              {/* Main headline with gradient */}
-              <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight tracking-tight">
-                <span className="block text-white">Find Elite</span>
-                <span className="text-gradient bg-gradient-to-r from-purple-400 via-pink-400 to-teal-400">
-                  Service Professionals
-                </span>
-              </h1>
+        
+        <div className="container mx-auto px-4 text-center relative z-10">
+          {/* Top CTA Section - Clean, no box */}
+          <div className="mb-6 md:mb-12 space-y-3 md:space-y-4">
+            {/* Decorative element */}
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <div className="w-6 h-0.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
+              <span className="text-xs md:text-sm font-medium text-gray-400 uppercase tracking-wider">For Service Providers</span>
+              <div className="w-6 h-0.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
+            </div>
+            
+            <h3 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight">
+              Are You a <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400">Service Professional</span> 
+              <br className="hidden md:block" /> Ready to Grow Your Business?
+            </h3>
+            
+            <p className="text-gray-300 text-base md:text-lg max-w-2xl mx-auto">
+              Join South Africa's fastest-growing service directory and connect with customers in your area
+            </p>
               
-              {/* Subheading */}
-              <p className="text-xl sm:text-2xl text-white/70 max-w-3xl mx-auto mb-12 font-light leading-relaxed">
-                Connect with South Africa's most trusted and verified service providers.
-                Premium quality guaranteed.
-              </p>
+            <div className="space-y-3 pt-1">
+              <a 
+                href="/providers/provider-listings"
+                className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 glow-pulse max-w-md mx-auto w-full"
+              >
+                <span className="text-yellow-300 text-lg group-hover:rotate-12 transition-transform duration-300">🚀</span>
+                <span>{isMobile ? 'List Business - Free Trial' : 'List Your Business Here!'}</span>
+                <span className="text-yellow-300 text-lg group-hover:-rotate-12 transition-transform duration-300">✨</span>
+              </a>
+              
+              <div className="flex items-center justify-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-yellow-300 text-sm">⚡</span>
+                  <p className="text-xs text-gray-400">FREE LAUNCH TRIAL Limited Time Offer</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Heading for Customers */}
+          <div className="space-y-4 md:space-y-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2 md:mb-4">
+              Find Trusted{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+                Professionals
+              </span>
+            </h1>
+            
+            <p className="text-lg md:text-xl mb-4 md:mb-6 max-w-3xl mx-auto text-gray-300 leading-relaxed">
+              Connect with verified professionals for home services, repairs, maintenance, 
+              <span className="block mt-1 text-base md:text-lg text-gray-400">
+                and everything in between
+              </span>
+            </p>
+            
+            {/* Simplified Search with better styling */}
+            <div className="max-w-3xl mx-auto mb-4 md:mb-8">
+              <div className="mb-4">
+                <SearchBar />
+              </div>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Featured Categories - Luxury Grid */}
-      <section className="py-24 bg-gradient-to-b from-luxury-midnight to-luxury-dark relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/10 via-transparent to-transparent"></div>
+      
+      {/* Categories Section - Dark Theme with enhanced design */}
+      <section className="container mx-auto px-4 relative">
+        {/* Background accent */}
+        <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 w-80 h-80 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl"></div>
         
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center mb-16">
-            <div className="inline-block px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-teal-500/10 border border-white/10 mb-6">
-              <span className="text-sm font-semibold text-gradient">POPULAR CATEGORIES</span>
+        <div className="relative z-10">
+          <div className="text-center mb-8 md:mb-12">
+            <div className="inline-flex items-center gap-3 mb-3">
+              <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Service</span> Categories
+              </h2>
+              <div className="w-8 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
             </div>
-            <h2 className="text-4xl sm:text-5xl font-bold mb-6">
-              <span className="text-white">Premium </span>
-              <span className="text-gradient">Service Categories</span>
-            </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
-              Browse our curated selection of elite service providers
-            </p>
           </div>
-
           <CategoryGrid />
         </div>
       </section>
-
-
-
-      {/* Final CTA - Luxury */}
-      <section className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-luxury-dark to-teal-900/30"></div>
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
-        </div>
-
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="glass-luxury rounded-3xl p-12 border border-white/10 shadow-2xl">
-              <div className="inline-block p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 mb-8">
-                <div className="text-5xl">🏆</div>
+      
+      {/* Footer Note with enhanced design */}
+      <div className="container mx-auto px-4 pb-8">
+        <div className="border-t border-gray-800 pt-6">
+          <div className="text-center space-y-3">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <div className="text-xl text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400 font-bold">
+                FindAPro
               </div>
-              
-              <h2 className="text-4xl sm:text-5xl font-bold mb-6">
-                Ready to Showcase Your 
-                <span className="text-gradient"> Excellence?</span>
-              </h2>
-              
-              <p className="text-xl text-white/70 mb-10 max-w-2xl mx-auto">
-                Join South Africa's premier network of service professionals. 
-                Get discovered by premium clients who value quality.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                <button className="group relative px-10 py-5 rounded-xl bg-gradient-to-r from-purple-600 to-teal-600 text-white font-bold text-lg overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-105">
-                  <span className="relative z-10">List Your Service - Free</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-700 to-teal-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-teal-600 rounded-xl blur opacity-30 group-hover:opacity-70 transition-opacity duration-300"></div>
-                </button>
-                
-                <button className="group px-10 py-5 rounded-xl border-2 border-white/20 text-white font-bold text-lg hover:bg-white/10 hover:border-white/30 transition-all duration-300">
-                  <span className="flex items-center gap-3">
-                    Explore Premium Features
-                    <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </span>
-                </button>
+              <div className="w-0.5 h-5 bg-gradient-to-b from-gray-700 via-gray-600 to-gray-700"></div>
+              <div className="text-xs text-gray-500">
+                Connecting South Africans since 2024
               </div>
-
-              <div className="mt-12 pt-12 border-t border-white/10">
-                <p className="text-white/50 text-sm">
-                  Join 10,000+ businesses already growing with FindAPro
-                </p>
-              </div>
+            </div>
+            <p className="text-gray-500 text-xs max-w-2xl mx-auto leading-relaxed">
+              Trusted by thousands of homeowners and service providers across South Africa. 
+              Join our growing community of professionals and customers today.
+            </p>
+            <div className="pt-2">
+              <a 
+                href="/providers/provider-listings"
+                className="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 text-xs font-medium hover:underline transition-colors"
+              >
+                <span>Start your free trial today →</span>
+              </a>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+
+      {/* Add custom CSS for glow effect */}
+      <style jsx>{`
+        @keyframes gentleGlow {
+          0%, 100% {
+            box-shadow: 0 0 15px rgba(234, 88, 12, 0.4),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          }
+          50% {
+            box-shadow: 0 0 25px rgba(234, 88, 12, 0.6),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+          }
+        }
+        
+        .glow-pulse {
+          animation: gentleGlow 3s ease-in-out infinite;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .glow-pulse::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.1),
+            transparent
+          );
+          transition: 0.5s;
+        }
+        
+        .glow-pulse:hover::before {
+          left: 100%;
+        }
+        
+        .glow-pulse:hover {
+          animation: none;
+          box-shadow: 0 0 30px rgba(234, 88, 12, 0.8),
+                      0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+      `}</style>
     </div>
   )
 }

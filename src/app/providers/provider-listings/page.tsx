@@ -172,9 +172,10 @@ function ProviderListingsContent() {
         insurance_details: formData.insuranceDetails,
         portfolio_url: formData.portfolioUrl,
         
-        status: 'pending', // Needs admin approval
+        status: 'pending',
         verified: false,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        launch_trial: true // Flag for launch trial participants
       }
       
       console.log('Submitting provider data:', providerData)
@@ -209,7 +210,8 @@ function ProviderListingsContent() {
           },
           body: JSON.stringify({
             event: 'new_listing',
-            providerId: providerId
+            providerId: providerId,
+            launchTrial: true
           })
         })
 
@@ -218,28 +220,32 @@ function ProviderListingsContent() {
 
         if (!emailResult.success) {
           console.warn('Email notification had issues:', emailResult)
-          // Continue anyway - email is non-critical
         }
       } catch (emailError: any) {
-        console.log('Email notification failed (non-critical):', emailError.message || emailError)
-        // Don't fail the form if email fails
+        console.log('Email notification failed:', emailError.message || emailError)
       }
       
       // Success!
       console.log('Provider created successfully:', data)
       
-      // Show success message
+      // Show success message with launch trial benefits
       alert(`
-        ✅ Success! Your listing has been submitted.
+        🎉 CONGRATULATIONS! You're now part of our Launch Trial!
         
-        Next steps:
-        1. We will review your listing within 24 hours
-        2. You'll receive an email when approved
-        3. Your listing will appear in search results
+        🚀 LAUNCH TRIAL BENEFITS:
+        • Premium visibility for 3 months FREE
+        • Early Adopter badge on your profile
+        • Priority customer referrals
+        • No subscription fees until trial ends
         
-        Reference ID: ${providerId.substring(0, 8)}
+        📋 Next steps:
+        1. We'll review your listing within 24 hours
+        2. You'll receive a welcome email with trial details
+        3. Your listing will appear in top search results
         
-        Our admin team has been notified for review.
+        🏆 Launch Trial ID: ${providerId.substring(0, 8).toUpperCase()}
+        
+        Thank you for joining our launch! Our team will contact you soon.
       `)
       
       // Reset form
@@ -290,54 +296,55 @@ function ProviderListingsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-8">
+      <div className="max-w-5xl mx-auto px-4">
+        {/* Header with Launch Badge */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <div className="inline-block mb-6">
+            <span className="bg-gradient-to-r from-orange-600 to-yellow-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+              🚀 LAUNCH TRIAL - FREE FOR 3 MONTHS
+            </span>
+          </div>
+          
+          <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-yellow-400">
             List Your Service on FindAPro
           </h1>
-          <p className="text-gray-600 text-lg mb-8">
-            Join South Africa's premier service directory. Get more customers today.
+          <p className="text-gray-300 text-xl mb-8 max-w-3xl mx-auto">
+            Join South Africa's premier service directory. Get premium visibility during our exclusive launch trial.
           </p>
           
-          {/* Progress indicators */}
-          <div className="flex justify-center space-x-8 mb-6">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-2">
-                1
-              </div>
-              <span className="text-sm font-medium">Business Info</span>
+          {/* Launch Benefits */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl border border-gray-700">
+              <div className="text-orange-400 text-2xl mb-2">🎯</div>
+              <p className="text-white text-sm font-medium">Top Search Results</p>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                2
-              </div>
-              <span className="text-sm font-medium">Services</span>
+            <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl border border-gray-700">
+              <div className="text-orange-400 text-2xl mb-2">💎</div>
+              <p className="text-white text-sm font-medium">3 Months Free</p>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                3
-              </div>
-              <span className="text-sm font-medium">Location</span>
+            <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl border border-gray-700">
+              <div className="text-orange-400 text-2xl mb-2">⭐</div>
+              <p className="text-white text-sm font-medium">Early Adopter Badge</p>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                4
-              </div>
-              <span className="text-sm font-medium">Review</span>
+            <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl border border-gray-700">
+              <div className="text-orange-400 text-2xl mb-2">🚀</div>
+              <p className="text-white text-sm font-medium">Priority Support</p>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-8 border border-gray-700">
           {/* Section 1: Business Information */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">1. Business Information</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">1</span>
+              Business Information
+            </h2>
             
             <div className="grid md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Business Name *
                 </label>
                 <input
@@ -346,13 +353,13 @@ function ProviderListingsContent() {
                   value={formData.businessName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="Your registered business name"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Business Type *
                 </label>
                 <select
@@ -360,16 +367,16 @@ function ProviderListingsContent() {
                   value={formData.businessType}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 >
                   {businessTypes.map(type => (
-                    <option key={type.id} value={type.id}>{type.name}</option>
+                    <option key={type.id} value={type.id} className="bg-gray-900">{type.name}</option>
                   ))}
                 </select>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Company Registration Number
                 </label>
                 <input
@@ -377,7 +384,7 @@ function ProviderListingsContent() {
                   name="registrationNumber"
                   value={formData.registrationNumber}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g., 2023/123456/07"
                 />
               </div>
@@ -390,9 +397,9 @@ function ProviderListingsContent() {
                       name="vatRegistered"
                       checked={formData.vatRegistered}
                       onChange={handleChange}
-                      className="mr-2"
+                      className="mr-2 accent-orange-500"
                     />
-                    <label className="text-sm text-gray-700">VAT Registered</label>
+                    <label className="text-sm text-gray-300">VAT Registered</label>
                   </div>
                   
                   {formData.vatRegistered && (
@@ -402,7 +409,7 @@ function ProviderListingsContent() {
                         name="vatNumber"
                         value={formData.vatNumber}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         placeholder="VAT Number"
                       />
                     </div>
@@ -414,11 +421,14 @@ function ProviderListingsContent() {
 
           {/* Section 2: Contact Information */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">2. Contact Information</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">2</span>
+              Contact Information
+            </h2>
             
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Contact Person *
                 </label>
                 <input
@@ -427,13 +437,13 @@ function ProviderListingsContent() {
                   value={formData.contactPerson}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="Full name of contact person"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Email Address *
                 </label>
                 <input
@@ -442,13 +452,13 @@ function ProviderListingsContent() {
                   value={formData.contactEmail}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="business@email.co.za"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Primary Phone *
                 </label>
                 <input
@@ -457,13 +467,13 @@ function ProviderListingsContent() {
                   value={formData.contactPhone}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="+27 12 345 6789"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Alternate Phone
                 </label>
                 <input
@@ -471,7 +481,7 @@ function ProviderListingsContent() {
                   name="alternatePhone"
                   value={formData.alternatePhone}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="Optional"
                 />
               </div>
@@ -480,11 +490,14 @@ function ProviderListingsContent() {
 
           {/* Section 3: Service Information */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">3. Service Information</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">3</span>
+              Service Information
+            </h2>
             
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Main Service Category *
                 </label>
                 <select
@@ -492,17 +505,17 @@ function ProviderListingsContent() {
                   value={formData.mainService}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 >
-                  <option value="">Select your main service</option>
+                  <option value="" className="bg-gray-900">Select your main service</option>
                   {serviceCategories.map(service => (
-                    <option key={service} value={service}>{service}</option>
+                    <option key={service} value={service} className="bg-gray-900">{service}</option>
                   ))}
                 </select>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Other Services Offered
                 </label>
                 <textarea
@@ -510,14 +523,14 @@ function ProviderListingsContent() {
                   value={formData.otherServices}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="List any additional services you offer (comma separated)"
                 />
               </div>
               
               <div className="grid md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Years of Experience *
                   </label>
                   <input
@@ -526,13 +539,13 @@ function ProviderListingsContent() {
                     value={formData.experienceYears}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="e.g., 5 years"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Qualifications
                   </label>
                   <input
@@ -540,13 +553,13 @@ function ProviderListingsContent() {
                     name="qualifications"
                     value={formData.qualifications}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="e.g., NQF Level, Diplomas"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Certifications
                   </label>
                   <input
@@ -554,7 +567,7 @@ function ProviderListingsContent() {
                     name="certifications"
                     value={formData.certifications}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="e.g., SAQCC, Wireman's License"
                   />
                 </div>
@@ -564,11 +577,14 @@ function ProviderListingsContent() {
 
           {/* Section 4: Location & Coverage */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">4. Location & Coverage</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">4</span>
+              Location & Coverage
+            </h2>
             
             <div className="space-y-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Physical Address
                 </label>
                 <textarea
@@ -576,14 +592,14 @@ function ProviderListingsContent() {
                   value={formData.physicalAddress}
                   onChange={handleChange}
                   rows={2}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="Full street address"
                 />
               </div>
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     City *
                   </label>
                   <input
@@ -592,13 +608,13 @@ function ProviderListingsContent() {
                     value={formData.city}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="e.g., Johannesburg"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Province *
                   </label>
                   <select
@@ -606,11 +622,11 @@ function ProviderListingsContent() {
                     value={formData.province}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
-                    <option value="">Select province</option>
+                    <option value="" className="bg-gray-900">Select province</option>
                     {provinces.map(province => (
-                      <option key={province} value={province}>{province}</option>
+                      <option key={province} value={province} className="bg-gray-900">{province}</option>
                     ))}
                   </select>
                 </div>
@@ -618,7 +634,7 @@ function ProviderListingsContent() {
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Service Areas Covered
                   </label>
                   <textarea
@@ -626,13 +642,13 @@ function ProviderListingsContent() {
                     value={formData.serviceAreas}
                     onChange={handleChange}
                     rows={2}
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     placeholder="List suburbs or areas you serve"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Max Travel Distance (km)
                   </label>
                   <input
@@ -640,7 +656,7 @@ function ProviderListingsContent() {
                     name="travelDistance"
                     value={formData.travelDistance}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     min="0"
                     max="500"
                   />
@@ -651,11 +667,14 @@ function ProviderListingsContent() {
 
           {/* Section 5: Business Details */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">5. Business Details</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">5</span>
+              Business Details
+            </h2>
             
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Business Hours
                 </label>
                 <input
@@ -663,13 +682,13 @@ function ProviderListingsContent() {
                   name="businessHours"
                   value={formData.businessHours}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g., 8:00-17:00, Mon-Fri"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Team Size
                 </label>
                 <input
@@ -677,13 +696,13 @@ function ProviderListingsContent() {
                   name="teamSize"
                   value={formData.teamSize}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g., 1 person, 2-5 employees"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Callout Fee
                 </label>
                 <input
@@ -691,13 +710,13 @@ function ProviderListingsContent() {
                   name="calloutFee"
                   value={formData.calloutFee}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g., R300 or Free"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Portfolio/Website URL
                 </label>
                 <input
@@ -705,7 +724,7 @@ function ProviderListingsContent() {
                   name="portfolioUrl"
                   value={formData.portfolioUrl}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="https://yourbusiness.co.za"
                 />
               </div>
@@ -718,9 +737,9 @@ function ProviderListingsContent() {
                       name="emergencyService"
                       checked={formData.emergencyService}
                       onChange={handleChange}
-                      className="mr-2"
+                      className="mr-2 accent-orange-500"
                     />
-                    <label className="text-sm text-gray-700">Offer Emergency Services</label>
+                    <label className="text-sm text-gray-300">Offer Emergency Services</label>
                   </div>
                   
                   <div className="flex items-center">
@@ -729,9 +748,9 @@ function ProviderListingsContent() {
                       name="insurance"
                       checked={formData.insurance}
                       onChange={handleChange}
-                      className="mr-2"
+                      className="mr-2 accent-orange-500"
                     />
-                    <label className="text-sm text-gray-700">Have Insurance</label>
+                    <label className="text-sm text-gray-300">Have Insurance</label>
                   </div>
                 </div>
                 
@@ -742,7 +761,7 @@ function ProviderListingsContent() {
                       name="insuranceDetails"
                       value={formData.insuranceDetails}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       placeholder="Insurance provider and coverage details"
                     />
                   </div>
@@ -750,7 +769,7 @@ function ProviderListingsContent() {
               </div>
               
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Average Response Time (hours)
                 </label>
                 <input
@@ -758,14 +777,14 @@ function ProviderListingsContent() {
                   name="responseTime"
                   value={formData.responseTime}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="e.g., 24 hours"
                 />
               </div>
             </div>
             
             <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
                 Availability *
               </label>
               <div className="flex flex-wrap gap-3">
@@ -774,10 +793,10 @@ function ProviderListingsContent() {
                     key={day}
                     type="button"
                     onClick={() => toggleAvailability(day)}
-                    className={`px-4 py-2 rounded-lg border ${
+                    className={`px-4 py-2 rounded-lg border transition-all ${
                       formData.availability.includes(day)
-                        ? 'bg-blue-100 border-blue-500 text-blue-700'
-                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-gradient-to-r from-orange-600/30 to-orange-500/30 border-orange-500 text-orange-300 shadow-lg shadow-orange-900/20'
+                        : 'bg-gray-900 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-300'
                     }`}
                   >
                     {day.charAt(0).toUpperCase() + day.slice(1)}
@@ -789,11 +808,14 @@ function ProviderListingsContent() {
 
           {/* Section 6: Pricing & Terms */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-3 border-b">6. Pricing & Terms</h2>
+            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
+              <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">6</span>
+              Pricing & Terms
+            </h2>
             
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Pricing Model *
                 </label>
                 <select
@@ -801,17 +823,17 @@ function ProviderListingsContent() {
                   value={formData.pricingModel}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 >
-                  <option value="hourly">Hourly Rate</option>
-                  <option value="daily">Daily Rate</option>
-                  <option value="project">Project Based</option>
-                  <option value="quote">Free Quote Required</option>
+                  <option value="hourly" className="bg-gray-900">Hourly Rate</option>
+                  <option value="daily" className="bg-gray-900">Daily Rate</option>
+                  <option value="project" className="bg-gray-900">Project Based</option>
+                  <option value="quote" className="bg-gray-900">Free Quote Required</option>
                 </select>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   {formData.pricingModel === 'quote' ? 'Average Project Range' : 'Hourly Rate'}
                 </label>
                 <input
@@ -819,23 +841,23 @@ function ProviderListingsContent() {
                   name="hourlyRate"
                   value={formData.hourlyRate}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder={formData.pricingModel === 'quote' ? 'e.g., R1,500 - R15,000' : 'e.g., R450'}
                 />
               </div>
               
               <div className="md:col-span-2">
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-6">
+                  <div className="flex flex-wrap items-center gap-6">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
                         name="acceptsCash"
                         checked={formData.acceptsCash}
                         onChange={handleChange}
-                        className="mr-2"
+                        className="mr-2 accent-orange-500"
                       />
-                      <label className="text-sm text-gray-700">Accepts Cash</label>
+                      <label className="text-sm text-gray-300">Accepts Cash</label>
                     </div>
                     
                     <div className="flex items-center">
@@ -844,9 +866,9 @@ function ProviderListingsContent() {
                         name="acceptsCard"
                         checked={formData.acceptsCard}
                         onChange={handleChange}
-                        className="mr-2"
+                        className="mr-2 accent-orange-500"
                       />
-                      <label className="text-sm text-gray-700">Accepts Card Payments</label>
+                      <label className="text-sm text-gray-300">Accepts Card Payments</label>
                     </div>
                     
                     <div className="flex items-center">
@@ -855,21 +877,10 @@ function ProviderListingsContent() {
                         name="depositRequired"
                         checked={formData.depositRequired}
                         onChange={handleChange}
-                        className="mr-2"
+                        className="mr-2 accent-orange-500"
                       />
-                      <label className="text-sm text-gray-700">Requires Deposit</label>
+                      <label className="text-sm text-gray-300">Requires Deposit</label>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="insurance"
-                      checked={formData.insurance}
-                      onChange={handleChange}
-                      className="mr-2"
-                    />
-                    <label className="text-sm text-gray-700">Have Public Liability Insurance</label>
                   </div>
                 </div>
               </div>
@@ -877,7 +888,7 @@ function ProviderListingsContent() {
           </div>
 
           {/* Terms and Submit */}
-          <div className="pt-6 border-t">
+          <div className="pt-6 border-t border-gray-700">
             <div className="space-y-4 mb-8">
               <div className="flex items-start">
                 <input
@@ -886,12 +897,12 @@ function ProviderListingsContent() {
                   checked={formData.acceptTerms}
                   onChange={handleChange}
                   required
-                  className="mt-1 mr-3"
+                  className="mt-1 mr-3 accent-orange-500"
                 />
-                <label className="text-sm text-gray-700">
+                <label className="text-sm text-gray-300">
                   I confirm that all information provided is accurate and complete. I agree to the{' '}
-                  <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and{' '}
-                  <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                  <a href="#" className="text-orange-400 hover:text-orange-300 hover:underline">Terms of Service</a> and{' '}
+                  <a href="#" className="text-orange-400 hover:text-orange-300 hover:underline">Privacy Policy</a>.
                 </label>
               </div>
               
@@ -901,50 +912,67 @@ function ProviderListingsContent() {
                   name="agreeMarketing"
                   checked={formData.agreeMarketing}
                   onChange={handleChange}
-                  className="mt-1 mr-3"
+                  className="mt-1 mr-3 accent-orange-500"
                 />
-                <label className="text-sm text-gray-700">
+                <label className="text-sm text-gray-300">
                   I agree to receive occasional updates and marketing communications from FindAPro.
                 </label>
               </div>
             </div>
             
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                * Required fields
-              </p>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="text-center md:text-left">
+                <p className="text-sm text-gray-500 mb-2">
+                  🚀 Limited launch trial spots available
+                </p>
+                <p className="text-sm text-gray-400">
+                  First 100 businesses get extended 6-month trial
+                </p>
+              </div>
               
               <button
                 type="submit"
                 disabled={loading || !formData.acceptTerms}
-                className={`px-8 py-4 rounded-lg font-semibold text-lg ${
+                className={`px-10 py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
                   loading || !formData.acceptTerms
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
+                    ? 'bg-gray-700 cursor-not-allowed text-gray-500'
+                    : 'bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white shadow-lg hover:shadow-xl hover:scale-105'
                 }`}
               >
-                {loading ? 'Submitting...' : 'Submit Listing'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </span>
+                ) : (
+                  '🚀 JOIN LAUNCH TRIAL - SUBMIT LISTING'
+                )}
               </button>
             </div>
           </div>
         </form>
 
         {/* Benefits Section */}
-        <div className="mt-12 grid md:grid-cols-3 gap-6">
-          <div className="bg-blue-50 p-6 rounded-xl">
-            <div className="text-blue-600 text-2xl mb-3">🚀</div>
-            <h4 className="font-semibold mb-2">Get More Customers</h4>
-            <p className="text-sm text-gray-600">Reach thousands of potential customers in South Africa</p>
+        <div className="mt-12 grid md:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
+            <div className="text-orange-400 text-2xl mb-3">🎯</div>
+            <h4 className="font-bold text-white mb-2">Premium Visibility</h4>
+            <p className="text-sm text-gray-400">Top search results during 3-month trial</p>
           </div>
-          <div className="bg-blue-50 p-6 rounded-xl">
-            <div className="text-blue-600 text-2xl mb-3">🛡️</div>
-            <h4 className="font-semibold mb-2">Verified Badge</h4>
-            <p className="text-sm text-gray-600">Build trust with our verification system</p>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
+            <div className="text-orange-400 text-2xl mb-3">💎</div>
+            <h4 className="font-bold text-white mb-2">No Fees</h4>
+            <p className="text-sm text-gray-400">Zero subscription fees for 3 months</p>
           </div>
-          <div className="bg-blue-50 p-6 rounded-xl">
-            <div className="text-blue-600 text-2xl mb-3">📱</div>
-            <h4 className="font-semibold mb-2">Free Listing</h4>
-            <p className="text-sm text-gray-600">No monthly fees. Pay only for premium features</p>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
+            <div className="text-orange-400 text-2xl mb-3">⭐</div>
+            <h4 className="font-bold text-white mb-2">Early Adopter Badge</h4>
+            <p className="text-sm text-gray-400">Show you were here from the start</p>
+          </div>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 p-6 rounded-xl shadow-lg">
+            <div className="text-orange-400 text-2xl mb-3">🚀</div>
+            <h4 className="font-bold text-white mb-2">Priority Support</h4>
+            <p className="text-sm text-gray-400">Dedicated help during launch phase</p>
           </div>
         </div>
       </div>

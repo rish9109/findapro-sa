@@ -308,7 +308,7 @@ export default function ProviderDetailPage() {
 
               {/* View in public directory */}
               <a
-                href={`/directory/${provider.id}`}
+                href={`/providers/${provider.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full text-center bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 border"

@@ -1,4 +1,4 @@
-// File: src/app/providers/provider-listings/page.tsx
+// File: src/app/providers/provider-listings/page.tsx - COMPLETE WITH ALL SECTIONS
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -33,6 +33,13 @@ function ProviderListingsContent() {
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   const [loadingData, setLoadingData] = useState(true)
   
+  // NEW: User's existing listings count
+  const [existingListingsCount, setExistingListingsCount] = useState(0)
+  const [userId, setUserId] = useState<string>('')
+  
+  // fetch existing business name
+  const [existingBusinessName, setExistingBusinessName] = useState('')
+
   const [formData, setFormData] = useState({
     // Business Information
     businessName: '',
@@ -79,11 +86,37 @@ function ProviderListingsContent() {
       try {
         setLoadingData(true)
         
-        // Fetch user email
+        // Fetch user session
         const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user?.email) {
-          setUserEmail(session.user.email)
-          setFormData(prev => ({ ...prev, contactEmail: session.user.email }))
+        if (session?.user) {
+          setUserId(session.user.id)
+          setUserEmail(session.user.email || '')
+          setFormData(prev => ({ ...prev, contactEmail: session.user.email || '' }))
+          
+          // Check existing listings
+          const { data: existingListings, error } = await supabase
+            .from('providers')
+            .select('business_name')
+            .eq('user_id', session.user.id)
+          
+          if (!error && existingListings && existingListings.length > 0) {
+            setExistingListingsCount(existingListings.length)
+            
+            // Lock business name from first listing
+            if (existingListings[0]?.business_name) {
+              setExistingBusinessName(existingListings[0].business_name)
+              setFormData(prev => ({ 
+                ...prev, 
+                businessName: existingListings[0].business_name 
+              }))
+            }
+            
+            // Check if already reached limit
+            if (existingListings.length >= 3) {
+              alert('You have reached the maximum limit of 3 listings. Please delete an existing listing to create a new one.')
+              router.push('/providers/dashboard')
+            }
+          }
         }
         
         // Fetch provinces from Supabase
@@ -107,14 +140,61 @@ function ProviderListingsContent() {
         
       } catch (error) {
         console.error('Error fetching initial data:', error)
-        // You could set fallback data here if needed
       } finally {
         setLoadingData(false)
       }
     }
     
     fetchInitialData()
-  }, [])
+  }, [router])
+
+  // NEW: Check listing limit before submission
+  const checkListingLimit = async () => {
+    if (!userId) return false
+    
+    const { count, error } = await supabase
+      .from('providers')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    
+    if (error) {
+      console.error('Error checking listing limit:', error)
+      return false
+    }
+    
+    return (count || 0) < 3
+  }
+
+  // NEW: Update user to provider status
+  const updateUserToProvider = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) return false
+      
+      // Check if already marked as provider
+      if (user.user_metadata?.is_provider) return true
+      
+      // Update user metadata to mark as provider
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...user.user_metadata,
+          is_provider: true,
+          became_provider_at: new Date().toISOString()
+        }
+      })
+      
+      if (error) {
+        console.error('Error updating user to provider:', error)
+        return false
+      }
+      
+      return true
+    } catch (error) {
+      console.error('Error in updateUserToProvider:', error)
+      return false
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -155,12 +235,34 @@ function ProviderListingsContent() {
       return
     }
     
+    // NEW: Check listing limit
+    const canCreateListing = await checkListingLimit()
+    if (!canCreateListing) {
+      alert('You have reached the maximum limit of 3 listings. Please delete an existing listing to create a new one.')
+      router.push('/providers/dashboard')
+      return
+    }
+    
     setLoading(true)
     
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('Please log in to create a listing')
+        return
+      }
+      
+      // NEW: Update user to provider status
+      await updateUserToProvider()
+      
+      // Use locked business name if exists, otherwise use form data
+      const businessNameToUse = existingBusinessName || formData.businessName
+      
       // Prepare data for Supabase
       const providerData = {
-        business_name: formData.businessName,
+        user_id: user.id, // ADDED: Link listing to user
+        business_name: businessNameToUse,
         
         contact_person: formData.contactPerson,
         contact_email: userEmail,
@@ -168,7 +270,7 @@ function ProviderListingsContent() {
         alternate_phone: formData.alternatePhone,
         
         main_service: formData.mainService,
-        main_service_id: formData.mainServiceId, // NEW: Store the ID
+        main_service_id: formData.mainServiceId,
         other_services: formData.otherServices,
         experience_years: formData.experienceYears,
         certifications: formData.certifications,
@@ -176,7 +278,7 @@ function ProviderListingsContent() {
         physical_address: formData.physicalAddress,
         city: formData.city,
         province: formData.province,
-        province_id: formData.provinceId, // NEW: Store the ID
+        province_id: formData.provinceId,
         service_areas: formData.serviceAreas,
         
         hourly_rate: formData.hourlyRate,
@@ -247,12 +349,12 @@ function ProviderListingsContent() {
       // Success!
       console.log('Provider created successfully:', data)
       
-      // Show success message with launch trial benefits
-      alert(`Thank you for submitting your listing! Our team will review it and contact you soon.`)
+      // Show success message
+      alert(`Thank you for submitting your listing! Our team will review it and contact you soon. You can track your listing status in your Provider Dashboard.`)
       
-      // Reset form
+      // Reset form (except business name if locked)
       setFormData({
-        businessName: '',
+        businessName: existingBusinessName || '', // Keep locked name
         contactPerson: '',
         contactEmail: userEmail,
         contactPhone: '',
@@ -278,6 +380,11 @@ function ProviderListingsContent() {
         portfolioUrl: '',
         acceptTerms: false
       })
+      
+      // Redirect to dashboard after successful creation
+      setTimeout(() => {
+        router.push('/providers/dashboard')
+      }, 1500)
       
     } catch (error: any) {
       console.error('Error submitting form:', error)
@@ -316,6 +423,29 @@ function ProviderListingsContent() {
           <p className="text-gray-300 text-xl mb-8 max-w-3xl mx-auto">
             Join South Africa's premier service directory.
           </p>
+          
+          {/* NEW: Listing limit indicator */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 max-w-md mx-auto mb-8">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Your Listings:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold text-xl">{existingListingsCount}</span>
+                <span className="text-gray-400">/ 3</span>
+              </div>
+            </div>
+            <div className="mt-2 bg-gray-700 h-2 rounded-full overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-orange-500 to-yellow-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${(existingListingsCount / 3) * 100}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              {existingListingsCount >= 3 
+                ? 'Maximum limit reached. Delete a listing to create new ones.'
+                : `${3 - existingListingsCount} listing${3 - existingListingsCount !== 1 ? 's' : ''} remaining`
+              }
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl p-6 md:p-8 border border-gray-700">
@@ -331,15 +461,37 @@ function ProviderListingsContent() {
                 <label className="block text-sm font-medium text-[#FF7A45] mb-2">
                   Business Name *
                 </label>
-                <input
-                  type="text"
-                  name="businessName"
-                  value={formData.businessName}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="Your registered business name"
-                />
+                {existingBusinessName ? (
+                  // Show locked business name
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={existingBusinessName}
+                      readOnly
+                      disabled
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 cursor-not-allowed"
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
+                        Locked
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Business name is locked from your first listing
+                    </p>
+                  </div>
+                ) : (
+                  // New user - can enter business name
+                  <input
+                    type="text"
+                    name="businessName"
+                    value={formData.businessName}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="Your registered business name"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -576,6 +728,20 @@ function ProviderListingsContent() {
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Hourly Rate
+                </label>
+                <input
+                  type="text"
+                  name="hourlyRate"
+                  value={formData.hourlyRate}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="e.g., R450"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Callout Fee
                 </label>
                 <input
@@ -603,7 +769,7 @@ function ProviderListingsContent() {
               </div>
               
               <div className="md:col-span-2">
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center gap-6">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -625,6 +791,39 @@ function ProviderListingsContent() {
                     />
                     <label className="text-sm text-gray-300">Have Insurance</label>
                   </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="acceptsCash"
+                      checked={formData.acceptsCash}
+                      onChange={handleChange}
+                      className="mr-2 accent-orange-500"
+                    />
+                    <label className="text-sm text-gray-300">Accepts Cash</label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="acceptsCard"
+                      checked={formData.acceptsCard}
+                      onChange={handleChange}
+                      className="mr-2 accent-orange-500"
+                    />
+                    <label className="text-sm text-gray-300">Accepts Card Payments</label>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="depositRequired"
+                      checked={formData.depositRequired}
+                      onChange={handleChange}
+                      className="mr-2 accent-orange-500"
+                    />
+                    <label className="text-sm text-gray-300">Requires Deposit</label>
+                  </div>
                 </div>
                 
                 {formData.insurance && (
@@ -643,72 +842,14 @@ function ProviderListingsContent() {
             </div>
           </div>
 
-          {/* Section 6: Pricing & Terms */}
+          {/* Section 6: Terms and Submit */}
           <div className="mb-10">
             <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
               <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">6</span>
-              Pricing & Terms
+              Terms & Submission
             </h2>
             
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Hourly Rate
-                </label>
-                <input
-                  type="text"
-                  name="hourlyRate"
-                  value={formData.hourlyRate}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="e.g., R450"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-6">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="acceptsCash"
-                        checked={formData.acceptsCash}
-                        onChange={handleChange}
-                        className="mr-2 accent-orange-500"
-                      />
-                      <label className="text-sm text-gray-300">Accepts Cash</label>
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="acceptsCard"
-                        checked={formData.acceptsCard}
-                        onChange={handleChange}
-                        className="mr-2 accent-orange-500"
-                      />
-                      <label className="text-sm text-gray-300">Accepts Card Payments</label>
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="depositRequired"
-                        checked={formData.depositRequired}
-                        onChange={handleChange}
-                        className="mr-2 accent-orange-500"
-                      />
-                      <label className="text-sm text-gray-300">Requires Deposit</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Terms and Submit */}
-          <div className="pt-6 border-t border-gray-700">
-            <div className="space-y-4 mb-8">
+            <div className="space-y-6">
               <div className="flex items-start">
                 <input
                   type="checkbox"
@@ -724,12 +865,40 @@ function ProviderListingsContent() {
                   <a href="#" className="text-orange-400 hover:text-orange-300 hover:underline">Privacy Policy</a>.
                 </label>
               </div>
+              
+              <div className="p-4 bg-gray-900/50 border border-gray-700 rounded-xl">
+                <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
+                  <span className="text-orange-400">📋</span>
+                  What happens next?
+                </h3>
+                <ul className="space-y-2 text-sm text-gray-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 mt-0.5">✓</span>
+                    <span>Our team will review your listing within 24-48 hours</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 mt-0.5">✓</span>
+                    <span>You'll receive an email notification when approved</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 mt-0.5">✓</span>
+                    <span>You can track status in your Provider Dashboard</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-orange-400 mt-0.5">✓</span>
+                    <span>Launch trial participants get priority review</span>
+                  </li>
+                </ul>
+              </div>
             </div>
-            
+          </div>
+
+          {/* Submit Button */}
+          <div className="pt-6 border-t border-gray-700">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="text-center md:text-left">
                 <p className="text-sm text-gray-400">
-                  Our team will review your submission and contact you soon.
+                  Ready to join South Africa's premier service directory?
                 </p>
               </div>
               

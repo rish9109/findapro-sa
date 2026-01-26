@@ -25,7 +25,63 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// ==================== CATEGORY TYPES ====================
+// ==================== ADMIN CLIENT ====================
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+export const supabaseAdmin = supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : supabase // Fallback to regular client if no service key
+
+if (!supabaseServiceKey) {
+  console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY not set. Admin operations may be limited.')
+}
+
+// ==================== TYPE DEFINITIONS ====================
+export interface Provider {
+  id: string
+  business_name: string
+  contact_person: string
+  contact_email: string
+  contact_phone?: string
+  alternate_phone?: string
+  main_service: string
+  main_service_id?: string
+  other_services?: string
+  experience_years?: string
+  certifications?: string
+  physical_address?: string
+  city: string
+  province: string
+  province_id?: string
+  service_areas?: string
+  hourly_rate?: string
+  callout_fee?: string
+  accepts_card: boolean
+  accepts_cash: boolean
+  deposit_required: boolean
+  emergency_service: boolean
+  insurance: boolean
+  insurance_details?: string
+  portfolio_url?: string
+  status: 'pending' | 'approved' | 'rejected' | 'paused' | 'deleted'
+  verified: boolean
+  launch_trial: boolean
+  created_at: string
+  updated_at?: string
+  rejection_reason?: string
+  pause_reason?: string
+  deletion_reason?: string
+}
+
+export interface EmailTemplate {
+  id: string
+  name: string
+  subject: string
+  body: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ServiceCategory {
   id: string
   name: string
@@ -39,6 +95,51 @@ export interface ServiceCategory {
 
 export interface CategoryWithCount extends ServiceCategory {
   provider_count: number
+}
+
+// ==================== EMAIL TEMPLATE FUNCTIONS ====================
+export async function getEmailTemplate(name: string): Promise<{
+  data: EmailTemplate | null;
+  error: Error | null;
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('name', name)
+      .single()
+
+    if (error) {
+      console.error(`Error fetching email template "${name}":`, error)
+      return { data: null, error }
+    }
+
+    if (!data) {
+      console.warn(`Email template "${name}" not found in database`)
+      return { data: null, error: new Error(`Template "${name}" not found`) }
+    }
+
+    return { data, error: null }
+  } catch (error: any) {
+    console.error(`Unexpected error fetching template "${name}":`, error)
+    return { data: null, error }
+  }
+}
+
+export async function getFallbackEmailTemplate(): Promise<EmailTemplate | null> {
+  try {
+    // Try to get a fallback template
+    const { data } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('name', 'listing_submitted')
+      .single()
+
+    return data
+  } catch (error) {
+    console.error('Error fetching fallback email template:', error)
+    return null
+  }
 }
 
 // ==================== CATEGORY FUNCTIONS ====================

@@ -39,6 +39,7 @@ if (!supabaseServiceKey) {
 // ==================== TYPE DEFINITIONS ====================
 export interface Provider {
   id: string
+  user_id: string  // ADDED from second file
   business_name: string
   contact_person: string
   contact_email: string
@@ -63,7 +64,7 @@ export interface Provider {
   insurance: boolean
   insurance_details?: string
   portfolio_url?: string
-  status: 'pending' | 'approved' | 'rejected' | 'paused' | 'deleted'
+  status: 'pending' | 'approved' | 'rejected' | 'paused' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
   verified: boolean
   launch_trial: boolean
   created_at: string
@@ -225,5 +226,93 @@ export async function getCategoryByIdWithCount(id: string): Promise<CategoryWith
   } catch (error) {
     console.error('Error fetching category:', error)
     return null
+  }
+}
+
+// ==================== PROVIDER FUNCTIONS (ADDED from second file) ====================
+
+// Get user's active listings
+export async function getUserListings(userId: string): Promise<Provider[]> {
+  try {
+    const { data, error } = await supabase
+      .from('providers')
+      .select('*')
+      .eq('user_id', userId)
+      .in('status', ['pending', 'approved']) // Only active listings
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error fetching user listings:', error)
+    return []
+  }
+}
+
+// Delete a provider listing
+export async function deleteProviderListing(listingId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('providers')
+      .delete()
+      .eq('id', listingId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error deleting listing:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// ==================== EMAIL UPDATE FUNCTIONS (ADDED from second file) ====================
+export async function updateUserEmailWithVerification(newEmail: string): Promise<{ 
+  success: boolean; 
+  error?: string; 
+  verificationSent?: boolean 
+}> {
+  try {
+    const { error } = await supabase.auth.updateUser({
+      email: newEmail
+    })
+
+    if (error) {
+      console.error('Email update error:', error)
+      return { 
+        success: false, 
+        error: error.message,
+        verificationSent: false
+      }
+    }
+
+    return { 
+      success: true,
+      verificationSent: true 
+    }
+  } catch (error: any) {
+    console.error('Unexpected error updating email:', error)
+    return { 
+      success: false, 
+      error: error.message,
+      verificationSent: false
+    }
+  }
+}
+
+export async function refreshAuthSession(): Promise<{ 
+  success: boolean; 
+  user?: any; 
+  error?: string 
+}> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser()
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, user }
+  } catch (error: any) {
+    return { success: false, error: error.message }
   }
 }

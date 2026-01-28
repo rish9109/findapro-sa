@@ -1,9 +1,9 @@
-// File: src/app/providers/[id]/page.tsx - FIXED VERSION WITH CATEGORY PRESERVATION
+// File: src/app/providers/[id]/page.tsx - FIXED WITH PROPER FAVORITE SYNC
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isProviderFavorited, addFavorite, removeFavorite } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
@@ -70,6 +70,7 @@ export default function ProviderModalPage() {
   const [showContactForm, setShowContactForm] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
   const [originCategory, setOriginCategory] = useState<string | null>(null)
+  const [syncingFavorite, setSyncingFavorite] = useState(false)
 
   const providerId = params.id as string
   const isModal = searchParams.get('ref') === 'category'
@@ -122,6 +123,24 @@ export default function ProviderModalPage() {
     
     fetchProvider()
   }, [authChecked, providerId])
+
+  // Check favorite status when provider and user are loaded
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (user && provider) {
+        try {
+          const isFav = await isProviderFavorited(user.id, provider.id)
+          setIsFavorite(isFav)
+        } catch (error) {
+          console.error('Error checking favorite status:', error)
+        }
+      }
+    }
+    
+    if (provider && authChecked) {
+      checkFavoriteStatus()
+    }
+  }, [provider, user, authChecked])
 
   // FIX 4: Handle escape key and back button
   useEffect(() => {
@@ -247,14 +266,57 @@ export default function ProviderModalPage() {
     }
   }, [isModal, router, originCategory, categoryParam])
 
-  // FIX 7: Optimized handlers
-  const toggleFavorite = useCallback(() => {
+  // FIXED: Optimized favorite toggle with proper Supabase sync
+  const toggleFavorite = useCallback(async () => {
     if (!user) {
       showAuthModal('login')
       return
     }
-    setIsFavorite(!isFavorite)
-  }, [user, isFavorite, showAuthModal])
+    
+    if (!provider) return
+    
+    try {
+      setSyncingFavorite(true)
+      
+      // Optimistic update - update UI immediately
+      const newIsFavorite = !isFavorite
+      setIsFavorite(newIsFavorite)
+      
+      // Sync with Supabase
+      let success = false
+      if (newIsFavorite) {
+        success = await addFavorite(user.id, provider.id)
+      } else {
+        success = await removeFavorite(user.id, provider.id)
+      }
+      
+      if (!success) {
+        // Revert on error
+        setIsFavorite(!newIsFavorite)
+        console.error('Failed to sync favorite with Supabase')
+      } else {
+        // Update localStorage for consistency with providers page
+        const savedFavorites = localStorage.getItem('provider_favorites')
+        let favorites = savedFavorites ? JSON.parse(savedFavorites) : []
+        
+        if (newIsFavorite) {
+          if (!favorites.includes(provider.id)) {
+            favorites.push(provider.id)
+          }
+        } else {
+          favorites = favorites.filter((id: string) => id !== provider.id)
+        }
+        
+        localStorage.setItem('provider_favorites', JSON.stringify(favorites))
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+      // Revert on error
+      setIsFavorite(!isFavorite)
+    } finally {
+      setSyncingFavorite(false)
+    }
+  }, [user, isFavorite, provider, showAuthModal])
 
   const handleContactClick = useCallback(() => {
     if (!user) {
@@ -365,6 +427,7 @@ export default function ProviderModalPage() {
                 onTabChange={setActiveTab}
                 onSetContactForm={setShowContactForm}
                 originCategory={originCategory}
+                syncingFavorite={syncingFavorite}
               />
             </motion.div>
           </div>
@@ -409,6 +472,7 @@ export default function ProviderModalPage() {
           onTabChange={setActiveTab}
           onSetContactForm={setShowContactForm}
           originCategory={originCategory}
+          syncingFavorite={syncingFavorite}
         />
       </div>
     </div>
@@ -449,6 +513,7 @@ interface ProviderContentProps {
   onTabChange: (tab: string) => void
   onSetContactForm: (show: boolean) => void
   originCategory?: string | null
+  syncingFavorite?: boolean
 }
 
 function ProviderContent({
@@ -463,7 +528,8 @@ function ProviderContent({
   onShare,
   onTabChange,
   onSetContactForm,
-  originCategory
+  originCategory,
+  syncingFavorite = false
 }: ProviderContentProps) {
   
   // Memoized values for performance
@@ -560,10 +626,15 @@ function ProviderContent({
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 mt-2 sm:mt-0">
                   <button
                     onClick={onToggleFavorite}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-pink-500/50 hover:bg-pink-500/10 transition-all duration-300 group"
+                    disabled={syncingFavorite}
+                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-pink-500/50 hover:bg-pink-500/10 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
                     title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400 group-hover:text-pink-400'}`} />
+                    {syncingFavorite ? (
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400 group-hover:text-pink-400'}`} />
+                    )}
                   </button>
                   <button
                     onClick={onShare}
@@ -857,9 +928,14 @@ function ProviderContent({
             </button>
             <button
               onClick={onToggleFavorite}
-              className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-pink-500/50 transition-all duration-300"
+              disabled={syncingFavorite}
+              className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-pink-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Heart className={`w-3 h-3 sm:w-4 sm:h-4 ${isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} />
+              {syncingFavorite ? (
+                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Heart className={`w-3 h-3 sm:w-4 sm:h-4 ${isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} />
+              )}
               <span className="text-gray-400 text-xs sm:text-sm">{isFavorite ? 'Saved' : 'Save'}</span>
             </button>
           </div>

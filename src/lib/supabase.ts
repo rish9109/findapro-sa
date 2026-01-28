@@ -316,3 +316,143 @@ export async function refreshAuthSession(): Promise<{
     return { success: false, error: error.message }
   }
 }
+
+// ==================== FAVORITE FUNCTIONS ====================
+export interface UserFavorite {
+  id: string
+  user_id: string
+  provider_id: string
+  created_at: string
+}
+
+// Get user's favorite provider IDs
+export async function getUserFavorites(userId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select('provider_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data?.map(item => item.provider_id) || []
+  } catch (error) {
+    console.error('Error fetching favorites:', error)
+    return []
+  }
+}
+
+// Add a favorite
+export async function addFavorite(userId: string, providerId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('user_favorites')
+      .insert({
+        user_id: userId,
+        provider_id: providerId
+      })
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error adding favorite:', error)
+    return false
+  }
+}
+
+// Remove a favorite
+export async function removeFavorite(userId: string, providerId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('user_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('provider_id', providerId)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error removing favorite:', error)
+    return false
+  }
+}
+
+// Toggle favorite status
+export async function toggleFavoriteSupabase(userId: string, providerId: string): Promise<boolean> {
+  try {
+    // Check if already favorited
+    const { data: existing } = await supabase
+      .from('user_favorites')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider_id', providerId)
+      .single()
+
+    if (existing) {
+      return await removeFavorite(userId, providerId)
+    } else {
+      return await addFavorite(userId, providerId)
+    }
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+    return false
+  }
+}
+
+// Check if a provider is favorited
+export async function isProviderFavorited(userId: string, providerId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('provider_id', providerId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      throw error
+    }
+    
+    return !!data
+  } catch (error) {
+    console.error('Error checking favorite status:', error)
+    return false
+  }
+}
+
+// Get favorite providers with full details
+export async function getFavoriteProviders(userId: string): Promise<any[]> {
+  try {
+    const { data: favorites, error: favError } = await supabase
+      .from('user_favorites')
+      .select('provider_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (favError) throw favError
+    
+    if (!favorites || favorites.length === 0) {
+      return []
+    }
+
+    const providerIds = favorites.map(fav => fav.provider_id)
+    
+    const { data: providers, error: providerError } = await supabase
+      .from('providers')
+      .select('*')
+      .in('id', providerIds)
+      .eq('status', 'approved')
+
+    if (providerError) throw providerError
+    
+    // Preserve favorite order
+    return providers?.sort((a, b) => {
+      const indexA = providerIds.indexOf(a.id)
+      const indexB = providerIds.indexOf(b.id)
+      return indexA - indexB
+    }) || []
+  } catch (error) {
+    console.error('Error fetching favorite providers:', error)
+    return []
+  }
+}

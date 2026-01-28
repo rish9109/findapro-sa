@@ -1,9 +1,9 @@
-// File: src/app/providers/page.tsx - UPDATED TO SHOW ONLY APPROVED PROVIDERS
+// File: src/app/providers/page.tsx - FIXED FAVORITE SYNC ISSUE
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getUserFavorites, toggleFavoriteSupabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { 
@@ -24,29 +24,55 @@ export default function ProvidersPage() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [favorites, setFavorites] = useState<string[]>([])
   const [currentCategory, setCurrentCategory] = useState<string | null>(null)
+  const [syncingFavorites, setSyncingFavorites] = useState(false)
+  const [favoritesLoaded, setFavoritesLoaded] = useState(false)
 
   // Get category from URL on load
   useEffect(() => {
     const categoryFromUrl = searchParams.get('category')
-    if (categoryFromUrl) {
+    if (categoryFromUrl && categoryFromUrl !== 'all' && categoryFromUrl !== 'favorites') {
       setCurrentCategory(categoryFromUrl)
+      setActiveFilter(categoryFromUrl)
       sessionStorage.setItem('lastCategory', categoryFromUrl)
     }
   }, [searchParams])
 
-  // Check if user is logged in and load favorites
+  // Load favorites from Supabase when user is logged in
   useEffect(() => {
-    // Load favorites from localStorage
-    const savedFavorites = localStorage.getItem('provider_favorites')
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites))
+    const loadFavorites = async () => {
+      try {
+        if (user) {
+          const userFavorites = await getUserFavorites(user.id)
+          setFavorites(userFavorites)
+          localStorage.setItem('provider_favorites', JSON.stringify(userFavorites))
+        } else {
+          // Load from localStorage for non-logged in users
+          const savedFavorites = localStorage.getItem('provider_favorites')
+          if (savedFavorites) {
+            setFavorites(JSON.parse(savedFavorites))
+          }
+        }
+      } catch (error) {
+        console.error('Error loading favorites:', error)
+        // Fallback to localStorage
+        const savedFavorites = localStorage.getItem('provider_favorites')
+        if (savedFavorites) {
+          setFavorites(JSON.parse(savedFavorites))
+        }
+      } finally {
+        setFavoritesLoaded(true)
+      }
     }
-  }, [])
 
-  // Fetch ONLY APPROVED providers from Supabase
+    loadFavorites()
+  }, [user])
+
+  // Fetch ONLY APPROVED providers from Supabase - wait for favorites to load
   useEffect(() => {
-    fetchApprovedProviders()
-  }, [])
+    if (favoritesLoaded) {
+      fetchApprovedProviders()
+    }
+  }, [favoritesLoaded])
 
   async function fetchApprovedProviders() {
     try {
@@ -63,6 +89,7 @@ export default function ProvidersPage() {
       
       if (data && data.length > 0) {
         console.log(`✅ Found ${data.length} approved providers`)
+        console.log(`📌 Current favorites:`, favorites)
         
         // Transform Supabase data to match component format
         const transformedData = data.map(provider => ({
@@ -78,7 +105,7 @@ export default function ProvidersPage() {
           description: provider.description || `${provider.business_name} professional services`,
           // Get category from main_service_id
           category_id: provider.main_service_id,
-          is_favorite: favorites.includes(provider.id),
+          is_favorite: favorites.includes(provider.id), // NOW USING LOADED FAVORITES
           verified: provider.verified || false,
           emergency_service: provider.emergency_service || false,
           insurance: provider.insurance || false,
@@ -97,7 +124,13 @@ export default function ProvidersPage() {
         }))
         
         setProviders(transformedData)
-        setFilteredProviders(transformedData)
+        
+        // Apply any active filter/category
+        if (currentCategory && currentCategory !== 'all' && currentCategory !== 'favorites') {
+          setFilteredProviders(transformedData.filter(p => p.category_id === currentCategory))
+        } else {
+          setFilteredProviders(transformedData)
+        }
       } else {
         console.log('⚠️ No approved providers found in database')
         setProviders([])
@@ -112,11 +145,34 @@ export default function ProvidersPage() {
     }
   }
 
+  // Update favorite status in providers data when favorites change
+  useEffect(() => {
+    if (providers.length > 0 && favoritesLoaded) {
+      console.log('🔄 Updating favorite status for providers:', favorites)
+      
+      const updatedProviders = providers.map(provider => ({
+        ...provider,
+        is_favorite: favorites.includes(provider.id)
+      }))
+      
+      setProviders(updatedProviders)
+      
+      // Also update filtered providers
+      if (currentCategory === 'favorites') {
+        setFilteredProviders(updatedProviders.filter(p => favorites.includes(p.id)))
+      } else if (currentCategory && currentCategory !== 'all' && currentCategory !== 'favorites') {
+        setFilteredProviders(updatedProviders.filter(p => p.category_id === currentCategory))
+      } else {
+        setFilteredProviders(updatedProviders)
+      }
+    }
+  }, [favorites, providers.length, favoritesLoaded, currentCategory])
+
   // Handle search
   useEffect(() => {
     if (!searchQuery.trim()) {
       // If there's a current category, filter by it
-      if (currentCategory && currentCategory !== 'all') {
+      if (currentCategory && currentCategory !== 'all' && currentCategory !== 'favorites') {
         const filtered = providers.filter(provider => 
           provider.category_id === currentCategory
         )
@@ -136,31 +192,44 @@ export default function ProvidersPage() {
     setFilteredProviders(filtered)
   }, [searchQuery, providers, currentCategory])
 
-  // Filter by category
+  // FIXED: Filter by category
   const handleFilter = (filter: string) => {
     setActiveFilter(filter)
     
     if (filter === 'all') {
+      // Show all providers
       setCurrentCategory(null)
       setFilteredProviders(providers)
-      // Clear category from URL
       router.replace('/providers')
     } else if (filter === 'favorites') {
-      // Check if user is logged in before showing favorites
+      // Show only favorited providers - requires login
       if (!user) {
         showAuthModal('login')
         return
       }
-      setCurrentCategory(null)
+      setCurrentCategory('favorites') // Special category value
       setFilteredProviders(providers.filter(p => favorites.includes(p.id)))
+      router.replace('/providers?filter=favorites')
     } else {
-      // Handle service category filter
+      // Handle regular service category filter
       setCurrentCategory(filter)
       setFilteredProviders(providers.filter(p => p.category_id === filter))
+      router.replace(`/providers?category=${filter}`)
     }
   }
 
-  // Toggle favorite with login check
+  // Handle category filter from URL
+  const handleCategoryFilter = (categoryId: string) => {
+    if (categoryId === 'favorites') {
+      handleFilter('favorites')
+    } else {
+      setActiveFilter(categoryId)
+      setCurrentCategory(categoryId)
+      setFilteredProviders(providers.filter(p => p.category_id === categoryId))
+    }
+  }
+
+  // Toggle favorite with Supabase sync
   const toggleFavorite = async (providerId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -172,8 +241,13 @@ export default function ProvidersPage() {
     }
     
     try {
-      let newFavorites
-      if (favorites.includes(providerId)) {
+      setSyncingFavorites(true)
+      
+      // Optimistic update - update UI immediately
+      const isCurrentlyFavorite = favorites.includes(providerId)
+      let newFavorites: string[]
+      
+      if (isCurrentlyFavorite) {
         newFavorites = favorites.filter(id => id !== providerId)
       } else {
         newFavorites = [...favorites, providerId]
@@ -182,20 +256,43 @@ export default function ProvidersPage() {
       setFavorites(newFavorites)
       localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
       
-      // Update providers state
-      setProviders(prev => prev.map(p => 
-        p.id === providerId 
-          ? { ...p, is_favorite: !favorites.includes(providerId) }
-          : p
+      // Sync with Supabase in background
+      const success = await toggleFavoriteSupabase(user.id, providerId)
+      
+      if (!success) {
+        // Revert if Supabase sync fails
+        console.error('Failed to sync favorite with Supabase')
+        if (isCurrentlyFavorite) {
+          // Re-add if removal failed
+          newFavorites = [...newFavorites, providerId]
+        } else {
+          // Remove if addition failed
+          newFavorites = newFavorites.filter(id => id !== providerId)
+        }
+        setFavorites(newFavorites)
+        localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
+      }
+      
+      // Update the specific provider's favorite status
+      setProviders(prev => prev.map(provider => 
+        provider.id === providerId 
+          ? { ...provider, is_favorite: !isCurrentlyFavorite }
+          : provider
       ))
       
-      setFilteredProviders(prev => prev.map(p => 
-        p.id === providerId 
-          ? { ...p, is_favorite: !favorites.includes(providerId) }
-          : p
-      ))
+      // Update filtered providers if we're on the favorites page
+      if (currentCategory === 'favorites') {
+        setFilteredProviders(prev => 
+          isCurrentlyFavorite 
+            ? prev.filter(p => p.id !== providerId)
+            : [...prev, ...providers.filter(p => p.id === providerId).map(p => ({ ...p, is_favorite: true }))]
+        )
+      }
+      
     } catch (error) {
       console.error('Error toggling favorite:', error)
+    } finally {
+      setSyncingFavorites(false)
     }
   }
 
@@ -209,12 +306,12 @@ export default function ProvidersPage() {
     
     // Store category in sessionStorage for navigation back
     const categoryToStore = currentCategory || providerCategory
-    if (categoryToStore && categoryToStore !== 'all') {
+    if (categoryToStore && categoryToStore !== 'all' && categoryToStore !== 'favorites') {
       sessionStorage.setItem('lastCategory', categoryToStore)
     }
     
     // Navigate to provider details with category in URL
-    const url = `/providers/${providerId}${categoryToStore && categoryToStore !== 'all' ? `?category=${categoryToStore}` : ''}`
+    const url = `/providers/${providerId}${categoryToStore && categoryToStore !== 'all' && categoryToStore !== 'favorites' ? `?category=${categoryToStore}` : ''}`
     router.push(url)
   }
 
@@ -245,7 +342,8 @@ export default function ProvidersPage() {
     total: providers.length,
     emergency: providers.filter(p => p.emergency_service).length,
     insured: providers.filter(p => p.insurance).length,
-    card_payments: providers.filter(p => p.accepts_card).length
+    card_payments: providers.filter(p => p.accepts_card).length,
+    favorites: favorites.length
   }
 
   return (
@@ -257,10 +355,9 @@ export default function ProvidersPage() {
         <div className="absolute bottom-40 left-1/2 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
       </div>
 
-
       {/* Main Content */}
       <main className="relative container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-
+        
         {/* Providers Grid */}
         {loading ? (
           <div className="text-center py-12 sm:py-20">
@@ -276,7 +373,9 @@ export default function ProvidersPage() {
             <p className="text-gray-500 text-sm sm:text-base">
               {providers.length === 0 
                 ? "Check back soon for approved service providers!" 
-                : "Try adjusting your search or filter criteria"}
+                : currentCategory === 'favorites'
+                  ? "You haven't saved any favorites yet. Click the heart icon on providers to save them!"
+                  : "Try adjusting your search or filter criteria"}
             </p>
             {providers.length === 0 && (
               <button
@@ -310,11 +409,17 @@ export default function ProvidersPage() {
                   {/* Favorite Button */}
                   <button
                     onClick={(e) => toggleFavorite(provider.id, e)}
-                    className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 p-1.5 sm:p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/80 transition-all duration-300"
+                    disabled={syncingFavorites}
+                    className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 p-1.5 sm:p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/80 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={provider.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Heart
-                      className={`w-4 h-4 sm:w-5 sm:h-5 ${provider.is_favorite ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-400'}`}
-                    />
+                    {syncingFavorites && favorites.includes(provider.id) ? (
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Heart
+                        className={`w-4 h-4 sm:w-5 sm:h-5 ${provider.is_favorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400 hover:text-pink-400'}`}
+                      />
+                    )}
                   </button>
 
                   {/* Login required overlay for non-logged in users */}
@@ -323,7 +428,7 @@ export default function ProvidersPage() {
                       <div className="text-center p-4 sm:p-6">
                         <Shield className="w-8 h-8 sm:w-12 sm:h-12 text-emerald-400 mx-auto mb-2 sm:mb-3" />
                         <p className="text-white font-semibold text-sm sm:text-base mb-1 sm:mb-2">Sign in required</p>
-                        <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4">Login to view full details</p>
+                        <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4">Login to save favorites</p>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -349,6 +454,12 @@ export default function ProvidersPage() {
                       <div className="px-2 py-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs font-bold flex items-center gap-1">
                         <Shield className="w-2 h-2" />
                         <span className="text-xs">Insured</span>
+                      </div>
+                    )}
+                    {provider.is_favorite && (
+                      <div className="px-2 py-1 rounded-full bg-gradient-to-r from-pink-600 to-pink-500 text-white text-xs font-bold flex items-center gap-1">
+                        <Heart className="w-2 h-2" />
+                        <span className="text-xs">Saved</span>
                       </div>
                     )}
                   </div>
@@ -461,4 +572,24 @@ export default function ProvidersPage() {
       </main>
     </div>
   )
+}
+
+// Helper function to get category label from ID
+function getCategoryLabel(categoryId: string): string {
+  const categoryMap: Record<string, string> = {
+    'home-services': 'Home Services',
+    'repairs': 'Repairs',
+    'automotive': 'Automotive',
+    'design': 'Design',
+    'plumbing': 'Plumbing',
+    'electrical': 'Electrical',
+    'gardening': 'Gardening',
+    'tech-support': 'Tech Support',
+    'wellness': 'Wellness',
+    'fitness': 'Fitness',
+    'entertainment': 'Entertainment',
+    'accounting': 'Accounting',
+  }
+  
+  return categoryMap[categoryId] || categoryId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }

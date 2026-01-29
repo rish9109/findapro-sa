@@ -109,18 +109,18 @@ async function sendEmailWithTemplate(
 
     console.log(`🚀 Sending email with subject: "${subject}"`)
     
-    // 4. Send email via Resend
-    const data = await resend.emails.send({
-      from: 'FindAPro <admin@findapro.co.za>',
-      to: sanitizedRecipients,
-      subject,
-      html,
-      reply_to: 'support@findapro.co.za',
-      headers: {
-        'X-Template-Name': templateName,
-        'X-Email-Type': 'system-notification'
-      }
-    })
+// 4. Send email via Resend
+const data = await resend.emails.send({
+  from: 'FindAPro <admin@findapro.co.za>',
+  to: sanitizedRecipients,
+  subject,
+  html,
+  replyTo: 'support@findapro.co.za', // Changed from reply_to to replyTo
+  headers: {
+    'X-Template-Name': templateName,
+    'X-Email-Type': 'system-notification'
+  }
+})
 
     console.log(`✅ Email sent successfully. Resend ID: ${data.id}`)
     

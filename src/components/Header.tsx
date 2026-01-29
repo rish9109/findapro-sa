@@ -25,7 +25,17 @@ export default function Header() {
   const [categoryName, setCategoryName] = useState<string>('')
   const [providerName, setProviderName] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  
+  // Get current pathname
   const pathname = usePathname()
+  
+  // Check if it's an admin route
+  const isAdminRoute = pathname?.startsWith('/admin')
+  
+  // If admin route, don't render anything (no header)
+  if (isAdminRoute) return null
+  
+  // Only continue if NOT an admin route
   const searchParams = useSearchParams()
   const params = useParams()
   const { user, logout, showAuthModal, isProvider } = useAuth()

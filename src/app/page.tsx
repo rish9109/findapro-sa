@@ -2,11 +2,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation' // Added useRouter
 import SearchBar from '../components/SearchBar'
 import CategoryGrid from '../components/CategoryGrid'
 
 export default function Home() {
   const [isMobile, setIsMobile] = useState(false)
+  const [loading, setLoading] = useState(false) // Added loading state for button
+  const router = useRouter() // Added router
   
   useEffect(() => {
     // Check if mobile on mount and resize
@@ -19,6 +22,17 @@ export default function Home() {
     
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Updated click handler to navigate programmatically
+  const handleListBusinessClick = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    
+    // Navigate to the provider listings page
+    router.push('/providers/provider-listings')
+    
+    // The loading state will be cleared when the component unmounts
+  }
 
   return (
     <div className="space-y-8 md:space-y-12 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen">
@@ -53,14 +67,28 @@ export default function Home() {
             </p>
               
             <div className="space-y-3 pt-1">
-              <a 
-                href="/providers/provider-listings"
-                className="group inline-flex items-center justify-center gap-3 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 glow-pulse max-w-md mx-auto w-full"
+              <button
+                onClick={handleListBusinessClick}
+                disabled={loading}
+                className={`group inline-flex items-center justify-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-base md:text-lg shadow-lg transform transition-all duration-300 glow-pulse max-w-md mx-auto w-full ${
+                  loading 
+                    ? 'bg-gray-700 cursor-not-allowed text-gray-500' 
+                    : 'bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 hover:shadow-xl hover:scale-105 text-white'
+                }`}
               >
-                <span className="text-yellow-300 text-lg group-hover:rotate-12 transition-transform duration-300">🚀</span>
-                <span>{isMobile ? 'List Business - Free Trial' : 'List Your Business Here!'}</span>
-                <span className="text-yellow-300 text-lg group-hover:-rotate-12 transition-transform duration-300">✨</span>
-              </a>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-yellow-300 text-lg group-hover:rotate-12 transition-transform duration-300">🚀</span>
+                    <span>{isMobile ? 'List Business - Free Trial' : 'List Your Business Here!'}</span>
+                    <span className="text-yellow-300 text-lg group-hover:-rotate-12 transition-transform duration-300">✨</span>
+                  </>
+                )}
+              </button>
               
               <div className="flex items-center justify-center gap-3">
                 <div className="flex items-center gap-1">

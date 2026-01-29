@@ -69,6 +69,14 @@ const statusConfig = {
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
     label: 'Suspended'
+  },
+  // Add this configuration for the 'deleted' status
+  deleted: {
+    icon: XCircle,
+    color: 'text-red-500',
+    bgColor: 'bg-red-600/10',
+    borderColor: 'border-red-600/20',
+    label: 'Deleted'
   }
 }
 

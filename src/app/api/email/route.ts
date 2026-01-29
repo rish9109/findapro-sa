@@ -33,18 +33,17 @@ export async function POST(request: NextRequest) {
     if (providerError) {
       console.error('Provider lookup error:', providerError)
       
-      // Check if provider exists at all
-      const { count } = await supabase
-        .from('providers')
-        .select('*', { count: 'exact', head: true })
-        .eq('id', providerId)
+// Check if provider exists at all
+const { count } = await supabase
+  .from('providers')
+  .select('*', { count: 'exact', head: true })
+  .eq('id', providerId)
 
-      return NextResponse.json({ 
-        error: 'Provider not found',
-        details: providerError.message,
-        providerExists: count > 0
-      }, { status: 404 })
-    }
+return NextResponse.json({ 
+  error: 'Provider not found',
+  details: providerError.message,
+  providerExists: (count || 0) > 0
+}, { status: 404 })
 
     if (!provider) {
       return NextResponse.json({ 

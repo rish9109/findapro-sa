@@ -90,11 +90,11 @@ export default function ProviderDashboard() {
         const userListings = await getUserListings(user.id)
         setListings(userListings)
         
-        // Load logo URL from user metadata
-        const userLogo = user.user_metadata?.logo_url
-        if (userLogo) {
-          setLogoUrl(userLogo)
-        }
+  // Load logo URL from user metadata
+const userLogo = (user.user_metadata as any)?.logo_url
+if (userLogo) {
+  setLogoUrl(userLogo)
+}
         
       } catch (err: any) {
         console.error('Error loading dashboard:', err)

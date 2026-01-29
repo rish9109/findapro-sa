@@ -109,25 +109,36 @@ async function sendEmailWithTemplate(
 
     console.log(`🚀 Sending email with subject: "${subject}"`)
     
-    // 4. Send email via Resend
-    const data = await resend.emails.send({
+    // 4. Send email via Resend (SINGLE INSTANCE)
+    const response = await resend.emails.send({
       from: 'FindAPro <admin@findapro.co.za>',
       to: sanitizedRecipients,
       subject,
       html,
-      reply_to: 'support@findapro.co.za',
+      replyTo: 'support@findapro.co.za',
       headers: {
         'X-Template-Name': templateName,
         'X-Email-Type': 'system-notification'
       }
     })
 
-    console.log(`✅ Email sent successfully. Resend ID: ${data.id}`)
-    
+    // Check if response contains error
+    if (response.error) {
+      console.error(`❌ Resend API error:`, response.error)
+      return {
+        success: false,
+        error: `Resend API error: ${response.error.message}`,
+        templateUsed: templateName
+      }
+    }
+
+    console.log(`✅ Email sent successfully. Resend ID: ${response.data?.id}`)
+
     return {
       success: true,
       data: {
-        ...data,
+        ...response.data,
+        resendId: response.data?.id,
         templateName,
         variablesProvided: Object.keys(variables),
         variablesReplaced: Object.keys(replacements),
@@ -414,17 +425,27 @@ export async function sendAdminConfirmationEmail(
       </html>
     `
 
-    const data = await resend.emails.send({
+    const response = await resend.emails.send({
       from: 'FindAPro <admin@findapro.co.za>',
       to: [sanitizedEmail],
       subject: `[Action ${actionTitle}] ${provider.business_name} - FindAPro Admin`,
       html,
     })
-
+    
+    // Check for errors
+    if (response.error) {
+      console.error('❌ Error sending admin confirmation:', response.error)
+      return { 
+        success: false, 
+        error: response.error.message,
+        templateUsed: 'admin_confirmation'
+      }
+    }
+    
     console.log(`✅ Admin confirmation email sent successfully to ${sanitizedEmail}`)
     return { 
       success: true, 
-      data,
+      data: response.data,
       templateUsed: 'admin_confirmation' 
     }
   } catch (error: any) {
@@ -503,14 +524,22 @@ export async function testEmailConnection() {
 
     // Try to send a test email (Resend doesn't have a dedicated test endpoint,
     // but we can check if the client initializes without errors)
-    const testData = await resend.emails.send({
+    const response = await resend.emails.send({
       from: 'FindAPro <admin@findapro.co.za>',
-      to: ['test@example.com'], // Will fail but shows connection
+      to: ['test@example.com'],
       subject: 'Test Connection',
       html: '<p>This is a test email to verify connection.</p>',
     })
-
-    // If we get here, the client works (though email might bounce)
+    
+    if (response.error) {
+      return {
+        success: false,
+        error: `Resend API error: ${response.error.message}`,
+        service: 'Resend'
+      }
+    }
+    
+    // If we get here, the client works
     return {
       success: true,
       message: 'Email service configured correctly',

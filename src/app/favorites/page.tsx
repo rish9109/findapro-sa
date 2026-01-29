@@ -9,7 +9,7 @@ import { motion } from 'framer-motion'
 import { 
   Heart, MapPin, Star, Clock, DollarSign, 
   ChevronRight, Shield, Zap, ArrowLeft,
-  Sparkles, Users, Award, ShieldCheck
+  Sparkles, Users, Award, ShieldCheck,TrendingUp 
 } from 'lucide-react'
 
 export default function FavoritesPage() {

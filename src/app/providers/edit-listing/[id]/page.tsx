@@ -69,6 +69,14 @@ const statusConfig = {
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
     label: 'Suspended'
+  },
+  // Add this configuration for the 'deleted' status
+  deleted: {
+    icon: XCircle,
+    color: 'text-red-500',
+    bgColor: 'bg-red-600/10',
+    borderColor: 'border-red-600/20',
+    label: 'Deleted'
   }
 }
 
@@ -268,14 +276,11 @@ export default function EditListingPage() {
         throw new Error('Province is required')
       }
       
-      // Prepare update data
-      const updateData = {
+      // Prepare update data (excluding contact_email since it's locked)
+      const { contact_email, ...updateData } = {
         ...formData,
         updated_at: new Date().toISOString()
       }
-      
-      // Remove email from update data (it's locked)
-      delete updateData.contact_email
       
       // Update listing
       const { error: updateError } = await supabase
@@ -301,7 +306,6 @@ export default function EditListingPage() {
       setSaving(false)
     }
   }
-
   const handleDelete = async () => {
     if (!listing || !user) return
     

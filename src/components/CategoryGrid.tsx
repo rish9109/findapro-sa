@@ -110,8 +110,13 @@ function getCategoryIcon(category: CategoryWithCount, index: number) {
     const mappedIcon = iconMap[category.icon.toLowerCase()]
     if (mappedIcon) return mappedIcon
     
-    // If it's already an emoji, use it
-    if (/[\p{Emoji}]/u.test(category.icon)) {
+    // If it looks like an emoji (simple check), use it
+    const isLikelyEmoji = (str: string) => {
+      return str.length <= 3 && // Emojis are usually 1-3 characters
+             str.codePointAt(0)! > 127 // Non-ASCII characters
+    }
+    
+    if (isLikelyEmoji(category.icon)) {
       return category.icon
     }
   }

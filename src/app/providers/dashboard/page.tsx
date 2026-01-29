@@ -60,9 +60,15 @@ const statusConfig = {
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
     label: 'Suspended'
+  },
+  deleted: { 
+    icon: XCircle, 
+    color: 'text-gray-400',
+    bgColor: 'bg-gray-500/10',
+    borderColor: 'border-gray-500/20',
+    label: 'Deleted'
   }
 }
-
 export default function ProviderDashboard() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
@@ -90,11 +96,11 @@ export default function ProviderDashboard() {
         const userListings = await getUserListings(user.id)
         setListings(userListings)
         
-        // Load logo URL from user metadata
-        const userLogo = user.user_metadata?.logo_url
-        if (userLogo) {
-          setLogoUrl(userLogo)
-        }
+  // Load logo URL from user metadata
+const userLogo = (user.user_metadata as any)?.logo_url
+if (userLogo) {
+  setLogoUrl(userLogo)
+}
         
       } catch (err: any) {
         console.error('Error loading dashboard:', err)

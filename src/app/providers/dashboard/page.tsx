@@ -60,9 +60,15 @@ const statusConfig = {
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
     label: 'Suspended'
+  },
+  deleted: { 
+    icon: XCircle, 
+    color: 'text-gray-400',
+    bgColor: 'bg-gray-500/10',
+    borderColor: 'border-gray-500/20',
+    label: 'Deleted'
   }
 }
-
 export default function ProviderDashboard() {
   const router = useRouter()
   const { user, isLoading } = useAuth()

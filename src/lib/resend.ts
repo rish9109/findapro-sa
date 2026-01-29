@@ -109,73 +109,44 @@ async function sendEmailWithTemplate(
 
     console.log(`🚀 Sending email with subject: "${subject}"`)
     
-// 4. Send email via Resend
-const response = await resend.emails.send({
-  from: 'FindAPro <admin@findapro.co.za>',
-  to: sanitizedRecipients,
-  subject,
-  html,
-  replyTo: 'support@findapro.co.za',
-  headers: {
-    'X-Template-Name': templateName,
-    'X-Email-Type': 'system-notification'
-  }
-})
+    // 4. Send email via Resend (SINGLE INSTANCE)
+    const response = await resend.emails.send({
+      from: 'FindAPro <admin@findapro.co.za>',
+      to: sanitizedRecipients,
+      subject,
+      html,
+      replyTo: 'support@findapro.co.za',
+      headers: {
+        'X-Template-Name': templateName,
+        'X-Email-Type': 'system-notification'
+      }
+    })
 
-// 4. Send email via Resend
-const response = await resend.emails.send({
-  from: 'FindAPro <admin@findapro.co.za>',
-  to: sanitizedRecipients,
-  subject,
-  html,
-  replyTo: 'support@findapro.co.za',
-  headers: {
-    'X-Template-Name': templateName,
-    'X-Email-Type': 'system-notification'
-  }
-})
+    // Check if response contains error
+    if (response.error) {
+      console.error(`❌ Resend API error:`, response.error)
+      return {
+        success: false,
+        error: `Resend API error: ${response.error.message}`,
+        templateUsed: templateName
+      }
+    }
 
-// Check if response contains error
-if (response.error) {
-  console.error(`❌ Resend API error:`, response.error)
-  return {
-    success: false,
-    error: `Resend API error: ${response.error.message}`,
-    templateUsed: templateName
-  }
-}
+    console.log(`✅ Email sent successfully. Resend ID: ${response.data?.id}`)
 
-console.log(`✅ Email sent successfully. Resend ID: ${response.data?.id}`)
-
-return {
-  success: true,
-  data: {
-    ...response.data,
-    resendId: response.data?.id,
-    templateName,
-    variablesProvided: Object.keys(variables),
-    variablesReplaced: Object.keys(replacements),
-    missingVariables,
-    recipientCount: sanitizedRecipients.length
-  },
-  templateUsed: templateName
-}
-
-console.log(`✅ Email sent successfully. Resend ID: ${response.data?.id}`)
-
-return {
-  success: true,
-  data: {
-    ...response.data,
-    resendId: response.data?.id,
-    templateName,
-    variablesProvided: Object.keys(variables),
-    variablesReplaced: Object.keys(replacements),
-    missingVariables,
-    recipientCount: sanitizedRecipients.length
-  },
-  templateUsed: templateName
-}
+    return {
+      success: true,
+      data: {
+        ...response.data,
+        resendId: response.data?.id,
+        templateName,
+        variablesProvided: Object.keys(variables),
+        variablesReplaced: Object.keys(replacements),
+        missingVariables,
+        recipientCount: sanitizedRecipients.length
+      },
+      templateUsed: templateName
+    }
 
   } catch (error: any) {
     console.error(`❌ Error sending "${templateName}" email:`, error)

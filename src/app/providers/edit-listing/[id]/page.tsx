@@ -268,14 +268,11 @@ export default function EditListingPage() {
         throw new Error('Province is required')
       }
       
-      // Prepare update data
-      const updateData = {
+      // Prepare update data (excluding contact_email since it's locked)
+      const { contact_email, ...updateData } = {
         ...formData,
         updated_at: new Date().toISOString()
       }
-      
-      // Remove email from update data (it's locked)
-      delete updateData.contact_email
       
       // Update listing
       const { error: updateError } = await supabase
@@ -301,7 +298,6 @@ export default function EditListingPage() {
       setSaving(false)
     }
   }
-
   const handleDelete = async () => {
     if (!listing || !user) return
     

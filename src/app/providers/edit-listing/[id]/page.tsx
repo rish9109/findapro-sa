@@ -5,7 +5,10 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, Provider } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import AccreditationModal from '@/components/AccreditationModal'
+import ServiceAreaModal from '@/components/ServiceAreaModal'
+import ServiceCategoryModal from '@/components/ServiceCategoryModal'
 import { 
   ArrowLeft, 
   Save, 
@@ -14,16 +17,19 @@ import {
   Clock,
   XCircle,
   Shield,
-  Building,
-  Sparkles,
+  Award,
+  MapPin,
+  DollarSign,
+  CreditCard,
+  FileText,
   Loader2
 } from 'lucide-react'
 
 // Types
-interface Province {
+interface City {
   id: string
   name: string
-  code: string
+  province_id: string
 }
 
 interface ServiceCategory {
@@ -31,6 +37,22 @@ interface ServiceCategory {
   name: string
   description?: string
   icon?: string
+}
+
+interface SelectedAccreditation {
+  id: string
+  accreditation_id?: string
+  custom_name?: string
+  custom_description?: string
+  is_custom: boolean
+  position: number
+}
+
+interface ServiceArea {
+  id?: string
+  area_name: string
+  is_primary: boolean
+  position: number
 }
 
 // Status configuration
@@ -70,7 +92,6 @@ const statusConfig = {
     borderColor: 'border-purple-500/20',
     label: 'Suspended'
   },
-  // Add this configuration for the 'deleted' status
   deleted: {
     icon: XCircle,
     color: 'text-red-500',
@@ -80,85 +101,102 @@ const statusConfig = {
   }
 }
 
-export default function EditListingPage() {
+function EditListingContent() {
   const router = useRouter()
   const params = useParams()
-  const { user, isLoading } = useAuth()
+  const listingId = params.id as string
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   
-  const [listing, setListing] = useState<Provider | null>(null)
+  // Modal states
+  const [showServiceModal, setShowServiceModal] = useState(false)
+  const [showServiceAreaModal, setShowServiceAreaModal] = useState(false)
+  const [showAccreditationModal, setShowAccreditationModal] = useState(false)
+  
+  // Form errors
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   
   // Dynamic data
-  const [provinces, setProvinces] = useState<Province[]>([])
+  const [cities, setCities] = useState<City[]>([])
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
-  const [showServiceModal, setShowServiceModal] = useState(false)
-  const [showProvinceModal, setShowProvinceModal] = useState(false)
   
-  // Form state
+  // Existing data
+  const [listing, setListing] = useState<Provider | null>(null)
+  const [selectedAccreditations, setSelectedAccreditations] = useState<SelectedAccreditation[]>([])
+  const [serviceAreas, setServiceAreas] = useState<{
+    primaryArea: string;
+    additionalAreas: string[];
+  }>({
+    primaryArea: '',
+    additionalAreas: []
+  })
+  
+  // Form state - Updated to match new listing page
   const [formData, setFormData] = useState({
+    // Business Information
     business_name: '',
+    
+    // Contact Information
     contact_person: '',
     contact_email: '',
     contact_phone: '',
     alternate_phone: '',
+    
+    // Service Information
     main_service: '',
     main_service_id: '',
     other_services: '',
     experience_years: '',
-    certifications: '',
-    physical_address: '',
-    city: '',
-    province: '',
-    province_id: '',
-    service_areas: '',
+    
+    // Pricing & Payment
     hourly_rate: '',
-    callout_fee: '',
     accepts_card: false,
     accepts_cash: true,
     deposit_required: false,
+    
+    // Business Details
     emergency_service: false,
+    callout_fee: '',
     insurance: false,
     insurance_details: '',
     portfolio_url: '',
+    
+    // Status (for display only)
+    status: '',
+    verified: false
   })
 
+  // Load all data
   useEffect(() => {
     const loadData = async () => {
-      if (!user || isLoading) return
-      
       setLoading(true)
       try {
-        const listingId = params.id as string
-        
+        // Fetch user session
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
+          router.push('/')
+          return
+        }
+
         // Fetch listing
         const { data: listingData, error: listingError } = await supabase
           .from('providers')
           .select('*')
           .eq('id', listingId)
-          .eq('user_id', user.id) // Security: user can only edit their own listings
+          .eq('user_id', session.user.id)
           .single()
         
-        if (listingError) {
-          if (listingError.code === 'PGRST116') {
-            setError('Listing not found or you do not have permission to edit it.')
-          } else {
-            throw listingError
-          }
-          return
-        }
-        
-        if (!listingData) {
-          setError('Listing not found')
+        if (listingError || !listingData) {
+          setError('Listing not found or you do not have permission to edit it.')
           return
         }
         
         setListing(listingData)
         
-        // Set form data
+        // Set form data from listing
         setFormData({
           business_name: listingData.business_name || '',
           contact_person: listingData.contact_person || '',
@@ -169,29 +207,61 @@ export default function EditListingPage() {
           main_service_id: listingData.main_service_id || '',
           other_services: listingData.other_services || '',
           experience_years: listingData.experience_years || '',
-          certifications: listingData.certifications || '',
-          physical_address: listingData.physical_address || '',
-          city: listingData.city || '',
-          province: listingData.province || '',
-          province_id: listingData.province_id || '',
-          service_areas: listingData.service_areas || '',
           hourly_rate: listingData.hourly_rate || '',
-          callout_fee: listingData.callout_fee || '',
           accepts_card: listingData.accepts_card || false,
           accepts_cash: listingData.accepts_cash ?? true,
           deposit_required: listingData.deposit_required || false,
           emergency_service: listingData.emergency_service || false,
+          callout_fee: listingData.callout_fee || '',
           insurance: listingData.insurance || false,
           insurance_details: listingData.insurance_details || '',
           portfolio_url: listingData.portfolio_url || '',
+          status: listingData.status || '',
+          verified: listingData.verified || false
         })
         
-        // Fetch provinces
-        const { data: provincesData } = await supabase
-          .from('provinces')
-          .select('id, name, code')
+        // Load existing accreditations
+        const { data: accreditationsData } = await supabase
+          .from('provider_accreditations')
+          .select('*')
+          .eq('provider_id', listingId)
+          .order('position')
+        
+        if (accreditationsData) {
+          const formattedAccreditations: SelectedAccreditation[] = accreditationsData.map(acc => ({
+            id: acc.id || `temp-${Date.now()}`,
+            accreditation_id: acc.accreditation_id || undefined,
+            custom_name: acc.custom_name || undefined,
+            custom_description: acc.custom_description || undefined,
+            is_custom: acc.is_custom || false,
+            position: acc.position || 0
+          }))
+          setSelectedAccreditations(formattedAccreditations)
+        }
+        
+        // Load existing service areas
+        const { data: serviceAreasData } = await supabase
+          .from('provider_service_areas')
+          .select('*')
+          .eq('provider_id', listingId)
+          .order('position')
+        
+        if (serviceAreasData) {
+          const primaryArea = serviceAreasData.find(area => area.is_primary)
+          const additionalAreas = serviceAreasData.filter(area => !area.is_primary)
+          
+          setServiceAreas({
+            primaryArea: primaryArea?.area_name || '',
+            additionalAreas: additionalAreas.map(area => area.area_name)
+          })
+        }
+        
+        // Fetch cities
+        const { data: citiesData } = await supabase
+          .from('cities')
+          .select('id, name, province_id')
           .order('name')
-        setProvinces(provincesData || [])
+        setCities(citiesData || [])
         
         // Fetch service categories
         const { data: servicesData } = await supabase
@@ -209,94 +279,245 @@ export default function EditListingPage() {
       }
     }
     
-    if (!isLoading) {
-      if (!user) {
-        router.push('/')
-      } else {
-        loadData()
-      }
-    }
-  }, [user, isLoading, router, params.id])
+    loadData()
+  }, [router, listingId])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked
       setFormData(prev => ({ ...prev, [name]: checked }))
+      
+      // Clear error when checkbox is checked
+      if (checked && formErrors[name]) {
+        setFormErrors(prev => ({ ...prev, [name]: '' }))
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }))
+      
+      // Clear error when user starts typing
+      if (formErrors[name]) {
+        setFormErrors(prev => ({ ...prev, [name]: '' }))
+      }
     }
   }
 
-  const selectService = (service: ServiceCategory) => {
+  // Service selection
+  const handleServiceSelect = (service: ServiceCategory) => {
     setFormData(prev => ({ 
       ...prev, 
       main_service: service.name,
       main_service_id: service.id 
     }))
-    setShowServiceModal(false)
+    // Clear error
+    if (formErrors.main_service) {
+      setFormErrors(prev => ({ ...prev, main_service: '' }))
+    }
   }
 
-  const selectProvince = (province: Province) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      province: province.name,
-      province_id: province.id 
-    }))
-    setShowProvinceModal(false)
+  // Handle accreditations save
+  const handleAccreditationsSave = (accreditations: SelectedAccreditation[]) => {
+    setSelectedAccreditations(accreditations)
+  }
+
+  // Handle service areas save
+  const handleServiceAreasSave = (primary: string, additional: string[]) => {
+    setServiceAreas({
+      primaryArea: primary,
+      additionalAreas: additional
+    })
+    // Clear error
+    if (formErrors.primaryArea) {
+      setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+    }
+  }
+
+  // VALIDATE FORM BEFORE SUBMISSION
+  const validateForm = () => {
+    const errors: Record<string, string> = {}
+    
+    // Business Information
+    if (!formData.business_name.trim()) {
+      errors.business_name = 'Business name is required'
+    }
+    
+    // Contact Information
+    if (!formData.contact_person.trim()) {
+      errors.contact_person = 'Contact person is required'
+    }
+    if (!formData.contact_phone.trim()) {
+      errors.contact_phone = 'Phone number is required'
+    }
+    
+    // Service Information
+    if (!formData.main_service.trim()) {
+      errors.main_service = 'Main service is required'
+    }
+    if (!formData.experience_years.trim()) {
+      errors.experience_years = 'Experience is required'
+    }
+    
+    // Service Areas
+    if (!serviceAreas.primaryArea.trim()) {
+      errors.primaryArea = 'Primary service area is required'
+    }
+    
+    // Emergency callout fee validation
+    if (formData.emergency_service && !formData.callout_fee.trim()) {
+      errors.callout_fee = 'Emergency callout fee is required when offering emergency service'
+    }
+    
+    // Insurance details validation
+    if (formData.insurance && !formData.insurance_details.trim()) {
+      errors.insurance_details = 'Insurance details are required when you have insurance'
+    }
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!user || !listing) return
+    // Validate form
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstErrorKey = Object.keys(formErrors)[0]
+      const element = document.querySelector(`[name="${firstErrorKey}"]`)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return
+    }
+    
+    if (!listing) return
     
     setSaving(true)
     setError('')
     setSuccess('')
     
     try {
-      // Basic validation
-      if (!formData.business_name.trim()) {
-        throw new Error('Business name is required')
-      }
-      if (!formData.contact_person.trim()) {
-        throw new Error('Contact person is required')
-      }
-      if (!formData.contact_phone.trim()) {
-        throw new Error('Contact phone is required')
-      }
-      if (!formData.main_service.trim()) {
-        throw new Error('Main service is required')
-      }
-      if (!formData.city.trim()) {
-        throw new Error('City is required')
-      }
-      if (!formData.province.trim()) {
-        throw new Error('Province is required')
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Please log in to update your listing')
+        return
       }
       
-      // Prepare update data (excluding contact_email since it's locked)
-      const { contact_email, ...updateData } = {
-        ...formData,
-        updated_at: new Date().toISOString()
+      // Find city ID for the selected primary area
+      const selectedCity = cities.find(city => city.name === serviceAreas.primaryArea)
+      const cityId = selectedCity?.id || null
+      
+      // Prepare data for Supabase update
+      const updateData = {
+        business_name: formData.business_name,
+        contact_person: formData.contact_person,
+        contact_phone: formData.contact_phone,
+        alternate_phone: formData.alternate_phone,
+        main_service: formData.main_service,
+        main_service_id: formData.main_service_id,
+        other_services: formData.other_services,
+        experience_years: formData.experience_years,
+        main_service_area: serviceAreas.primaryArea,
+        main_service_area_id: cityId,
+        hourly_rate: formData.hourly_rate || null,
+        accepts_card: formData.accepts_card,
+        accepts_cash: formData.accepts_cash,
+        deposit_required: formData.deposit_required,
+        emergency_service: formData.emergency_service,
+        callout_fee: formData.emergency_service ? formData.callout_fee : null,
+        insurance: formData.insurance,
+        insurance_details: formData.insurance ? formData.insurance_details : null,
+        portfolio_url: formData.portfolio_url || null,
+        updated_at: new Date().toISOString(),
+        // Reset status to pending if changes are made (requires re-approval)
+        status: formData.status === 'approved' ? 'pending' : formData.status
       }
       
-      // Update listing
+      // Update provider
       const { error: updateError } = await supabase
         .from('providers')
         .update(updateData)
         .eq('id', listing.id)
-        .eq('user_id', user.id) // Security: user can only update their own listings
+        .eq('user_id', user.id)
       
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Supabase update error:', updateError)
+        throw updateError
+      }
       
-      setSuccess('Listing updated successfully!')
+      // Delete existing accreditations and save new ones
+      if (selectedAccreditations.length > 0) {
+        // First, delete existing accreditations
+        await supabase
+          .from('provider_accreditations')
+          .delete()
+          .eq('provider_id', listing.id)
+        
+        // Insert new accreditations
+        const accreditationsData = selectedAccreditations.map((acc, index) => ({
+          provider_id: listing.id,
+          accreditation_id: acc.is_custom ? null : acc.accreditation_id,
+          custom_name: acc.is_custom ? acc.custom_name : null,
+          custom_description: acc.custom_description,
+          is_custom: acc.is_custom,
+          position: index,
+          is_verified: false
+        }))
+        
+        const { error: accError } = await supabase
+          .from('provider_accreditations')
+          .insert(accreditationsData)
+          
+        if (accError) {
+          console.error('Error saving accreditations:', accError)
+          // Continue anyway
+        }
+      } else {
+        // Delete all accreditations if none selected
+        await supabase
+          .from('provider_accreditations')
+          .delete()
+          .eq('provider_id', listing.id)
+      }
+      
+      // Delete existing service areas and save new ones
+      await supabase
+        .from('provider_service_areas')
+        .delete()
+        .eq('provider_id', listing.id)
+      
+      if (serviceAreas.primaryArea) {
+        const serviceAreasData = [
+          {
+            provider_id: listing.id,
+            area_name: serviceAreas.primaryArea,
+            is_primary: true,
+            position: 0
+          },
+          ...serviceAreas.additionalAreas.map((area, index) => ({
+            provider_id: listing.id,
+            area_name: area,
+            is_primary: false,
+            position: index + 1
+          }))
+        ]
+        
+        const { error: areasError } = await supabase
+          .from('provider_service_areas')
+          .insert(serviceAreasData)
+          
+        if (areasError) {
+          console.error('Error saving service areas:', areasError)
+          // Continue anyway
+        }
+      }
+      
+      setSuccess('Listing updated successfully! Your changes will be reviewed by our team.')
       
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess('')
-        router.push('/providers/dashboard')
       }, 3000)
       
     } catch (err: any) {
@@ -306,8 +527,9 @@ export default function EditListingPage() {
       setSaving(false)
     }
   }
+
   const handleDelete = async () => {
-    if (!listing || !user) return
+    if (!listing) return
     
     if (!confirm(`Are you sure you want to delete "${listing.business_name}"? This action cannot be undone.`)) {
       return
@@ -318,7 +540,6 @@ export default function EditListingPage() {
         .from('providers')
         .delete()
         .eq('id', listing.id)
-        .eq('user_id', user.id)
       
       if (error) throw error
       
@@ -329,13 +550,13 @@ export default function EditListingPage() {
     }
   }
 
-  if (isLoading || loading) {
+  if (loading) {
     return <LoadingSkeleton />
   }
 
   if (error && !listing) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pt-24">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 pt-24">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto">
             <div className="mb-8">
@@ -354,7 +575,7 @@ export default function EditListingPage() {
               <p className="text-gray-300 mb-6">{error}</p>
               <Link
                 href="/providers/dashboard"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] transition-all"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-500 text-white rounded-lg font-medium hover:shadow-[0_0_30px_rgba(255,122,69,0.3)] transition-all"
               >
                 Return to Dashboard
               </Link>
@@ -369,14 +590,15 @@ export default function EditListingPage() {
     return null
   }
 
-  const statusInfo = statusConfig[listing.status] || statusConfig.pending
+  const statusInfo = statusConfig[listing.status as keyof typeof statusConfig] || statusConfig.pending
   const StatusIcon = statusInfo.icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pt-24 pb-16">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-6 px-4 pt-24">
+      <div className="max-w-4xl mx-auto">
+        
         {/* Header */}
-        <div className="mb-10">
+        <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
             <div>
               <div className="mb-4">
@@ -455,7 +677,6 @@ export default function EditListingPage() {
               <CheckCircle className="w-5 h-5 text-emerald-400" />
               <div>
                 <p className="text-emerald-400 font-medium">{success}</p>
-                <p className="text-sm text-emerald-400/80">Redirecting to dashboard...</p>
               </div>
             </div>
           </div>
@@ -471,19 +692,22 @@ export default function EditListingPage() {
           </div>
         )}
 
-        {/* Edit Form */}
-        <form onSubmit={handleSubmit} className="bg-gradient-to-b from-gray-800/30 to-gray-900/30 rounded-2xl border border-gray-700/50 p-6 md:p-8">
-          {/* Business Information */}
+        {/* Main Form */}
+        <form onSubmit={handleSubmit} className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-4 md:p-6 border border-gray-700 mb-6">
+          
+          {/* ==================== SECTION 1: BUSINESS INFORMATION ==================== */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">1</span>
-              Business Information
-            </h2>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">1</div>
+              <h2 className="text-xl font-bold text-white">Business Information</h2>
+            </div>
             
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                  Business Name *
+            <div className="space-y-6">
+              {/* Business Name */}
+              <div>
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Business Name</span>
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -491,24 +715,29 @@ export default function EditListingPage() {
                   value={formData.business_name}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="Your registered business name"
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.business_name ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+                  placeholder="Enter your business name"
                 />
+                {formErrors.business_name && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.business_name}</p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Contact Information */}
+          {/* ==================== SECTION 2: CONTACT INFORMATION ==================== */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">2</span>
-              Contact Information
-            </h2>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">2</div>
+              <h2 className="text-xl font-bold text-white">Contact Information</h2>
+            </div>
             
             <div className="grid md:grid-cols-2 gap-6">
+              {/* Contact Person */}
               <div>
-                <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                  Contact Person *
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Contact Person</span>
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -516,31 +745,41 @@ export default function EditListingPage() {
                   value={formData.contact_person}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="Full name of contact person"
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.contact_person ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+                  placeholder="Full name"
                 />
+                {formErrors.contact_person && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.contact_person}</p>
+                )}
               </div>
               
+              {/* Email - Locked */}
               <div>
-                <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                  Email Address
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Email Address</span>
+                  <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="email"
-                  value={formData.contact_email}
-                  readOnly
-                  disabled
-                  className="w-full px-4 py-3 bg-gray-800/30 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed"
-                  placeholder="Your registered email"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Email address cannot be changed
-                </p>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={formData.contact_email}
+                    readOnly
+                    disabled
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300"
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">
+                      Locked
+                    </span>
+                  </div>
+                </div>
               </div>
               
+              {/* Primary Phone */}
               <div>
-                <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                  Primary Phone *
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Primary Phone</span>
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -548,11 +787,15 @@ export default function EditListingPage() {
                   value={formData.contact_phone}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.contact_phone ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
                   placeholder="+27 12 345 6789"
                 />
+                {formErrors.contact_phone && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.contact_phone}</p>
+                )}
               </div>
               
+              {/* Alternate Phone */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Alternate Phone
@@ -562,41 +805,65 @@ export default function EditListingPage() {
                   name="alternate_phone"
                   value={formData.alternate_phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
                   placeholder="Optional"
                 />
               </div>
             </div>
           </div>
 
-          {/* Service Information */}
+          {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">3</span>
-              Service Information
-            </h2>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
+              <h2 className="text-xl font-bold text-white">Service Information</h2>
+            </div>
             
             <div className="space-y-6">
+              {/* Main Service Category */}
               <div>
-                <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                  Main Service Category *
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Main Service Category</span>
+                  <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowServiceModal(true)}
-                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white text-left focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 flex justify-between items-center hover:border-blue-500 transition-colors"
-                  >
-                    <span className={formData.main_service ? "text-white" : "text-gray-500"}>
-                      {formData.main_service || "Select your main service"}
-                    </span>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowServiceModal(true)}
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
+                >
+                  <span className={formData.main_service ? "text-white" : "text-gray-500"}>
+                    {formData.main_service || "Select service category"}
+                  </span>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {formErrors.main_service && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.main_service}</p>
+                )}
               </div>
               
+              {/* Years of Experience */}
+              <div>
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Years of Experience</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="experience_years"
+                  value={formData.experience_years}
+                  onChange={handleChange}
+                  required
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+                  placeholder="e.g., 5 years"
+                />
+                {formErrors.experience_years && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
+                )}
+              </div>
+              
+              {/* Other Services */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Other Services Offered
@@ -605,157 +872,150 @@ export default function EditListingPage() {
                   name="other_services"
                   value={formData.other_services}
                   onChange={handleChange}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="List any additional services you offer (comma separated)"
+                  rows={2}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                  placeholder="List any additional services (comma separated)"
                 />
               </div>
               
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                    Years of Experience *
+              {/* Accreditations */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+                    <span>Accreditations</span>
                   </label>
-                  <input
-                    type="text"
-                    name="experience_years"
-                    value={formData.experience_years}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                    placeholder="e.g., 5 years"
-                  />
+                  <span className="text-xs text-gray-500">
+                    {selectedAccreditations.length}/10 selected
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAccreditationModal(true)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
+                >
+                  <div className="flex-1">
+                    <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
+                      {selectedAccreditations.length > 0 
+                        ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
+                        : "Add your accreditations"}
+                    </span>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Certifications
-                  </label>
-                  <input
-                    type="text"
-                    name="certifications"
-                    value={formData.certifications}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                    placeholder="e.g., SAQCC, Wireman's License"
-                  />
-                </div>
+                {/* Selected accreditations preview */}
+                {selectedAccreditations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedAccreditations.slice(0, 3).map(acc => (
+                      <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
+                      </span>
+                    ))}
+                    {selectedAccreditations.length > 3 && (
+                      <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
+                        +{selectedAccreditations.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Location & Coverage */}
+          {/* ==================== SECTION 4: SERVICE AREAS ==================== */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">4</span>
-              Location & Coverage
-            </h2>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">4</div>
+              <h2 className="text-xl font-bold text-white">Service Areas</h2>
+            </div>
             
             <div className="space-y-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Physical Address
-                </label>
-                <textarea
-                  name="physical_address"
-                  value={formData.physical_address}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="Full street address"
-                />
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                    placeholder="e.g., Johannesburg"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-[#4299E1] mb-2">
-                    Province *
-                  </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowProvinceModal(true)}
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white text-left focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 flex justify-between items-center hover:border-blue-500 transition-colors"
-                    >
-                      <span className={formData.province ? "text-white" : "text-gray-500"}>
-                        {formData.province || "Select province"}
-                      </span>
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Service Areas Covered
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Service Areas</span>
+                  <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="service_areas"
-                  value={formData.service_areas}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="List suburbs or areas you serve"
-                />
+                <button
+                  type="button"
+                  onClick={() => setShowServiceAreaModal(true)}
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.primaryArea ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
+                >
+                  <div className="flex-1">
+                    <span className={serviceAreas.primaryArea || serviceAreas.additionalAreas.length > 0 ? "text-white" : "text-gray-500"}>
+                      {serviceAreas.primaryArea 
+                        ? `${serviceAreas.primaryArea}${serviceAreas.additionalAreas.length > 0 ? ` + ${serviceAreas.additionalAreas.length} more` : ''}`
+                        : "Select your service areas"}
+                    </span>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {formErrors.primaryArea && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.primaryArea}</p>
+                )}
+                
+                {/* Selected areas preview */}
+                {(serviceAreas.primaryArea || serviceAreas.additionalAreas.length > 0) && (
+                  <div className="mt-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                    <div className="flex flex-wrap gap-2">
+                      {serviceAreas.primaryArea && (
+                        <span className="px-3 py-2 bg-orange-500/30 text-orange-300 rounded-lg text-sm border border-orange-500/50 flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          {serviceAreas.primaryArea} (Primary)
+                        </span>
+                      )}
+                      {serviceAreas.additionalAreas.slice(0, 3).map((area, index) => (
+                        <span key={index} className="px-3 py-2 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700 flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          {area}
+                        </span>
+                      ))}
+                      {serviceAreas.additionalAreas.length > 3 && (
+                        <span className="px-3 py-2 bg-gray-700 text-gray-400 text-sm rounded-lg border border-gray-600">
+                          +{serviceAreas.additionalAreas.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Business Details */}
+          {/* ==================== SECTION 5: BUSINESS DETAILS ==================== */}
           <div className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-6 pb-3 border-b border-gray-700 flex items-center">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">5</span>
-              Business Details
-            </h2>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">5</div>
+              <h2 className="text-xl font-bold text-white">Business Details</h2>
+            </div>
             
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              {/* Hourly Rate */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Hourly Rate
                 </label>
-                <input
-                  type="text"
-                  name="hourly_rate"
-                  value={formData.hourly_rate}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="e.g., R450"
-                />
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="text"
+                    name="hourly_rate"
+                    value={formData.hourly_rate}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                    placeholder="e.g., 450"
+                  />
+                </div>
               </div>
               
+              {/* Portfolio URL */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Callout Fee
-                </label>
-                <input
-                  type="text"
-                  name="callout_fee"
-                  value={formData.callout_fee}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                  placeholder="e.g., R300 or Free"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Portfolio/Website URL
                 </label>
@@ -764,93 +1024,149 @@ export default function EditListingPage() {
                   name="portfolio_url"
                   value={formData.portfolio_url}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
                   placeholder="https://yourbusiness.co.za"
                 />
               </div>
               
-              <div className="md:col-span-2">
-                <div className="flex flex-wrap items-center gap-6">
-                  <div className="flex items-center">
+              {/* Checkboxes Grid */}
+              <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-700">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Accepts Cash */}
+                  <div className="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
                     <input
                       type="checkbox"
                       name="accepts_cash"
                       checked={formData.accepts_cash}
                       onChange={handleChange}
-                      className="mr-2 accent-blue-500"
+                      className="mr-3 accent-orange-500 w-5 h-5"
                     />
-                    <label className="text-sm text-gray-300">Accepts Cash</label>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                      <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center">
+                  {/* Accepts Card */}
+                  <div className="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
                     <input
                       type="checkbox"
                       name="accepts_card"
                       checked={formData.accepts_card}
                       onChange={handleChange}
-                      className="mr-2 accent-blue-500"
+                      className="mr-3 accent-orange-500 w-5 h-5"
                     />
-                    <label className="text-sm text-gray-300">Accepts Card Payments</label>
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-gray-400" />
+                      <label className="text-gray-300 text-sm font-medium">Accepts Card</label>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center">
+                  {/* Deposit Required */}
+                  <div className="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
                     <input
                       type="checkbox"
                       name="deposit_required"
                       checked={formData.deposit_required}
                       onChange={handleChange}
-                      className="mr-2 accent-blue-500"
+                      className="mr-3 accent-orange-500 w-5 h-5"
                     />
-                    <label className="text-sm text-gray-300">Requires Deposit</label>
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-gray-400" />
+                      <label className="text-gray-300 text-sm font-medium">Requires Deposit</label>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="emergency_service"
-                      checked={formData.emergency_service}
-                      onChange={handleChange}
-                      className="mr-2 accent-blue-500"
-                    />
-                    <label className="text-sm text-gray-300">Offer Emergency Services</label>
+                  {/* Emergency Service */}
+                  <div className={`flex flex-col p-3 rounded-lg border transition-colors ${formData.emergency_service ? 'bg-orange-500/10 border-orange-500/30' : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'}`}>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="emergency_service"
+                        checked={formData.emergency_service}
+                        onChange={handleChange}
+                        className="mr-3 accent-orange-500 w-5 h-5"
+                      />
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-gray-400" />
+                        <label className="text-gray-300 text-sm font-medium">Emergency Service</label>
+                      </div>
+                    </div>
+                    
+                    {/* Callout fee appears below emergency service checkbox */}
+                    {formData.emergency_service && (
+                      <div className="mt-3 pl-8">
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                            <DollarSign className="w-4 h-4" />
+                          </div>
+                          <input
+                            type="text"
+                            name="callout_fee"
+                            value={formData.callout_fee}
+                            onChange={handleChange}
+                            className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.callout_fee ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
+                            placeholder="Emergency callout fee (e.g., 300)"
+                          />
+                        </div>
+                        {formErrors.callout_fee && (
+                          <p className="mt-1 text-xs text-red-400">{formErrors.callout_fee}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="insurance"
-                      checked={formData.insurance}
-                      onChange={handleChange}
-                      className="mr-2 accent-blue-500"
-                    />
-                    <label className="text-sm text-gray-300">Have Insurance</label>
+                  {/* Insurance */}
+                  <div className={`flex flex-col p-3 rounded-lg border transition-colors ${formData.insurance ? 'bg-orange-500/10 border-orange-500/30' : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'}`}>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="insurance"
+                        checked={formData.insurance}
+                        onChange={handleChange}
+                        className="mr-3 accent-orange-500 w-5 h-5"
+                      />
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-400" />
+                        <label className="text-gray-300 text-sm font-medium">Have Insurance</label>
+                      </div>
+                    </div>
+                    
+                    {/* Insurance details - appears below insurance checkbox */}
+                    {formData.insurance && (
+                      <div className="mt-3 pl-8">
+                        <input
+                          type="text"
+                          name="insurance_details"
+                          value={formData.insurance_details}
+                          onChange={handleChange}
+                          className={`w-full px-4 py-2 bg-gray-900 border ${formErrors.insurance_details ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
+                          placeholder="Insurance provider and coverage"
+                        />
+                        {formErrors.insurance_details && (
+                          <p className="mt-1 text-xs text-red-400">{formErrors.insurance_details}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
-                
-                {formData.insurance && (
-                  <div className="mt-4">
-                    <input
-                      type="text"
-                      name="insurance_details"
-                      value={formData.insurance_details}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
-                      placeholder="Insurance provider and coverage details"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Form Actions */}
+          {/* ==================== SECTION 6: FORM ACTIONS ==================== */}
           <div className="pt-6 border-t border-gray-700">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="text-center md:text-left">
-                <p className="text-sm text-gray-400">
-                  Changes will be saved immediately. Status may need re-approval if changed.
-                </p>
-              </div>
+            <div className="text-center md:text-left">
+  <p className="text-sm text-gray-400">
+    {formData.status === 'rejected' 
+      ? 'Save your changes, then resubmit for review from the dashboard'
+      : formData.status === 'approved'
+      ? 'Changes will reset your listing status to "Pending Review"'
+      : 'Your changes will be reviewed by our team'
+    }
+  </p>
+</div>
               
               <div className="flex items-center gap-4">
                 <Link
@@ -861,26 +1177,189 @@ export default function EditListingPage() {
                 </Link>
                 
                 <button
-                  type="submit"
-                  disabled={saving}
-                  className={`px-8 py-3 rounded-lg font-semibold transition-all duration-300 flex items-center gap-2 ${
-                    saving
-                      ? 'bg-gray-700 cursor-not-allowed text-gray-400'
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white hover:shadow-[0_0_30px_rgba(59,130,246,0.3)]'
-                  }`}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      Save Changes
-                    </>
-                  )}
-                </button>
+  type="submit"
+  disabled={saving}
+  className={`px-8 py-3 rounded-lg font-semibold transition-all duration-300 flex items-center gap-2 ${
+    saving
+      ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+      : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white hover:shadow-[0_0_30px_rgba(255,122,69,0.3)]'
+  }`}
+  onClick={async (e) => {
+    e.preventDefault()
+    
+    // Validate form
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstErrorKey = Object.keys(formErrors)[0]
+      const element = document.querySelector(`[name="${firstErrorKey}"]`)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return
+    }
+    
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Please log in to update your listing')
+        setSaving(false)
+        return
+      }
+      
+      // Find city ID for the selected primary area
+      const selectedCity = cities.find(city => city.name === serviceAreas.primaryArea)
+      const cityId = selectedCity?.id || null
+      
+      // Prepare data for Supabase update
+      const updateData: any = {
+        business_name: formData.business_name,
+        contact_person: formData.contact_person,
+        contact_phone: formData.contact_phone,
+        alternate_phone: formData.alternate_phone,
+        main_service: formData.main_service,
+        main_service_id: formData.main_service_id,
+        other_services: formData.other_services,
+        experience_years: formData.experience_years,
+        main_service_area: serviceAreas.primaryArea,
+        main_service_area_id: cityId,
+        hourly_rate: formData.hourly_rate || null,
+        accepts_card: formData.accepts_card,
+        accepts_cash: formData.accepts_cash,
+        deposit_required: formData.deposit_required,
+        emergency_service: formData.emergency_service,
+        callout_fee: formData.emergency_service ? formData.callout_fee : null,
+        insurance: formData.insurance,
+        insurance_details: formData.insurance ? formData.insurance_details : null,
+        portfolio_url: formData.portfolio_url || null,
+        updated_at: new Date().toISOString(),
+      }
+      
+      // If status is rejected, keep it as rejected (just save changes)
+      // If status is approved, set to pending (needs re-approval)
+      if (formData.status === 'approved') {
+        updateData.status = 'pending'
+      } else if (formData.status === 'rejected') {
+        updateData.status = 'rejected'
+      }
+      // For other statuses (pending, pause, etc.), keep the current status
+      
+      // Update provider
+      const { error: updateError } = await supabase
+        .from('providers')
+        .update(updateData)
+        .eq('id', listing!.id)
+        .eq('user_id', user.id)
+      
+      if (updateError) {
+        console.error('Supabase update error:', updateError)
+        throw updateError
+      }
+      
+      // Delete existing accreditations and save new ones
+      if (selectedAccreditations.length > 0) {
+        // First, delete existing accreditations
+        await supabase
+          .from('provider_accreditations')
+          .delete()
+          .eq('provider_id', listing!.id)
+        
+        // Insert new accreditations
+        const accreditationsData = selectedAccreditations.map((acc, index) => ({
+          provider_id: listing!.id,
+          accreditation_id: acc.is_custom ? null : acc.accreditation_id,
+          custom_name: acc.is_custom ? acc.custom_name : null,
+          custom_description: acc.custom_description,
+          is_custom: acc.is_custom,
+          position: index,
+          is_verified: false
+        }))
+        
+        const { error: accError } = await supabase
+          .from('provider_accreditations')
+          .insert(accreditationsData)
+          
+        if (accError) {
+          console.error('Error saving accreditations:', accError)
+          // Continue anyway
+        }
+      } else {
+        // Delete all accreditations if none selected
+        await supabase
+          .from('provider_accreditations')
+          .delete()
+          .eq('provider_id', listing!.id)
+      }
+      
+      // Delete existing service areas and save new ones
+      await supabase
+        .from('provider_service_areas')
+        .delete()
+        .eq('provider_id', listing!.id)
+      
+      if (serviceAreas.primaryArea) {
+        const serviceAreasData = [
+          {
+            provider_id: listing!.id,
+            area_name: serviceAreas.primaryArea,
+            is_primary: true,
+            position: 0
+          },
+          ...serviceAreas.additionalAreas.map((area, index) => ({
+            provider_id: listing!.id,
+            area_name: area,
+            is_primary: false,
+            position: index + 1
+          }))
+        ]
+        
+        const { error: areasError } = await supabase
+          .from('provider_service_areas')
+          .insert(serviceAreasData)
+          
+        if (areasError) {
+          console.error('Error saving service areas:', areasError)
+          // Continue anyway
+        }
+      }
+      
+      // Show appropriate success message based on status
+      if (formData.status === 'rejected') {
+        setSuccess('Changes saved successfully! Your listing remains rejected. Please resubmit for review from the dashboard.')
+      } else if (formData.status === 'approved') {
+        setSuccess('Listing updated successfully! Your changes have been submitted for review.')
+      } else {
+        setSuccess('Listing updated successfully!')
+      }
+      
+      // Redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        router.push('/providers/dashboard')
+      }, 2000)
+      
+    } catch (err: any) {
+      console.error('Error updating listing:', err)
+      setError(err.message || 'Failed to update listing')
+      setSaving(false)
+    }
+  }}
+>
+  {saving ? (
+    <>
+      <Loader2 className="w-5 h-5 animate-spin" />
+      {formData.status === 'rejected' ? 'Saving Changes...' : 'Submitting...'}
+    </>
+  ) : (
+    <>
+      <Save className="w-5 h-5" />
+      {formData.status === 'rejected' ? 'Save Changes' : 'Submit Changes for Review'}
+    </>
+  )}
+</button>
               </div>
             </div>
           </div>
@@ -888,110 +1367,52 @@ export default function EditListingPage() {
       </div>
 
       {/* Service Category Modal */}
-      {showServiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-2xl bg-gray-800 shadow-2xl">
-            <div className="sticky top-0 z-10 bg-gray-800 px-6 py-4 border-b border-gray-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">Select Main Service Category</h3>
-                <button
-                  onClick={() => setShowServiceModal(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {serviceCategories.map((service) => (
-                  <button
-                    key={service.id}
-                    type="button"
-                    onClick={() => selectService(service)}
-                    className={`p-4 rounded-lg border text-left transition-all ${
-                      formData.main_service_id === service.id
-                        ? 'bg-gradient-to-r from-blue-600/30 to-purple-600/30 border-blue-500 text-blue-300'
-                        : 'bg-gray-900/50 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="font-medium">{service.name}</div>
-                    {service.description && (
-                      <div className="text-sm text-gray-400 mt-1">{service.description}</div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-gray-800 px-6 py-4 border-t border-gray-700">
-              <button
-                onClick={() => setShowServiceModal(false)}
-                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ServiceCategoryModal
+        isOpen={showServiceModal}
+        onClose={() => setShowServiceModal(false)}
+        serviceCategories={serviceCategories}
+        selectedCategoryId={formData.main_service_id}
+        onSelect={handleServiceSelect}
+        title="Select Service Category"
+      />
 
-      {/* Province Modal */}
-      {showProvinceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="relative w-full max-w-md max-h-[80vh] overflow-hidden rounded-2xl bg-gray-800 shadow-2xl">
-            <div className="sticky top-0 z-10 bg-gray-800 px-6 py-4 border-b border-gray-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-white">Select Province</h3>
-                <button
-                  onClick={() => setShowProvinceModal(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-              <div className="space-y-3">
-                {provinces.map((province) => (
-                  <button
-                    key={province.id}
-                    type="button"
-                    onClick={() => selectProvince(province)}
-                    className={`w-full p-4 rounded-lg border text-left transition-all ${
-                      formData.province_id === province.id
-                        ? 'bg-gradient-to-r from-blue-600/30 to-purple-600/30 border-blue-500 text-blue-300'
-                        : 'bg-gray-900/50 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="font-medium">{province.name}</div>
-                    <div className="text-sm text-gray-400">Code: {province.code}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-gray-800 px-6 py-4 border-t border-gray-700">
-              <button
-                onClick={() => setShowProvinceModal(false)}
-                className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Accreditation Modal */}
+      <AccreditationModal
+        isOpen={showAccreditationModal}
+        onClose={() => setShowAccreditationModal(false)}
+        providerId={listing?.id || "temp"}
+        initialSelection={selectedAccreditations}
+        onSave={handleAccreditationsSave}
+        maxSelection={10}
+        serviceCategoryId={formData.main_service_id}
+      />
+
+      {/* Service Area Modal */}
+      <ServiceAreaModal
+        isOpen={showServiceAreaModal}
+        onClose={() => setShowServiceAreaModal(false)}
+        initialPrimary={serviceAreas.primaryArea}
+        initialCustomAreas={serviceAreas.additionalAreas}
+        onSave={handleServiceAreasSave}
+        maxCustomAreas={10}
+        cities={cities}
+      />
     </div>
+  )
+}
+
+export default function EditListingPage() {
+  return (
+    <ProtectedRoute>
+      <EditListingContent />
+    </ProtectedRoute>
   )
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pt-24">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 pt-24">
+      <div className="max-w-4xl mx-auto px-4">
         <div className="animate-pulse">
           <div className="h-8 bg-gray-800 rounded w-48 mb-8"></div>
           <div className="h-64 bg-gray-800 rounded-2xl mb-8"></div>

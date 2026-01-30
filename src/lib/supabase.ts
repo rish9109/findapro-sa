@@ -47,6 +47,8 @@ export interface Provider {
   alternate_phone?: string
   main_service: string
   main_service_id?: string
+  main_service_area?: string; 
+  main_service_area_id?: string; 
   other_services?: string
   experience_years?: string
   certifications?: string
@@ -64,7 +66,7 @@ export interface Provider {
   insurance: boolean
   insurance_details?: string
   portfolio_url?: string
-  status: 'pending' | 'approved' | 'rejected' | 'paused' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
+  status: 'pending' | 'approved' | 'rejected' | 'pause' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
   verified: boolean
   launch_trial: boolean
   created_at: string
@@ -231,23 +233,30 @@ export async function getCategoryByIdWithCount(id: string): Promise<CategoryWith
 
 // ==================== PROVIDER FUNCTIONS (ADDED from second file) ====================
 
-// Get user's active listings
-export async function getUserListings(userId: string): Promise<Provider[]> {
-  try {
-    const { data, error } = await supabase
-      .from('providers')
-      .select('*')
-      .eq('user_id', userId)
-      .in('status', ['pending', 'approved']) // Only active listings
-      .order('created_at', { ascending: false })
+// Get ALL user listings including rejected, paused, etc.
+export const getUserListings = async (userId: string): Promise<Provider[]> => {
+  const { data, error } = await supabase
+    .from('providers')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.error('Error fetching user listings:', error)
-    return []
-  }
-}
+  if (error) throw error;
+
+  // Transform or filter out unwanted statuses
+  const validListings = (data || [])
+    .filter(provider => 
+      provider.status !== 'deleted' && 
+      provider.status !== 'suspended'
+    )
+    .map(provider => ({
+      ...provider,
+      // Optionally transform status if needed
+      status: provider.status === 'deleted' ? 'pause' : provider.status,
+    }));
+
+  return validListings;
+};
 
 // Delete a provider listing
 export async function deleteProviderListing(listingId: string): Promise<{ success: boolean; error?: string }> {

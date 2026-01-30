@@ -97,7 +97,10 @@ export default function ProviderDashboard() {
         const userListings = await getUserListings(user.id)
         console.log('Listings loaded:', userListings) // Debug log
         setListings(userListings)
-        
+        const validListings = userListings.filter(listing => 
+          listing.status !== 'deleted' && 
+          listing.status !== 'suspended'
+          );
         // Load service areas for each listing
         const areasData: Record<string, ServiceAreaData> = {}
         

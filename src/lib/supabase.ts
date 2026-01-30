@@ -234,21 +234,29 @@ export async function getCategoryByIdWithCount(id: string): Promise<CategoryWith
 // ==================== PROVIDER FUNCTIONS (ADDED from second file) ====================
 
 // Get ALL user listings including rejected, paused, etc.
-export async function getUserListings(userId: string): Promise<Provider[]> {
-  try {
-    const { data, error } = await supabase
-      .from('providers')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+export const getUserListings = async (userId: string): Promise<Provider[]> => {
+  const { data, error } = await supabase
+    .from('providers')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.error('Error fetching user listings:', error)
-    return []
-  }
-}
+  if (error) throw error;
+
+  // Transform or filter out unwanted statuses
+  const validListings = (data || [])
+    .filter(provider => 
+      provider.status !== 'deleted' && 
+      provider.status !== 'suspended'
+    )
+    .map(provider => ({
+      ...provider,
+      // Optionally transform status if needed
+      status: provider.status === 'deleted' ? 'pause' : provider.status,
+    }));
+
+  return validListings;
+};
 
 // Delete a provider listing
 export async function deleteProviderListing(listingId: string): Promise<{ success: boolean; error?: string }> {

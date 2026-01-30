@@ -581,13 +581,15 @@ export default function ProviderDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {listings.map((listing) => {
-                  const statusInfo = statusConfig[listing.status] || statusConfig.pending
-                  const StatusIcon = statusInfo.icon
-                  const isLive = listing.status === 'approved'
-                  const isPaused = listing.status === 'pause' // <-- FIXED: 'pause' not 'paused'
-                  const isRejected = listing.status === 'rejected'
-                  const primaryServiceArea = getPrimaryServiceArea(listing.id)
+     {listings.map((listing) => {
+  const statusInfo = listing.status in statusConfig 
+    ? statusConfig[listing.status as keyof typeof statusConfig] 
+    : statusConfig.pending;
+  const StatusIcon = statusInfo.icon
+  const isLive = listing.status === 'approved'
+  const isPaused = listing.status === 'pause'
+  const isRejected = listing.status === 'rejected'
+  const primaryServiceArea = getPrimaryServiceArea(listing.id)
                   
                   return (
                     <div

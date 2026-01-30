@@ -246,19 +246,19 @@ export default function ProviderDashboard() {
         .from('providers')
         .update({ 
           status: 'pending',
-          rejection_reason: null,
+          rejection_reason: null, // Keep as null for database
           updated_at: new Date().toISOString()
         })
         .eq('id', listingId)
         .eq('user_id', user?.id)
-
+  
       if (error) throw error
       
-      // Update local state
+      // Update local state - use undefined instead of null
       setListings(prev => 
         prev.map(listing => 
           listing.id === listingId 
-            ? { ...listing, status: 'pending', rejection_reason: null }
+            ? { ...listing, status: 'pending', rejection_reason: undefined }
             : listing
         )
       )
@@ -271,7 +271,6 @@ export default function ProviderDashboard() {
       setError(err.message || 'Failed to resubmit listing')
     }
   }
-
   const handleTogglePauseListing = async (listingId: string, currentStatus: string) => {
     console.log('Toggling pause status:', listingId, 'current:', currentStatus)
     

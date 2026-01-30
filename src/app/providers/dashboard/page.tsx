@@ -120,7 +120,7 @@ export default function ProviderDashboard() {
           } else {
             // Fallback to old service_areas field
             areasData[listing.id] = {
-              primaryArea: listing.main_service_area || listing.city || '',
+              primaryArea: listing.main_service_area || listing.main_service || 'Not specified',
               additionalAreas: []
             }
           }

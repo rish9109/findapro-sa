@@ -47,6 +47,8 @@ export interface Provider {
   alternate_phone?: string
   main_service: string
   main_service_id?: string
+  main_service_area?: string; 
+  main_service_area_id?: string; 
   other_services?: string
   experience_years?: string
   certifications?: string

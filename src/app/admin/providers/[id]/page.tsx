@@ -335,7 +335,7 @@ export default function ProviderDetailPage() {
                     </svg>
                     {actionLoading ? 'Processing...' : 'Pause Listing'}
                   </button>
-                ) : provider.status === 'paused' ? (
+                ) : provider.status === 'pause' ? (
                   <button
                     onClick={() => handleAction('reactivate')}
                     disabled={actionLoading}

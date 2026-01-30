@@ -87,7 +87,7 @@ export default function ProvidersPage() {
     pending: providers.filter(p => p.status === 'pending').length,
     approved: providers.filter(p => p.status === 'approved').length,
     rejected: providers.filter(p => p.status === 'rejected').length,
-    paused: providers.filter(p => p.status === 'paused').length,
+    paused: providers.filter(p => p.status === 'pause').length,
   }
 
   return (
@@ -117,7 +117,7 @@ export default function ProvidersPage() {
                       ? status === 'pending' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700' :
                         status === 'approved' ? 'bg-green-900/30 text-green-400 border border-green-700' :
                         status === 'rejected' ? 'bg-red-900/30 text-red-400 border border-red-700' :
-                        status === 'paused' ? 'bg-gray-700 text-gray-300 border border-gray-600' :
+                        status === 'pause' ? 'bg-gray-700 text-gray-300 border border-gray-600' :
                         'bg-blue-900/30 text-blue-400 border border-blue-700'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
                     }`}

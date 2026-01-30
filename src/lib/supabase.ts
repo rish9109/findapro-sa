@@ -64,7 +64,7 @@ export interface Provider {
   insurance: boolean
   insurance_details?: string
   portfolio_url?: string
-  status: 'pending' | 'approved' | 'rejected' | 'paused' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
+  status: 'pending' | 'approved' | 'rejected' | 'pause' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
   verified: boolean
   launch_trial: boolean
   created_at: string
@@ -231,14 +231,13 @@ export async function getCategoryByIdWithCount(id: string): Promise<CategoryWith
 
 // ==================== PROVIDER FUNCTIONS (ADDED from second file) ====================
 
-// Get user's active listings
+// Get ALL user listings including rejected, paused, etc.
 export async function getUserListings(userId: string): Promise<Provider[]> {
   try {
     const { data, error } = await supabase
       .from('providers')
       .select('*')
       .eq('user_id', userId)
-      .in('status', ['pending', 'approved']) // Only active listings
       .order('created_at', { ascending: false })
 
     if (error) throw error

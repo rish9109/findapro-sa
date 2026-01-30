@@ -18,7 +18,6 @@ export default function AdminLoginPage() {
     setError('')
   
     try {
-      // Sign in with Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -26,7 +25,6 @@ export default function AdminLoginPage() {
   
       if (authError) throw authError
   
-      // Check if user is in admin_users table
       const { data: admin } = await supabase
         .from('admin_users')
         .select('*')
@@ -34,9 +32,6 @@ export default function AdminLoginPage() {
         .single()
   
       if (!admin) {
-        // If not in admin table, still allow but show warning
-        console.warn('User logged in but not in admin_users table')
-        // You can add them automatically:
         const { error: insertError } = await supabase
           .from('admin_users')
           .insert({
@@ -46,10 +41,8 @@ export default function AdminLoginPage() {
           })
           .select()
 
-        // Optional: Log any insert errors but don't block login
         if (insertError) {
           console.log('Could not add user to admin table:', insertError.message)
-          // This is not a fatal error - user can still proceed
         }
       }
   
@@ -63,27 +56,27 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-950 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          FindAPro Admin Login
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Restricted access to authorized personnel only
-        </p>
-      </div>
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-white">
+            FindAPro Admin Login
+          </h2>
+          <p className="mt-2 text-sm text-gray-400">
+            Restricted access to authorized personnel only
+          </p>
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-gray-800/80 border border-gray-700 rounded-xl shadow-xl py-8 px-6 sm:px-8">
           <form onSubmit={handleLogin} className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-300">
                 Admin Email
               </label>
               <input
@@ -91,13 +84,13 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-2 block w-full bg-gray-900/50 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
                 placeholder="admin@findapro.co.za"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-300">
                 Password
               </label>
               <input
@@ -105,7 +98,7 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-2 block w-full bg-gray-900/50 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
               />
             </div>
 
@@ -113,25 +106,23 @@ export default function AdminLoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {loading ? 'Signing in...' : 'Sign in to Admin Dashboard'}
               </button>
             </div>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  Use admin credentials provided
-                </span>
-              </div>
+          <div className="mt-6 pt-6 border-t border-gray-700">
+            <div className="text-center">
+              <span className="text-sm text-gray-500">
+                Use admin credentials provided
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="mt-8 text-center text-sm text-gray-600">
+        <div className="mt-8 text-center text-sm text-gray-500">
           <p>
             Having trouble? Ensure your email is in the admin_users table.
           </p>

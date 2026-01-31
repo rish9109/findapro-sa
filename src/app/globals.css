@@ -276,3 +276,116 @@ body {
               transform 0.2s ease,
               width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* Sophisticated visible effects */
+.shimmer-overlay {
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.03) 75%,
+    transparent 100%
+  );
+  animation: shimmer-shift 15s ease-in-out infinite;
+}
+
+@keyframes shimmer-shift {
+  0%, 100% { background-position: -200% 0; }
+  50% { background-position: 200% 0; }
+}
+
+/* Visible fade effects */
+.fade-in-out {
+  animation: fade-pulse 8s ease-in-out infinite;
+}
+
+@keyframes fade-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+/* Subtle line animation */
+.animate-line-glow {
+  position: relative;
+}
+
+.animate-line-glow::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent,
+    rgba(251, 191, 36, 0.5),
+    rgba(59, 130, 246, 0.5),
+    transparent
+  );
+  animation: line-scan 4s ease-in-out infinite;
+}
+
+@keyframes line-scan {
+  0%, 100% { background-position: -200% 0; }
+  50% { background-position: 200% 0; }
+}
+
+/* Visible particle system */
+.floating-particle {
+  animation: float-particle 20s ease-in-out infinite;
+}
+
+@keyframes float-particle {
+  0%, 100% { 
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.1;
+  }
+  25% { 
+    transform: translate(20px, -30px) rotate(90deg);
+    opacity: 0.3;
+  }
+  50% { 
+    transform: translate(40px, 0) rotate(180deg);
+    opacity: 0.1;
+  }
+  75% { 
+    transform: translate(20px, 30px) rotate(270deg);
+    opacity: 0.3;
+  }
+}
+
+/* Grid pattern animation */
+.animate-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px, 50px 50px;
+  animation: grid-scroll 20s linear infinite;
+}
+
+@keyframes grid-scroll {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 50px 50px, 50px 50px; }
+}
+
+/* Corner accent animations */
+.corner-accent {
+  position: relative;
+  overflow: hidden;
+}
+
+.corner-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  background: linear-gradient(135deg, #fbbf24, #3b82f6);
+  animation: corner-pulse 3s ease-in-out infinite;
+}
+
+@keyframes corner-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}

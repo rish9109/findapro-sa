@@ -62,10 +62,10 @@ body {
   background: var(--gradient-gold);
 }
 
-/* Selection color */
+/* Selection color - REMOVED white text forcing */
 ::selection {
   background: rgba(139, 92, 246, 0.3);
-  color: white;
+  /* color: white; REMOVED THIS LINE */
 }
 
 /* Smooth page transitions */
@@ -178,7 +178,7 @@ body {
     50% { opacity: 1; transform: scale(1.05); }
   }
   
-  /* Glowing text effect */
+  /* Glowing text effect - KEEP but won't affect search */
   .glowing-text {
     text-shadow: 
       0 0 10px currentColor,
@@ -275,4 +275,361 @@ body {
               border-color 0.2s ease, 
               transform 0.2s ease,
               width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* Corporate Luxury Geometric Patterns */
+.grid-lines {
+  background-size: 50px 50px;
+  background-image: 
+    linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+}
+
+.diamond-grid {
+  background-image: 
+    linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.02) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.02) 75%);
+  background-size: 40px 40px;
+}
+
+/* Geometric animations for floating elements */
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-subtle-float {
+  animation: subtle-float 6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+/* For the shimmer overlay effect */
+.shimmer-overlay {
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.03) 75%,
+    transparent 100%
+  );
+  animation: shimmer-shift 15s ease-in-out infinite;
+}
+
+@keyframes shimmer-shift {
+  0%, 100% { background-position: -200% 0; }
+  50% { background-position: 200% 0; }
+}
+
+/* Text glow effect */
+.text-glow {
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+}
+
+/* Gradient border utility */
+.gradient-border {
+  position: relative;
+  border: 1px solid transparent;
+  background: linear-gradient(var(--color-luxury-navy), var(--color-luxury-navy)) padding-box,
+              linear-gradient(45deg, #f59e0b, #3b82f6, #8b5cf6) border-box;
+}
+
+/* Corner accent animations */
+.corner-accent {
+  position: relative;
+}
+
+.corner-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  background: linear-gradient(135deg, #fbbf24, #3b82f6);
+  animation: corner-pulse 3s ease-in-out infinite;
+}
+
+@keyframes corner-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* Search Bar Transparency and Animation Effects */
+
+/* Shimmer animation for search bar background */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0.3;
+  }
+}
+
+/* Smooth backdrop blur support */
+@supports (backdrop-filter: blur(12px)) {
+  .backdrop-blur-xl {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  
+  .backdrop-blur-lg {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  
+  .backdrop-blur-md {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  .backdrop-blur-sm {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* Enhanced transparency effects */
+.glass-effect {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Subtle pulse for search states */
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* Enhanced spinner animation */
+@keyframes enhanced-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-enhanced-spin {
+  animation: enhanced-spin 0.8s linear infinite;
+}
+
+/* Gradient border animation */
+@keyframes border-glow {
+  0%, 100% {
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.15);
+  }
+}
+
+.animate-border-glow {
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+/* Search overlay animation */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px) translateX(-50%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(-50%);
+  }
+}
+
+.search-overlay-enter {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+/* Input focus effects - UPDATED to be subtle */
+.search-input:focus {
+  outline: none;
+  text-shadow: 0 0 5px rgba(156, 163, 175, 0.3); /* MUCH more subtle - gray instead of gold */
+}
+
+.search-input::placeholder {
+  transition: opacity 0.3s ease, color 0.3s ease;
+}
+
+.search-input:focus::placeholder {
+  opacity: 0.5;
+  color: rgba(156, 163, 175, 0.5);
+}
+
+/* Button hover states */
+.search-button:hover {
+  background: linear-gradient(135deg, 
+    rgba(245, 158, 11, 0.15), 
+    rgba(59, 130, 246, 0.1)
+  );
+  transition: all 0.3s ease;
+}
+
+/* Responsive adjustments for search bar */
+@media (max-width: 640px) {
+  .search-bar-expanded {
+    width: 280px !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .search-bar-expanded {
+    width: 320px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .search-bar-expanded {
+    width: 384px !important;
+  }
+}
+
+/* Smooth transitions for all interactive elements */
+.search-transition {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Opacity transitions for better visual feedback */
+.opacity-transition {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* ================== NEW: SEARCH BAR SPECIFIC OVERRIDES ================== */
+
+/* Search bar text overrides - prevents bright white text */
+[class*="search"] input,
+[class*="Search"] input,
+.search-bar input,
+.SearchBar input,
+input[type="search"],
+input.search-input {
+  color: rgba(209, 213, 219, 0.9) !important; /* gray-300 with opacity */
+}
+
+[class*="search"] input::placeholder,
+[class*="Search"] input::placeholder,
+.search-bar input::placeholder,
+.SearchBar input::placeholder,
+input[type="search"]::placeholder,
+input.search-input::placeholder {
+  color: rgba(156, 163, 175, 0.7) !important; /* gray-400 with opacity */
+}
+
+/* Remove glow effects specifically from search elements */
+[class*="search"] input:focus,
+[class*="Search"] input:focus,
+.search-bar input:focus,
+.SearchBar input:focus,
+input[type="search"]:focus,
+input.search-input:focus {
+  text-shadow: 0 0 3px rgba(156, 163, 175, 0.2) !important; /* Very subtle */
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Override selection color for search inputs */
+[class*="search"] input::selection,
+[class*="Search"] input::selection,
+.search-bar input::selection,
+.SearchBar input::selection,
+input[type="search"]::selection,
+input.search-input::selection {
+  background: rgba(75, 85, 99, 0.3) !important; /* gray-600 with opacity */
+  color: rgba(229, 231, 235, 0.9) !important; /* gray-200 with opacity */
+}
+
+/* Search button specific styles */
+[class*="search"] button,
+[class*="Search"] button,
+.search-bar button,
+.SearchBar button {
+  color: rgba(209, 213, 219, 0.9) !important; /* gray-300 */
+}
+
+[class*="search"] button:hover,
+[class*="Search"] button:hover,
+.search-bar button:hover,
+.SearchBar button:hover {
+  color: rgba(229, 231, 235, 0.95) !important; /* slightly brighter on hover */
+}
+
+/* Search bar container overrides */
+[class*="search"].bg-gray-900,
+[class*="Search"].bg-gray-900,
+.search-bar.bg-gray-900,
+.SearchBar.bg-gray-900 {
+  background-color: transparent !important;
+}
+
+/* Disabled state overrides */
+[class*="search"] input:disabled,
+[class*="Search"] input:disabled,
+.search-bar input:disabled,
+.SearchBar input:disabled {
+  color: rgba(156, 163, 175, 0.5) !important; /* gray-400 with lower opacity */
+}
+
+/* Ensure search bar elements don't get the glowing-text effect */
+[class*="search"] .glowing-text,
+[class*="Search"] .glowing-text,
+.search-bar .glowing-text,
+.SearchBar .glowing-text {
+  text-shadow: none !important;
+}
+
+/* Specific override for the expanded search bar state */
+.w-80 input, .w-96 input, 
+[class*="w-80"] input, [class*="w-96"] input {
+  color: rgba(209, 213, 219, 0.9) !important;
+}
+
+/* ================== END SEARCH BAR OVERRIDES ================== */
+
+/* Additional base overrides for form elements */
+input, textarea, select {
+  color: inherit; /* Allow Tailwind classes to control color */
+}
+
+/* Ensure form elements don't force white text */
+input:not([class*="bg-"]):not([class*="text-"]) {
+  color: var(--foreground); /* This can stay, Tailwind will override */
+}
+
+/* Last resort: direct style attribute simulation */
+input[style*="color:"] {
+  /* Let inline styles win */
 }

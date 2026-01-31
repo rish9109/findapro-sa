@@ -39,131 +39,93 @@ export default function Home() {
 
   return (
     <div className="space-y-8 md:space-y-12 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen overflow-x-hidden">
-{/* Header Section - With Visible Design Elements */}
-<header className="relative bg-gray-950 text-white pt-6 md:pt-8 pb-4 md:pb-6 overflow-hidden">
-  {/* Sophisticated Visible Background Design */}
-  <div className="absolute inset-0 overflow-hidden">
-    {/* Base gradient with depth */}
-    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-950 to-black"></div>
-    
-    {/* Visible diagonal lines - professional pattern */}
-    <div className="absolute inset-0 opacity-10" style={{
-      backgroundImage: `
-        repeating-linear-gradient(
-          45deg,
-          transparent,
-          transparent 20px,
-          rgba(255, 255, 255, 0.1) 20px,
-          rgba(255, 255, 255, 0.1) 21px
-        )
-      `
-    }}></div>
-    
-    {/* Vertical and horizontal accent lines */}
-    <div className="absolute inset-0 opacity-15">
-      {/* Center vertical line */}
-      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-amber-400/30 to-transparent transform -translate-x-1/2"></div>
-      {/* Center horizontal line */}
-      <div className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/30 to-transparent transform -translate-y-1/2"></div>
-      {/* Corner connecting lines */}
-      <div className="absolute top-0 left-0 w-32 h-px bg-gradient-to-r from-amber-400/40 to-transparent"></div>
-      <div className="absolute top-0 left-0 h-32 w-px bg-gradient-to-b from-amber-400/40 to-transparent"></div>
-      <div className="absolute bottom-0 right-0 w-32 h-px bg-gradient-to-l from-blue-400/40 to-transparent"></div>
-      <div className="absolute bottom-0 right-0 h-32 w-px bg-gradient-to-t from-blue-400/40 to-transparent"></div>
-    </div>
-    
-    {/* Visible gradient spheres with shading */}
-    <div className="absolute top-1/4 -left-20 w-80 h-80 opacity-30">
-      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/10 rounded-full blur-xl"></div>
-      <div className="absolute inset-10 bg-gradient-to-br from-amber-400/10 to-transparent rounded-full blur-lg"></div>
-    </div>
-    
-    <div className="absolute bottom-1/4 -right-20 w-80 h-80 opacity-30">
-      <div className="absolute inset-0 bg-gradient-to-tl from-blue-500/20 to-cyan-500/10 rounded-full blur-xl"></div>
-      <div className="absolute inset-10 bg-gradient-to-tl from-blue-400/10 to-transparent rounded-full blur-lg"></div>
-    </div>
-    
-    {/* Visible grid dots pattern */}
-    <div className="absolute inset-0 opacity-5" style={{
-      backgroundImage: `
-        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.2) 1px, transparent 0)
-      `,
-      backgroundSize: '40px 40px'
-    }}></div>
-    
-    {/* Visible architectural lines */}
-    <div className="absolute top-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-    <div className="absolute bottom-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-    
-    {/* Corner accent triangles */}
-    <div className="absolute top-0 left-0 w-24 h-24 border-t border-l border-white/10"></div>
-    <div className="absolute top-0 right-0 w-24 h-24 border-t border-r border-white/10"></div>
-    <div className="absolute bottom-0 left-0 w-24 h-24 border-b border-l border-white/10"></div>
-    <div className="absolute bottom-0 right-0 w-24 h-24 border-b border-r border-white/10"></div>
-    
-    {/* Visible shimmer overlay */}
-    <div className="absolute inset-0 opacity-40 shimmer-overlay"></div>
-    
-    {/* Fade gradient overlays */}
-    <div className="absolute inset-0 bg-gradient-to-t from-gray-950/80 via-transparent to-gray-950/80"></div>
-    <div className="absolute inset-0 bg-gradient-to-r from-gray-950/60 via-transparent to-gray-950/60"></div>
-    
-    {/* Visible light beams */}
-    <div className="absolute top-0 left-1/2 h-48 w-px bg-gradient-to-b from-amber-400/0 via-amber-400/20 to-transparent transform -translate-x-1/2"></div>
-    <div className="absolute top-0 left-1/3 h-32 w-px bg-gradient-to-b from-blue-400/0 via-blue-400/15 to-transparent"></div>
-    <div className="absolute top-0 right-1/3 h-32 w-px bg-gradient-to-b from-blue-400/0 via-blue-400/15 to-transparent"></div>
-    
-    {/* Floating accent elements */}
-    <div className="absolute top-1/3 left-1/4 w-4 h-4 bg-white/5 rounded-full"></div>
-    <div className="absolute bottom-1/3 right-1/4 w-3 h-3 bg-amber-400/10 rounded-full"></div>
-    <div className="absolute top-2/3 left-3/4 w-2 h-2 bg-blue-400/10 rounded-full"></div>
-  </div>
-  
-  <div className="container mx-auto px-4 md:px-6 text-center relative z-10 max-w-full">
-    {/* Main Heading with Subtext - Enhanced with visible effects */}
-    <div className="mb-6 md:mb-8 relative">
-      {/* Shimmer effect behind heading */}
-      <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/5 via-transparent to-blue-500/5 blur-xl rounded-full opacity-50"></div>
-      
-      <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 md:mb-3 relative">
-        Find Trusted{' '}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400 relative">
-          Professionals
-          {/* Text underline effect */}
-          <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-orange-500/50 via-yellow-500 to-orange-500/50 rounded-full"></span>
-        </span>
-      </h2>
-      <p className="text-gray-300 text-sm md:text-base lg:text-lg max-w-2xl mx-auto leading-relaxed relative">
-        For every home, service, repair, and fix across South Africa.
-        <span className="absolute -bottom-1 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></span>
-        <a 
-          href="/providers/provider-listings"
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent hover:from-yellow-300 hover:to-amber-300 text-xs font-medium hover:underline transition-all duration-300 ml-2"
-        >
-          <span>List your service now →</span>
-        </a>
-      </p>
-    </div>
-    
-    {/* Floating Search Bar with visible design */}
-    <div className="flex flex-col items-center space-y-10 relative">
-      {/* Decorative lines around search */}
-      <div className="absolute -top-4 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent"></div>
-      
-      {/* The Search Bar - Centered with glow */}
-      <div className="flex justify-center w-full mb-0 md:mb-0 relative">
-        {/* Outer glow effect */}
-        <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/10 to-blue-500/10 blur-lg rounded-full opacity-30"></div>
-        <SearchBar />
-      </div>
-      
-      <div className="absolute -bottom-4 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-blue-400/20 to-transparent"></div>
-    </div>
-  </div>
-  
-  {/* Bottom accent line */}
-  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 via-20% via-blue-400/30 via-80% to-transparent"></div>
-</header>
+      {/* Header Section - With Visible Design Elements */}
+      <header className="relative bg-gray-950 text-white pt-6 md:pt-8 pb-4 md:pb-6 overflow-hidden">
+        {/* Corporate Luxury Geometric Background */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Base gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900"></div>
+          
+          {/* Geometric grid lines - EXACT from Corporate Luxury */}
+          <div className="absolute inset-0 opacity-5" style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px'
+          }}></div>
+          
+          {/* Diamond pattern - EXACT from Corporate Luxury */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: `
+              linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+              linear-gradient(-45deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+              linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.02) 75%),
+              linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.02) 75%)
+            `,
+            backgroundSize: '40px 40px',
+            backgroundPosition: '0 0, 0 20px, 20px -20px, -20px 0px'
+          }}></div>
+          
+          {/* Corner Lines - EXACT from Corporate Luxury */}
+          <div className="absolute top-6 left-6 w-20 h-px bg-gradient-to-r from-amber-400 to-transparent"></div>
+          <div className="absolute top-6 left-6 h-20 w-px bg-gradient-to-b from-amber-400 to-transparent"></div>
+          <div className="absolute bottom-6 right-6 w-20 h-px bg-gradient-to-l from-blue-400 to-transparent"></div>
+          <div className="absolute bottom-6 right-6 h-20 w-px bg-gradient-to-t from-blue-400 to-transparent"></div>
+          
+          {/* Central geometric circle - EXACT from Corporate Luxury */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 opacity-10">
+            <div className="absolute inset-0 border border-white/20 rounded-full"></div>
+            <div className="absolute inset-12 border border-white/15 rounded-full"></div>
+            <div className="absolute inset-24 border border-white/10 rounded-full"></div>
+          </div>
+        </div>
+        
+        <div className="container mx-auto px-4 md:px-6 text-center relative z-10 max-w-full">
+          {/* Main Heading with Subtext - Enhanced with visible effects */}
+          <div className="mb-6 md:mb-8 relative">
+            {/* Shimmer effect behind heading */}
+            <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/5 via-transparent to-blue-500/5 blur-xl rounded-full opacity-50"></div>
+            
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 md:mb-3 relative">
+              Find Trusted{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400 relative">
+                Professionals
+                {/* Text underline effect */}
+                <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-orange-500/50 via-yellow-500 to-orange-500/50 rounded-full"></span>
+              </span>
+            </h2>
+            <p className="text-gray-300 text-sm md:text-base lg:text-lg max-w-2xl mx-auto leading-relaxed relative">
+              For every home, service, repair, and fix across South Africa.
+              <span className="absolute -bottom-1 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></span>
+              <a 
+                href="/providers/provider-listings"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent hover:from-yellow-300 hover:to-amber-300 text-xs font-medium hover:underline transition-all duration-300 ml-2"
+              >
+                <span>List your service now →</span>
+              </a>
+            </p>
+          </div>
+          
+          {/* Floating Search Bar with visible design */}
+          <div className="flex flex-col items-center space-y-10 relative">
+            {/* Decorative lines around search */}
+            <div className="absolute -top-4 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent"></div>
+            
+            {/* The Search Bar - Centered with glow */}
+            <div className="flex justify-center w-full mb-0 md:mb-0 relative">
+              {/* Outer glow effect */}
+              <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/10 to-blue-500/10 blur-lg rounded-full opacity-30"></div>
+              <SearchBar />
+            </div>
+            
+            <div className="absolute -bottom-4 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-blue-400/20 to-transparent"></div>
+          </div>
+        </div>
+        
+        {/* Bottom accent line */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 via-20% via-blue-400/30 via-80% to-transparent"></div>
+      </header>
       
       {/* Categories Section */}
       <section className="container mx-auto px-4 md:px-6 relative overflow-hidden">

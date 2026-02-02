@@ -19,7 +19,6 @@ import {
   Shield,
   Award,
   MapPin,
-  DollarSign,
   CreditCard,
   FileText,
   Loader2
@@ -1001,7 +1000,6 @@ function EditListingContent() {
                 </label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                    <DollarSign className="w-5 h-5" />
                   </div>
                   <input
                     type="text"
@@ -1042,7 +1040,6 @@ function EditListingContent() {
                       className="mr-3 accent-orange-500 w-5 h-5"
                     />
                     <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
                       <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
                     </div>
                   </div>
@@ -1098,7 +1095,6 @@ function EditListingContent() {
                       <div className="mt-3 pl-8">
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                            <DollarSign className="w-4 h-4" />
                           </div>
                           <input
                             type="text"

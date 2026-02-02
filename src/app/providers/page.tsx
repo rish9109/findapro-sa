@@ -7,7 +7,7 @@ import { supabase, getUserFavorites, toggleFavoriteSupabase } from '@/lib/supaba
 import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { 
-  Heart, MapPin, Star, DollarSign, Briefcase,
+  Heart, MapPin, Star, Briefcase,
   Shield, Zap, Award, ChevronRight,
   CheckCircle, Calendar
 } from 'lucide-react'
@@ -484,7 +484,6 @@ export default function ProvidersPage() {
                             </div>
                             
                             <div className="flex items-center gap-1.5">
-                              <DollarSign className="w-4 h-4 text-emerald-400" />
                               <span className="font-semibold text-emerald-400">
                                 {getPriceDisplay(provider)}
                               </span>

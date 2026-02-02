@@ -1,62 +1,21 @@
-// File: src/app/providers/[id]/page.tsx - FIXED WITH PROPER FAVORITE SYNC
+// File: src/app/providers/[id]/page.tsx - IMPROVED SHARE & CONTACT BUTTONS
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase, isProviderFavorited, addFavorite, removeFavorite } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createPortal } from 'react-dom'
 import { 
-  X, MapPin, Star, Phone, Mail, Globe,
-  MessageSquare, Share2, Heart, Award, Shield, 
-  CheckCircle, Users, Clock, DollarSign, ChevronRight,
-  Sparkles, ExternalLink, ArrowLeft,
-  Building, FileBadge, ShieldCheck, Clock4,
-  Target, Navigation, PhoneCall
+  ArrowLeft, Heart, Share2, Phone, Mail, MapPin, 
+  Star, Clock, DollarSign, Shield, Zap, Award, 
+  CheckCircle, Calendar, Briefcase, Users, Globe,
+  ExternalLink, ShieldCheck, FileBadge, Sparkles,
+  PhoneCall, MessageSquare, Building, AlertCircle,
+  Copy, Facebook, Twitter, Linkedin, MessageCircle
 } from 'lucide-react'
 
-// Mock provider data - you can replace with your actual Supabase data
-const MOCK_PROVIDERS = [
-  {
-    id: '1',
-    slug: 'luxe-interiors-design-studio',
-    business_name: 'Luxe Interiors Design Studio',
-    main_service: 'Interior Design',
-    city: 'New York',
-    province: 'NY',
-    rating: 4.9,
-    review_count: 128,
-    price_range: '$$$$',
-    logo_url: '/api/placeholder/80/80',
-    description: 'Premium interior design services for luxury residences and commercial spaces. We specialize in modern, contemporary, and classic interior design with over 15 years of experience.',
-    tags: ['Luxury', 'Residential', 'Commercial', 'Modern'],
-    category: 'design',
-    verified: true,
-    featured: true,
-    contact_person: 'John Smith',
-    contact_email: 'john@luxeinteriors.com',
-    contact_phone: '+1 (555) 123-4567',
-    website: 'https://luxeinteriors.com',
-    address: '123 Design Avenue',
-    postal_code: '10001',
-    registration_number: 'REG-123456',
-    services_offered: 'Interior Design, Space Planning, Furniture Selection, Lighting Design',
-    additional_info: 'Winner of 2023 Design Excellence Award. Available for international projects.',
-    experience_years: '15+',
-    response_time: 'Within 2 hours',
-    languages: ['English', 'Spanish', 'French'],
-    certifications: ['NCIDQ Certified', 'LEED AP', 'WELL AP'],
-    insurance: 'Full Liability Insurance',
-    portfolio_items: 45,
-    happy_clients: 320
-  },
-]
-
-// Cache for provider data
-const providerCache = new Map<string, any>()
-
-export default function ProviderModalPage() {
+export default function ProviderDetailPage() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -66,65 +25,37 @@ export default function ProviderModalPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
-  const [activeTab, setActiveTab] = useState('overview')
-  const [showContactForm, setShowContactForm] = useState(false)
-  const [authChecked, setAuthChecked] = useState(false)
-  const [originCategory, setOriginCategory] = useState<string | null>(null)
   const [syncingFavorite, setSyncingFavorite] = useState(false)
+  const [accreditations, setAccreditations] = useState<any[]>([])
+  const [serviceAreas, setServiceAreas] = useState<any[]>([])
+  const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
+  const [activeTab, setActiveTab] = useState<'overview' | 'reviews'>('overview')
+  const [showNotification, setShowNotification] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState('')
+  const [showShareMenu, setShowShareMenu] = useState(false)
+  const shareMenuRef = useRef<HTMLDivElement>(null)
 
   const providerId = params.id as string
-  const isModal = searchParams.get('ref') === 'category'
-  const categoryParam = searchParams.get('category') // Get category from URL if present
+  const categoryParam = searchParams.get('category')
 
-  // FIX 1: Proper auth check that doesn't show modal on refresh
+  // Close share menu when clicking outside
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session) {
-          console.log('🔒 No session found, showing auth modal')
-          showAuthModal('login')
-        } else {
-          console.log('✅ User authenticated:', session.user.email)
-          setAuthChecked(true)
-        }
-      } catch (error) {
-        console.error('Auth check error:', error)
-        setAuthChecked(true) // Continue anyway
+    const handleClickOutside = (event: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+        setShowShareMenu(false)
       }
     }
 
-    checkAuth()
-  }, [showAuthModal])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
-  // FIX 2: Store the category parameter from URL or sessionStorage
+  // Fetch provider details
   useEffect(() => {
-    if (isModal) {
-      // Try to get category from URL first
-      if (categoryParam) {
-        console.log('📌 Category from URL:', categoryParam)
-        setOriginCategory(categoryParam)
-        sessionStorage.setItem('lastCategory', categoryParam)
-      } else {
-        // Fallback to sessionStorage if category not in URL
-        const lastCategory = sessionStorage.getItem('lastCategory')
-        if (lastCategory) {
-          console.log('📌 Category from sessionStorage:', lastCategory)
-          setOriginCategory(lastCategory)
-        }
-      }
-    }
-  }, [isModal, categoryParam])
+    fetchProviderDetails()
+  }, [providerId])
 
-  // FIX 3: Fetch provider only after auth check
-  useEffect(() => {
-    if (!authChecked) return
-    
-    fetchProvider()
-  }, [authChecked, providerId])
-
-  // Check favorite status when provider and user are loaded
+  // Check favorite status
   useEffect(() => {
     const checkFavoriteStatus = async () => {
       if (user && provider) {
@@ -137,137 +68,78 @@ export default function ProviderModalPage() {
       }
     }
     
-    if (provider && authChecked) {
+    if (provider && user) {
       checkFavoriteStatus()
     }
-  }, [provider, user, authChecked])
+  }, [provider, user])
 
-  // FIX 4: Handle escape key and back button
+  // Fetch global accreditations
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
+    const fetchGlobalAccreditations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('accreditations')
+          .select('*')
+          .eq('is_global', true)
+        
+        if (!error && data) {
+          const map = new Map()
+          data.forEach(acc => {
+            map.set(acc.id, acc)
+          })
+          setAccreditationsMap(map)
+        }
+      } catch (error) {
+        console.error('Error fetching accreditations:', error)
+      }
     }
     
-    const handlePopState = () => {
-      handleClose()
-    }
+    fetchGlobalAccreditations()
+  }, [])
 
-    window.addEventListener('keydown', handleEscape)
-    window.addEventListener('popstate', handlePopState)
-
-    // Push state for modal to handle back button
-    if (isModal) {
-      window.history.pushState({ modal: true }, '')
-    }
-
-    return () => {
-      window.removeEventListener('keydown', handleEscape)
-      window.removeEventListener('popstate', handlePopState)
-    }
-  }, [isModal])
-
-  // FIX 5: Optimized provider fetching with cache
-  const fetchProvider = useCallback(async () => {
-    // Check cache first
-    const cacheKey = `provider_${providerId}`
-    if (providerCache.has(cacheKey)) {
-      console.log('📦 Loading from cache')
-      setProvider(providerCache.get(cacheKey))
-      setLoading(false)
-      return
-    }
-
+  const fetchProviderDetails = async () => {
     try {
       setLoading(true)
       setError('')
 
-      // Try Supabase first
-      const { data, error: supabaseError } = await supabase
+      // Fetch provider with all related data
+      const { data, error: providerError } = await supabase
         .from('providers')
-        .select('*')
+        .select(`
+          *,
+          provider_service_areas (*),
+          provider_accreditations (*)
+        `)
         .eq('id', providerId)
         .eq('status', 'approved')
         .single()
 
-      if (supabaseError) throw supabaseError
+      if (providerError) throw providerError
 
       if (data) {
-        providerCache.set(cacheKey, data)
+        // Fetch additional service areas if needed
+        if (data.provider_service_areas && data.provider_service_areas.length > 0) {
+          setServiceAreas(data.provider_service_areas)
+        }
+
+        // Fetch accreditations details
+        if (data.provider_accreditations && data.provider_accreditations.length > 0) {
+          setAccreditations(data.provider_accreditations)
+        }
+
         setProvider(data)
-        
-        // Also store provider category in sessionStorage for reference
-        if (data.category) {
-          sessionStorage.setItem('providerCategory', data.category)
-        }
       } else {
-        // Fallback to mock
-        const mockProvider = MOCK_PROVIDERS.find(p => p.id === providerId)
-        if (mockProvider) {
-          providerCache.set(cacheKey, mockProvider)
-          setProvider(mockProvider)
-          
-          // Store mock provider category
-          if (mockProvider.category) {
-            sessionStorage.setItem('providerCategory', mockProvider.category)
-          }
-        } else {
-          setError('Provider not found')
-        }
+        setError('Provider not found or not approved')
       }
     } catch (error: any) {
-      console.error('Fetch error:', error)
-      
-      // Fallback to mock
-      const mockProvider = MOCK_PROVIDERS.find(p => p.id === providerId)
-      if (mockProvider) {
-        providerCache.set(cacheKey, mockProvider)
-        setProvider(mockProvider)
-        
-        // Store mock provider category
-        if (mockProvider.category) {
-          sessionStorage.setItem('providerCategory', mockProvider.category)
-        }
-      } else {
-        setError(error.message || 'Failed to load details')
-      }
+      console.error('Error fetching provider:', error)
+      setError(error.message || 'Failed to load provider details')
     } finally {
       setLoading(false)
     }
-  }, [providerId])
+  }
 
-  const handleClose = useCallback(() => {
-    console.log('🔙 Closing modal, isModal:', isModal, 'originCategory:', originCategory)
-    
-    if (isModal) {
-      // Build the back URL with category if we have it
-      let backUrl = '/providers'
-      
-      // Priority order for determining category:
-      // 1. Category from URL parameter (most reliable)
-      // 2. Category stored in sessionStorage from navigation
-      // 3. Provider's own category field (fallback)
-      
-      const categoryToUse = categoryParam || originCategory || sessionStorage.getItem('lastCategory') || sessionStorage.getItem('providerCategory')
-      
-      if (categoryToUse) {
-        backUrl = `/providers?category=${encodeURIComponent(categoryToUse)}`
-        console.log('🎯 Returning to category:', categoryToUse, 'URL:', backUrl)
-      }
-      
-      // Use replace instead of push to avoid adding to history stack
-      router.replace(backUrl)
-    } else {
-      // For direct access, go back or to providers
-      if (window.history.length > 1) {
-        router.back()
-      } else {
-        router.push('/providers')
-      }
-    }
-  }, [isModal, router, originCategory, categoryParam])
-
-  // FIXED: Optimized favorite toggle with proper Supabase sync
-  const toggleFavorite = useCallback(async () => {
+  const toggleFavorite = async () => {
     if (!user) {
       showAuthModal('login')
       return
@@ -278,7 +150,7 @@ export default function ProviderModalPage() {
     try {
       setSyncingFavorite(true)
       
-      // Optimistic update - update UI immediately
+      // Optimistic update
       const newIsFavorite = !isFavorite
       setIsFavorite(newIsFavorite)
       
@@ -294,96 +166,167 @@ export default function ProviderModalPage() {
         // Revert on error
         setIsFavorite(!newIsFavorite)
         console.error('Failed to sync favorite with Supabase')
-      } else {
-        // Update localStorage for consistency with providers page
-        const savedFavorites = localStorage.getItem('provider_favorites')
-        let favorites = savedFavorites ? JSON.parse(savedFavorites) : []
-        
-        if (newIsFavorite) {
-          if (!favorites.includes(provider.id)) {
-            favorites.push(provider.id)
-          }
-        } else {
-          favorites = favorites.filter((id: string) => id !== provider.id)
-        }
-        
-        localStorage.setItem('provider_favorites', JSON.stringify(favorites))
       }
+      
+      // Update localStorage for consistency
+      const savedFavorites = localStorage.getItem('provider_favorites')
+      let favorites = savedFavorites ? JSON.parse(savedFavorites) : []
+      
+      if (newIsFavorite) {
+        if (!favorites.includes(provider.id)) {
+          favorites.push(provider.id)
+        }
+      } else {
+        favorites = favorites.filter((id: string) => id !== provider.id)
+      }
+      
+      localStorage.setItem('provider_favorites', JSON.stringify(favorites))
+      
     } catch (error) {
       console.error('Error toggling favorite:', error)
-      // Revert on error
       setIsFavorite(!isFavorite)
     } finally {
       setSyncingFavorite(false)
     }
-  }, [user, isFavorite, provider, showAuthModal])
+  }
 
-  const handleContactClick = useCallback(() => {
-    if (!user) {
-      showAuthModal('login')
-      return
-    }
-    setShowContactForm(true)
-  }, [user, showAuthModal])
-
-  const handleShare = useCallback(() => {
+  const handleShare = (method?: 'copy' | 'facebook' | 'twitter' | 'linkedin' | 'whatsapp') => {
     if (!provider) return
     
-    if (navigator.share) {
-      navigator.share({
-        title: provider.business_name,
-        text: `Check out ${provider.business_name} on FindAPro`,
-        url: window.location.href,
-      })
-    } else {
-      navigator.clipboard.writeText(window.location.href)
-      alert('Link copied to clipboard!')
+    const url = window.location.href
+    const title = provider.business_name
+    const text = `Check out ${provider.business_name} on FindAPro - ${provider.main_service}`
+    
+    switch (method) {
+      case 'copy':
+        navigator.clipboard.writeText(url)
+          .then(() => {
+            setNotificationMessage('Link copied to clipboard!')
+            setShowNotification(true)
+            setShowShareMenu(false)
+            setTimeout(() => setShowNotification(false), 3000)
+          })
+          .catch((err) => {
+            console.error('Failed to copy link:', err)
+            setNotificationMessage('Failed to copy link')
+            setShowNotification(true)
+            setTimeout(() => setShowNotification(false), 3000)
+          })
+        break
+        
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`, '_blank')
+        setShowShareMenu(false)
+        break
+        
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank')
+        setShowShareMenu(false)
+        break
+        
+      case 'linkedin':
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank')
+        setShowShareMenu(false)
+        break
+        
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank')
+        setShowShareMenu(false)
+        break
+        
+      default:
+        setShowShareMenu(!showShareMenu)
+        break
     }
-  }, [provider])
-
-  // FIX 8: Show loading while checking auth
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
-          <p className="text-gray-400">Checking authentication...</p>
-        </div>
-      </div>
-    )
   }
 
-  // FIX 9: Show loading state
+  const getServiceAreasDisplay = () => {
+    if (!serviceAreas || serviceAreas.length === 0) {
+      return provider?.main_service_area || 'Service area not specified'
+    }
+    
+    const primaryArea = serviceAreas.find(area => area.is_primary)?.area_name
+    const otherAreas = serviceAreas.filter(area => !area.is_primary).map(area => area.area_name)
+    
+    if (otherAreas.length === 0) {
+      return primaryArea
+    }
+    
+    return `${primaryArea} + ${otherAreas.length} more`
+  }
+
+  const getPriceDisplay = () => {
+    if (provider?.hourly_rate) {
+      return `R${provider.hourly_rate}/hr`
+    }
+    if (provider?.callout_fee) {
+      return `R${provider.callout_fee} callout fee`
+    }
+    return 'Contact for rates'
+  }
+
+  const getBusinessColor = (businessName: string) => {
+    const colors = [
+      '#3B82F6', // Blue
+      '#10B981', // Emerald
+      '#6366F1', // Indigo
+      '#EF4444', // Red
+      '#F59E0B', // Amber
+      '#06B6D4', // Cyan
+      '#84CC16', // Lime
+      '#EC4899', // Pink
+    ]
+    
+    if (!businessName) return colors[0]
+    const charCode = businessName.charCodeAt(0)
+    return colors[charCode % colors.length]
+  }
+
+  const getBusinessInitials = (businessName: string) => {
+    if (!businessName) return 'P'
+    return businessName.charAt(0).toUpperCase()
+  }
+
+  const getOtherServices = () => {
+    if (!provider?.other_services) return []
+    return provider.other_services.split(',').map((s: string) => s.trim())
+  }
+
+  // Render stars based on rating
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star 
+        key={i} 
+        className={`w-4 h-4 ${i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} 
+      />
+    ))
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center p-4">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
-          <p className="text-gray-400">Loading professional details...</p>
+          <p className="text-gray-400">Loading provider details...</p>
         </div>
       </div>
     )
   }
 
-  // FIX 10: Show error state with proper back navigation
   if (error || !provider) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="bg-gradient-to-r from-red-500/20 to-pink-500/20 p-6 sm:p-8 rounded-2xl border border-red-500/30 max-w-md mx-4">
-            <X className="w-12 h-12 sm:w-16 sm:h-16 text-red-400 mx-auto mb-4" />
-            <p className="text-red-400 text-lg sm:text-xl mb-4">{error || 'Provider not found'}</p>
+          <div className="bg-gradient-to-r from-red-500/20 to-pink-500/20 p-8 rounded-2xl border border-red-500/30 max-w-md">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-400" />
+            </div>
+            <p className="text-red-400 text-xl mb-4">{error || 'Provider not found'}</p>
             <button
-              onClick={() => {
-                const lastCategory = sessionStorage.getItem('lastCategory')
-                const backUrl = lastCategory && lastCategory !== 'all' 
-                  ? `/providers?category=${lastCategory}` 
-                  : '/providers'
-                router.push(backUrl)
-              }}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg font-semibold hover:from-emerald-500 hover:to-emerald-400 text-sm sm:text-base"
+              onClick={() => router.back()}
+              className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg font-semibold hover:from-emerald-500 hover:to-emerald-400"
             >
-              ← Back to Professionals
+              ← Back to Providers
             </button>
           </div>
         </div>
@@ -391,555 +334,687 @@ export default function ProviderModalPage() {
     )
   }
 
-  // FIX 11: Modal view with proper portal
-  if (isModal) {
-    return createPortal(
-      <AnimatePresence>
-        <div className="fixed inset-0 z-[9999] overflow-y-auto">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={handleClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
-          />
+  const businessColor = getBusinessColor(provider.business_name)
+  const businessInitials = getBusinessInitials(provider.business_name)
+  const otherServices = getOtherServices()
 
-          {/* Modal Content */}
-          <div className="relative min-h-screen flex items-center justify-center p-2 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-4xl lg:max-w-6xl max-h-[90vh] sm:max-h-[95vh] overflow-y-auto"
-            >
-              <ProviderContent 
-                provider={provider}
-                isFavorite={isFavorite}
-                activeTab={activeTab}
-                showContactForm={showContactForm}
-                isFullPage={false}
-                onClose={handleClose}
-                onToggleFavorite={toggleFavorite}
-                onContactClick={handleContactClick}
-                onShare={handleShare}
-                onTabChange={setActiveTab}
-                onSetContactForm={setShowContactForm}
-                originCategory={originCategory}
-                syncingFavorite={syncingFavorite}
-              />
-            </motion.div>
+  // Share Menu Component
+  const ShareMenu = () => (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+      className="absolute top-full right-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden"
+      ref={shareMenuRef}
+    >
+      <div className="p-3 border-b border-gray-700/50">
+        <p className="text-sm font-medium text-white">Share this provider</p>
+      </div>
+      <div className="p-2">
+        <button
+          onClick={() => handleShare('copy')}
+          className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+            <Copy className="w-5 h-5 text-emerald-400" />
           </div>
-        </div>
-      </AnimatePresence>,
-      document.body
-    )
-  }
+          <div className="text-left">
+            <p className="text-sm font-medium text-white">Copy link</p>
+            <p className="text-xs text-gray-400">Copy to clipboard</p>
+          </div>
+        </button>
+        
+        <button
+          onClick={() => handleShare('whatsapp')}
+          className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-green-400" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-white">WhatsApp</p>
+            <p className="text-xs text-gray-400">Share via WhatsApp</p>
+          </div>
+        </button>
+        
+        <button
+          onClick={() => handleShare('facebook')}
+          className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-600/20 flex items-center justify-center">
+            <Facebook className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-white">Facebook</p>
+            <p className="text-xs text-gray-400">Share on Facebook</p>
+          </div>
+        </button>
+        
+        <button
+          onClick={() => handleShare('twitter')}
+          className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-lg bg-sky-500/20 flex items-center justify-center">
+            <Twitter className="w-5 h-5 text-sky-400" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-white">Twitter</p>
+            <p className="text-xs text-gray-400">Share on Twitter</p>
+          </div>
+        </button>
+        
+        <button
+          onClick={() => handleShare('linkedin')}
+          className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-gray-700/50 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-700/20 flex items-center justify-center">
+            <Linkedin className="w-5 h-5 text-blue-500" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-white">LinkedIn</p>
+            <p className="text-xs text-gray-400">Share on LinkedIn</p>
+          </div>
+        </button>
+      </div>
+    </motion.div>
+  )
 
-  // FIX 12: Full page view
+  // Notification Component
+  const Notification = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 50 }}
+      className="fixed bottom-4 right-4 z-50"
+    >
+      <div className="bg-gray-800 border border-emerald-500/30 rounded-xl p-4 shadow-2xl flex items-center gap-3">
+        <CheckCircle className="w-5 h-5 text-emerald-400" />
+        <span className="text-white font-medium">{notificationMessage}</span>
+      </div>
+    </motion.div>
+  )
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
+      {/* Notification */}
+      {showNotification && <Notification />}
+
       {/* Animated background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
         <div className="absolute top-1/3 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl" />
       </div>
 
-      {/* Back button - with category if available */}
-      <div className="container mx-auto px-3 sm:px-4 pt-6 sm:pt-8">
+      {/* Back button */}
+      <div className="container mx-auto px-4 pt-6">
         <button
-          onClick={handleClose}
-          className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 mb-4 sm:mb-6 group text-sm sm:text-base"
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 mb-4 group"
         >
-          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-1 transition-transform" />
-          {originCategory ? `Back to ${getCategoryLabel(originCategory)} Professionals` : 'Back to Professionals'}
+          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          Back to Providers
         </button>
       </div>
 
-      {/* Provider Content */}
-      <div className="container mx-auto px-3 sm:px-4 pb-6 sm:pb-8">
-        <ProviderContent 
-          provider={provider}
-          isFavorite={isFavorite}
-          activeTab={activeTab}
-          showContactForm={showContactForm}
-          isFullPage={true}
-          onClose={handleClose}
-          onToggleFavorite={toggleFavorite}
-          onContactClick={handleContactClick}
-          onShare={handleShare}
-          onTabChange={setActiveTab}
-          onSetContactForm={setShowContactForm}
-          originCategory={originCategory}
-          syncingFavorite={syncingFavorite}
-        />
-      </div>
-    </div>
-  )
-}
-
-// Helper function to get category label from ID
-function getCategoryLabel(categoryId: string): string {
-  const categoryMap: Record<string, string> = {
-    'home-services': 'Home Services',
-    'repairs': 'Repairs',
-    'automotive': 'Automotive',
-    'design': 'Design',
-    'plumbing': 'Plumbing',
-    'electrical': 'Electrical',
-    'gardening': 'Gardening',
-    'tech-support': 'Tech Support',
-    'wellness': 'Wellness',
-    'fitness': 'Fitness',
-    'entertainment': 'Entertainment',
-    'accounting': 'Accounting',
-  }
-  
-  return categoryMap[categoryId] || categoryId
-}
-
-// FIX 13: Updated ProviderContent component interface
-interface ProviderContentProps {
-  provider: any
-  isFavorite: boolean
-  activeTab: string
-  showContactForm: boolean
-  isFullPage: boolean
-  onClose: () => void
-  onToggleFavorite: () => void
-  onContactClick: () => void
-  onShare: () => void
-  onTabChange: (tab: string) => void
-  onSetContactForm: (show: boolean) => void
-  originCategory?: string | null
-  syncingFavorite?: boolean
-}
-
-function ProviderContent({
-  provider,
-  isFavorite,
-  activeTab,
-  showContactForm,
-  isFullPage,
-  onClose,
-  onToggleFavorite,
-  onContactClick,
-  onShare,
-  onTabChange,
-  onSetContactForm,
-  originCategory,
-  syncingFavorite = false
-}: ProviderContentProps) {
-  
-  // Memoized values for performance
-  const tabs = useMemo(() => [
-    { id: 'overview', label: 'Overview', icon: Building },
-    { id: 'services', label: 'Services', icon: Target },
-    { id: 'portfolio', label: 'Portfolio', icon: Award },
-    { id: 'reviews', label: 'Reviews', icon: Star },
-  ], [])
-
-  const stars = useMemo(() => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`w-4 h-4 sm:w-5 sm:h-5 ${i < Math.floor(provider.rating) ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} 
-      />
-    ))
-  }, [provider.rating])
-
-  const certifications = useMemo(() => {
-    if (!provider.certifications || !Array.isArray(provider.certifications)) return null
-    return provider.certifications.map((cert: string, index: number) => (
-      <div key={index} className="flex items-center gap-2 sm:gap-3">
-        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-        <span className="text-gray-300 text-sm sm:text-base">{cert}</span>
-      </div>
-    ))
-  }, [provider.certifications])
-
-  return (
-    <div className={`bg-gradient-to-br from-gray-900 via-gray-900 to-black rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-2xl border border-emerald-500/20 overflow-hidden ${!isFullPage ? '' : 'mt-2 sm:mt-4'}`}>
-      {/* Header */}
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-purple-500/10 to-cyan-500/10" />
-        
-        <div className="relative p-4 sm:p-6 lg:p-8 border-b border-emerald-500/20">
-          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-            {/* Logo/Image */}
-            <div className="flex-shrink-0 flex justify-center lg:justify-start">
-              <div className="relative">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-28 lg:h-28 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-purple-500 flex items-center justify-center text-white text-xl sm:text-2xl lg:text-3xl font-bold">
-                  {provider.business_name.charAt(0)}
-                </div>
-                {provider.verified && (
-                  <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2">
-                    <div className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-xs font-bold flex items-center gap-1">
-                      <ShieldCheck className="w-2 h-2 sm:w-3 sm:h-3" />
-                      <span className="text-xs">Verified</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Business Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1 sm:mb-2 truncate">
-                    {provider.business_name}
-                  </h2>
-                  <div className="flex items-center flex-wrap gap-2 mb-2 sm:mb-3">
-                    <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs sm:text-sm font-medium truncate">
-                      {provider.main_service}
-                    </span>
-                    {originCategory && (
-                      <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 text-xs sm:text-sm truncate">
-                        {getCategoryLabel(originCategory)}
+      {/* Main Content */}
+      <div className="container mx-auto px-4 pb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden"
+        >
+          {/* Header Section */}
+          <div className="p-6 border-b border-gray-700/50">
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Business Logo/Initials */}
+              <div className="flex-shrink-0">
+                <div className="relative">
+                  <div 
+                    className="w-24 h-24 rounded-2xl border-2 border-gray-600 flex items-center justify-center shadow-lg"
+                    style={{ 
+                      backgroundColor: businessColor + '10',
+                    }}
+                  >
+                    <div 
+                      className="w-full h-full rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: businessColor }}
+                    >
+                      <span className="text-3xl font-bold text-white">
+                        {businessInitials}
                       </span>
-                    )}
-                    <div className="flex items-center gap-1 text-gray-300 text-xs sm:text-sm">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
-                      <span className="truncate">{provider.city}, {provider.province}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
-                      <span className="text-emerald-400 font-medium text-xs sm:text-sm">{provider.price_range}</span>
                     </div>
                   </div>
                   
-                  {/* Rating */}
-                  <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <div className="flex">
-                        {stars}
-                      </div>
-                      <span className="text-lg sm:text-xl font-bold text-white">{provider.rating}</span>
-                      <span className="text-gray-400 text-xs sm:text-sm">({provider.review_count} reviews)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 mt-2 sm:mt-0">
-                  <button
-                    onClick={onToggleFavorite}
-                    disabled={syncingFavorite}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-pink-500/50 hover:bg-pink-500/10 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                  >
-                    {syncingFavorite ? (
-                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400 group-hover:text-pink-400'}`} />
-                    )}
-                  </button>
-                  <button
-                    onClick={onShare}
-                    className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all duration-300"
-                    title="Share"
-                  >
-                    <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-emerald-400" />
-                  </button>
-                  <button
-                    onClick={onContactClick}
-                    className="px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold hover:from-emerald-500 hover:to-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] sm:hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all duration-300 text-sm sm:text-base"
-                  >
-                    Contact
-                  </button>
-                  {!isFullPage && (
-                    <button
-                      onClick={onClose}
-                      className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:bg-white/10 transition-all duration-300"
-                    >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-                {provider.experience_years && (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Clock4 className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
-                    <span className="text-gray-300 text-xs sm:text-sm">{provider.experience_years} experience</span>
-                  </div>
-                )}
-                {provider.response_time && (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                    <span className="text-gray-300 text-xs sm:text-sm">{provider.response_time} response</span>
-                  </div>
-                )}
-                {provider.happy_clients && (
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-                    <span className="text-gray-300 text-xs sm:text-sm">{provider.happy_clients} happy clients</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs - Responsive */}
-        <div className="border-b border-gray-800 overflow-x-auto">
-          <div className="container mx-auto px-3 sm:px-4 lg:px-6 min-w-max">
-            <div className="flex gap-2 sm:gap-4 py-2">
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => onTabChange(tab.id)}
-                    className={`px-3 py-2 sm:px-4 sm:py-3 font-medium transition-all duration-300 relative flex items-center gap-1 sm:gap-2 whitespace-nowrap ${activeTab === tab.id ? 'text-emerald-400' : 'text-gray-400 hover:text-white'}`}
-                  >
-                    <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="text-xs sm:text-sm">{tab.label}</span>
-                    {activeTab === tab.id && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500"
-                      />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-4 sm:p-6 lg:p-8">
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {/* Left Column */}
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:space-y-8">
-              {/* Description */}
-              <div className="modern-glass rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-emerald-500/20">
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-1 sm:gap-2">
-                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                  About {provider.business_name}
-                </h3>
-                <p className="text-gray-300 leading-relaxed text-sm sm:text-base mb-3 sm:mb-4">
-                  {provider.description}
-                </p>
-                {provider.additional_info && (
-                  <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
-                    {provider.additional_info}
-                  </p>
-                )}
-              </div>
-
-              {/* Contact Form */}
-              {showContactForm && (
-                <div className="modern-glass rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-emerald-500/20">
-                  <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">Contact {provider.contact_person}</h3>
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Your Name</label>
-                        <input
-                          type="text"
-                          className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 text-sm sm:text-base"
-                          placeholder="John Doe"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Your Email</label>
-                        <input
-                          type="email"
-                          className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 text-sm sm:text-base"
-                          placeholder="john@example.com"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1 sm:mb-2">Message</label>
-                      <textarea
-                        rows={3}
-                        className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 text-sm sm:text-base"
-                        placeholder={`Hi ${provider.contact_person}, I'm interested in your services...`}
-                      />
-                    </div>
-                    <div className="flex gap-3">
-                      <button 
-                        onClick={() => onSetContactForm(false)}
-                        className="px-3 py-2 sm:px-4 sm:py-3 rounded-lg bg-gray-800/50 text-gray-300 hover:text-white text-sm sm:text-base"
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        onClick={() => onSetContactForm(false)}
-                        className="flex-1 px-3 py-2 sm:px-4 sm:py-3 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-semibold hover:from-emerald-500 hover:to-emerald-400 text-sm sm:text-base"
-                      >
-                        Send Message
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Location */}
-              <div className="modern-glass rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-emerald-500/20">
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-1 sm:gap-2">
-                  <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                  Location & Service Area
-                </h3>
-                <div className="space-y-3 sm:space-y-4">
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Address</p>
-                    <p className="text-white text-sm sm:text-base">{provider.address}</p>
-                    <p className="text-gray-300 text-sm sm:text-base">{provider.city}, {provider.province} {provider.postal_code}</p>
-                  </div>
-                  {provider.serviceAreas && (
-                    <div>
-                      <p className="text-xs sm:text-sm text-gray-400 mb-2">Service Areas</p>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                        {provider.serviceAreas.map((area: string, index: number) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          >
-                            {area}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4 sm:space-y-6">
-              {/* Contact Card */}
-              <div className="modern-glass rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-emerald-500/20">
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6">Contact Information</h3>
-                <div className="space-y-3 sm:space-y-4">
-                  {provider.contact_person && (
-                    <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gray-800/30">
-                      <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm text-gray-400">Contact Person</p>
-                        <p className="text-white font-medium text-sm sm:text-base truncate">{provider.contact_person}</p>
-                      </div>
-                    </div>
-                  )}
-                  {provider.contact_phone && (
-                    <a
-                      href={`tel:${provider.contact_phone}`}
-                      className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gray-800/30 hover:bg-gray-800/50 transition-colors"
-                    >
-                      <PhoneCall className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm text-gray-400">Phone</p>
-                        <p className="text-white font-medium text-sm sm:text-base truncate">{provider.contact_phone}</p>
-                      </div>
-                    </a>
-                  )}
-                  {provider.contact_email && (
-                    <a
-                      href={`mailto:${provider.contact_email}`}
-                      className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gray-800/30 hover:bg-gray-800/50 transition-colors"
-                    >
-                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm text-gray-400">Email</p>
-                        <p className="text-white font-medium text-sm sm:text-base truncate">{provider.contact_email}</p>
-                      </div>
-                    </a>
-                  )}
-                  {provider.website && (
-                    <a
-                      href={provider.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gray-800/30 hover:bg-gray-800/50 transition-colors"
-                    >
-                      <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm text-gray-400">Website</p>
-                        <p className="text-emerald-400 font-medium text-sm sm:text-base flex items-center gap-1 truncate">
-                          Visit Website
-                          <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                        </p>
-                      </div>
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              {/* Verification Badges */}
-              <div className="modern-glass rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-emerald-500/20">
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-4 sm:mb-6">Verifications & Credentials</h3>
-                <div className="space-y-2 sm:space-y-3">
                   {provider.verified && (
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <span className="text-gray-300 text-sm sm:text-base">Verified Professional</span>
+                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 rounded-full border-2 border-gray-800 flex items-center justify-center shadow-lg">
+                      <CheckCircle className="w-5 h-5 text-white" />
                     </div>
                   )}
-                  {provider.registration_number && (
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <FileBadge className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <span className="text-gray-300 text-sm sm:text-base">Reg: {provider.registration_number}</span>
+                </div>
+              </div>
+
+              {/* Business Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                      {provider.business_name}
+                    </h1>
+                    
+                    <div className="flex items-center flex-wrap gap-2 mb-3">
+                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-sm">
+                        {provider.main_service}
+                      </span>
+                      {categoryParam && (
+                        <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 text-sm">
+                          {categoryParam}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  {provider.insurance && (
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-                      <span className="text-gray-300 text-sm sm:text-base">{provider.insurance}</span>
+
+                    {/* Rating and Reviews */}
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                        <span className="font-bold text-white text-lg">
+                          {provider.rating || 'New'}
+                        </span>
+                        {provider.total_reviews > 0 && (
+                          <span className="text-gray-400">
+                            ({provider.total_reviews} reviews)
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <DollarSign className="w-5 h-5 text-emerald-400" />
+                        <span className="font-bold text-emerald-400">
+                          {getPriceDisplay()}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                  {certifications}
+
+                    {/* Experience */}
+                    {provider.experience_years > 0 && (
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <Calendar className="w-4 h-4" />
+                        <span>{provider.experience_years} years experience</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3 relative">
+                    <button
+                      onClick={toggleFavorite}
+                      disabled={syncingFavorite}
+                      className="p-3 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all"
+                      title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      {syncingFavorite ? (
+                        <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Heart className={`w-5 h-5 ${isFavorite ? 'fill-purple-500 text-purple-500' : 'text-gray-400 hover:text-purple-400'}`} />
+                      )}
+                    </button>
+                    
+                    {/* Share Button with Dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => handleShare()}
+                        className="p-3 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all relative"
+                        title="Share this provider"
+                      >
+                        <Share2 className="w-5 h-5 text-gray-400 hover:text-emerald-400" />
+                      </button>
+                      
+                      <AnimatePresence>
+                        {showShareMenu && <ShareMenu />}
+                      </AnimatePresence>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Other tabs */}
-        {activeTab !== 'overview' && (
-          <div className="text-center py-8 sm:py-12">
-            <p className="text-gray-400 text-sm sm:text-base">Coming soon...</p>
+            {/* Tabs - Only Overview and Reviews */}
+            <div className="mt-6 border-t border-gray-700/50 pt-4">
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'overview' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                >
+                  Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab('reviews')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'reviews' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                >
+                  Reviews
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Footer */}
-      <div className="p-4 sm:p-6 border-t border-gray-800 bg-gradient-to-r from-gray-900 via-gray-900 to-black">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
-            <span className="text-gray-400 text-xs sm:text-sm">Premium Professional • FindAPro Verified</span>
+          {/* Tab Content */}
+          <div className="p-6">
+            {/* Overview Tab - Show Everything Except Reviews */}
+            {activeTab === 'overview' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Main Details */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Service Areas */}
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MapPin className="w-5 h-5 text-blue-400" />
+                      <h3 className="text-lg font-bold text-white">Service Areas</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {/* Primary Area */}
+                      {serviceAreas.find(area => area.is_primary) && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Primary Service Area</p>
+                          <div className="flex items-center gap-2 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                            <MapPin className="w-4 h-4 text-blue-400" />
+                            <span className="text-white font-medium">
+                              {serviceAreas.find(area => area.is_primary)?.area_name}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Other Areas */}
+                      {serviceAreas.filter(area => !area.is_primary).length > 0 && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Additional Service Areas</p>
+                          <div className="flex flex-wrap gap-2">
+                            {serviceAreas
+                              .filter(area => !area.is_primary)
+                              .map((area, index) => (
+                                <span
+                                  key={index}
+                                  className="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm border border-gray-700"
+                                >
+                                  {area.area_name}
+                                </span>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Services Offered */}
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Briefcase className="w-5 h-5 text-purple-400" />
+                      <h3 className="text-lg font-bold text-white">Services Offered</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-400 mb-1">Main Service</p>
+                        <p className="text-white font-medium">{provider.main_service}</p>
+                      </div>
+                      
+                      {otherServices.length > 0 && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Other Services</p>
+                          <div className="flex flex-wrap gap-2">
+                            {otherServices.map((service, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-2 rounded-lg bg-purple-500/10 text-purple-400 text-sm border border-purple-500/20"
+                              >
+                                {service}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Business Description */}
+                  {provider.business_description && (
+                    <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Building className="w-5 h-5 text-cyan-400" />
+                        <h3 className="text-lg font-bold text-white">About Us</h3>
+                      </div>
+                      <p className="text-gray-300 leading-relaxed">
+                        {provider.business_description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Accreditations */}
+                  {accreditations.length > 0 && (
+                    <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Award className="w-5 h-5 text-amber-400" />
+                        <h3 className="text-lg font-bold text-white">Accreditations & Certifications</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {accreditations.map((acc, index) => {
+                          let accreditationName = 'Certified Professional'
+                          let accreditationDescription = 'Professional certification and accreditation'
+                          let accreditationIssuer = 'Professional Body'
+                          
+                          if (acc.is_custom) {
+                            accreditationName = acc.custom_name || 'Custom Accreditation'
+                            accreditationDescription = acc.custom_description || 'Professional certification'
+                            accreditationIssuer = 'Custom'
+                          } else if (acc.accreditation_id) {
+                            const globalAcc = accreditationsMap.get(acc.accreditation_id)
+                            accreditationName = globalAcc?.name || 'Certified Professional'
+                            accreditationDescription = globalAcc?.description || 'Professional certification'
+                            accreditationIssuer = globalAcc?.issuer || 'Professional Body'
+                          }
+                          
+                          return (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-5 border border-amber-500/20 hover:border-amber-500/40 transition-all group"
+                            >
+                              <div className="flex items-start gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                  <Award className="w-6 h-6 text-amber-400" />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-white group-hover:text-amber-300 transition-colors">
+                                    {accreditationName}
+                                  </h4>
+                                  <p className="text-sm text-amber-400/80 mt-1">{accreditationIssuer}</p>
+                                </div>
+                              </div>
+                              <p className="text-gray-300 text-sm leading-relaxed">
+                                {accreditationDescription}
+                              </p>
+                              {acc.is_verified && (
+                                <div className="mt-4 flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                  <span className="text-xs text-emerald-400">Verified by FindAPro</span>
+                                </div>
+                              )}
+                            </motion.div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Contact & Features */}
+                <div className="space-y-6">
+                  {/* Contact Information - IMPROVED FOR MOBILE */}
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                    <div className="flex items-center gap-2 mb-4">
+                      <PhoneCall className="w-5 h-5 text-emerald-400" />
+                      <h3 className="text-lg font-bold text-white">Contact Information</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {provider.contact_person && (
+                        <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
+                          <p className="text-xs text-gray-400 mb-1">Contact Person</p>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-gray-400" />
+                            <span className="text-white font-medium">{provider.contact_person}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Primary Phone - CLEARLY CLICKABLE */}
+                      {provider.contact_phone && (
+                        <a
+                          href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
+                          className="block p-4 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/15 transition-all group active:scale-[0.98]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors">
+                              <Phone className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-emerald-400 mb-1">Primary Phone</p>
+                              <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
+                                {provider.contact_phone}
+                              </p>
+                              <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                                <span>Tap to call</span>
+                                <PhoneCall className="w-3 h-3" />
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                      )}
+                      
+                      {/* Alternate Phone - CLEARLY CLICKABLE */}
+                      {provider.alternate_phone && (
+                        <a
+                          href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
+                          className="block p-4 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 hover:border-blue-500/40 hover:bg-blue-500/15 transition-all group active:scale-[0.98]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                              <Phone className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-blue-400 mb-1">Alternate Phone</p>
+                              <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors">
+                                {provider.alternate_phone}
+                              </p>
+                              <p className="text-xs text-blue-400 mt-1 flex items-center gap-1">
+                                <span>Tap to call</span>
+                                <PhoneCall className="w-3 h-3" />
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                      )}
+                      
+                      {/* Email - CLEARLY CLICKABLE */}
+                      {provider.contact_email && (
+                        <a
+                          href={`mailto:${provider.contact_email}`}
+                          className="block p-4 bg-gradient-to-r from-purple-500/10 to-purple-600/10 rounded-lg border border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/15 transition-all group active:scale-[0.98]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
+                              <Mail className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-purple-400 mb-1">Email Address</p>
+                              <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                                {provider.contact_email}
+                              </p>
+                              <p className="text-xs text-purple-400 mt-1 flex items-center gap-1">
+                                <span>Tap to email</span>
+                                <Mail className="w-3 h-3" />
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                      )}
+                      
+                      {/* Website - CLEARLY CLICKABLE */}
+                      {provider.portfolio_url && (
+                        <a
+                          href={provider.portfolio_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-4 bg-gradient-to-r from-cyan-500/10 to-cyan-600/10 rounded-lg border border-cyan-500/20 hover:border-cyan-500/40 hover:bg-cyan-500/15 transition-all group active:scale-[0.98]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center group-hover:bg-cyan-500/30 transition-colors">
+                              <Globe className="w-5 h-5 text-cyan-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs text-cyan-400 mb-1">Portfolio/Website</p>
+                              <p className="text-lg font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
+                                Visit Website
+                              </p>
+                              <p className="text-xs text-cyan-400 mt-1 flex items-center gap-2">
+                                <span>Tap to open</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Business Features */}
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-5 h-5 text-purple-400" />
+                      <h3 className="text-lg font-bold text-white">Business Features</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {provider.emergency_service && (
+                        <div className="flex items-center gap-3 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                          <Zap className="w-4 h-4 text-red-400" />
+                          <div>
+                            <p className="font-medium text-white">Emergency Service</p>
+                            {provider.callout_fee && (
+                              <p className="text-sm text-red-400">R{provider.callout_fee} callout fee</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {provider.insurance && (
+                        <div className="flex items-center gap-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                          <Shield className="w-4 h-4 text-blue-400" />
+                          <div>
+                            <p className="font-medium text-white">Insured</p>
+                            {provider.insurance_details && (
+                              <p className="text-sm text-blue-400 truncate">{provider.insurance_details}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {provider.verified && (
+                        <div className="flex items-center gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                          <div>
+                            <p className="font-medium text-white">Verified Professional</p>
+                            <p className="text-sm text-emerald-400">FindAPro verified</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Business Hours / Availability */}
+                  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Clock className="w-5 h-5 text-cyan-400" />
+                      <h3 className="text-lg font-bold text-white">Availability</h3>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                        <span className="text-gray-400">Response Time</span>
+                        <span className="text-white font-medium">Within 24 hours</span>
+                      </div>
+                      
+                      {provider.emergency_service && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-400">Emergency Service</span>
+                          <span className="text-red-400 font-medium">24/7 Available</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Reviews Tab */}
+            {activeTab === 'reviews' && (
+              <div className="space-y-6">
+                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                  <div className="flex items-center gap-2 mb-6">
+                    <MessageSquare className="w-6 h-6 text-blue-400" />
+                    <h3 className="text-xl font-bold text-white">Customer Reviews</h3>
+                  </div>
+                  
+                  {/* Overall Rating */}
+                  <div className="bg-gray-900/50 rounded-xl p-6 mb-8">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                      <div className="text-center md:text-left">
+                        <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                          <div className="flex">
+                            {renderStars(provider.rating || 0)}
+                          </div>
+                          <span className="text-3xl font-bold text-white">{provider.rating || 'New'}</span>
+                        </div>
+                        <p className="text-gray-400">Based on {provider.total_reviews || 0} reviews</p>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => alert('Review functionality coming soon!')}
+                          className="px-6 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold hover:from-blue-500 hover:to-blue-400 transition-all"
+                        >
+                          Write a Review
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Coming Soon Message */}
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <MessageSquare className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <h4 className="text-lg font-bold text-white mb-2">Review System Coming Soon</h4>
+                    <p className="text-gray-400 mb-6">We're working on implementing a comprehensive review system.</p>
+                    <div className="max-w-md mx-auto bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+                      <p className="text-sm text-gray-300">
+                        Features being developed include: star ratings, detailed reviews, photo uploads, and response system.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              onClick={onShare}
-              className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-emerald-500/50 transition-all duration-300"
-            >
-              <Share2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
-              <span className="text-gray-400 text-xs sm:text-sm">Share</span>
-            </button>
-            <button
-              onClick={onToggleFavorite}
-              disabled={syncingFavorite}
-              className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl bg-gray-800/50 border border-gray-700 hover:border-pink-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {syncingFavorite ? (
-                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Heart className={`w-3 h-3 sm:w-4 sm:h-4 ${isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-400'}`} />
-              )}
-              <span className="text-gray-400 text-xs sm:text-sm">{isFavorite ? 'Saved' : 'Save'}</span>
-            </button>
+
+          {/* Footer - Simplified */}
+          <div className="p-6 border-t border-gray-700/50">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <h4 className="text-lg font-bold text-white mb-2">{provider.business_name}</h4>
+                <p className="text-gray-400">FindAPro Verified Professional</p>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleFavorite}
+                  disabled={syncingFavorite}
+                  className="px-6 py-3 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-purple-500/50 text-white font-medium transition-all flex items-center gap-2"
+                >
+                  {syncingFavorite ? (
+                    <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Heart className={`w-4 h-4 ${isFavorite ? 'fill-purple-500 text-purple-500' : 'text-gray-400'}`} />
+                  )}
+                  {isFavorite ? 'Saved to Favorites' : 'Save to Favorites'}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   )

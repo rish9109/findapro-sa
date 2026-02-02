@@ -8,7 +8,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import AccreditationModal from '@/components/AccreditationModal'
 import ServiceAreaModal from '@/components/ServiceAreaModal'
 import ServiceCategoryModal from '@/components/ServiceCategoryModal'
-import { Award, MapPin, Shield, Clock, DollarSign, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
+import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
 
 // Types
 interface City {
@@ -888,7 +888,6 @@ function ProviderListingsContent() {
                 </label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                    <DollarSign className="w-5 h-5" />
                   </div>
                   <input
                     type="text"
@@ -929,8 +928,7 @@ function ProviderListingsContent() {
                       className="mr-3 accent-orange-500 w-5 h-5"
                     />
                     <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
-                      <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
+                     <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
                     </div>
                   </div>
                   
@@ -985,7 +983,6 @@ function ProviderListingsContent() {
                       <div className="mt-3 pl-8">
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                            <DollarSign className="w-4 h-4" />
                           </div>
                           <input
                             type="text"

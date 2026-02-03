@@ -755,10 +755,10 @@ export default function ProviderDetailPage() {
         
         // Split by new lines or commas and clean up
         const items = otherServicesText
-          .split(/[\n,]+/)
-          .map((item: string) => item.trim())
-          .filter((item: string) => item)
-          .map((item: string) => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
+        .split(/[\n,]+/)
+        .map((item: string) => item.trim())
+        .filter((item: string) => item)
+        .map((item: string) => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
         
         if (items.length === 0) {
           return (

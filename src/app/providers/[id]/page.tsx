@@ -769,7 +769,7 @@ export default function ProviderDetailPage() {
         // Show all items as bullet points (no limit on detail page)
         return (
           <ul className="space-y-2">
-            {items.map((item, index) => (
+            {items.map((item: string, index: number) => (
               <li key={index} className="flex items-start text-gray-300">
                 <span className="text-purple-400 mr-2 mt-0.5 flex-shrink-0">•</span>
                 <span className="leading-relaxed">{item}</span>

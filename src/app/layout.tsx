@@ -7,6 +7,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import AuthModal from '@/components/AuthModal'
 import LoadingWrapper from '@/components/LoadingWrapper'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import ScrollToTop from '@/components/ScrollToTop' // <-- NEW COMPONENT
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,6 +27,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <LoadingWrapper>
+              <ScrollToTop /> {/* <-- ADD THIS LINE */}
               <Header />
               <AuthModal />
               <main className="min-h-screen">

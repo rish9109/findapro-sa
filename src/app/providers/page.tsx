@@ -502,7 +502,7 @@ export default function ProvidersPage() {
                           <span className="text-sm font-medium text-blue-400">Service Areas</span>
                         </div>
                         <div className="min-h-[44px] flex items-center">
-                          <p className="text-white font-semibold truncate md:line-clamp-2">
+                          <p className="text-gray-300 font-semibold truncate md:line-clamp-2">
                             {getServiceAreasDisplay(provider)}
                           </p>
                         </div>
@@ -515,7 +515,7 @@ export default function ProvidersPage() {
                           <span className="text-sm font-medium text-emerald-400">Experience</span>
                         </div>
                         <div className="min-h-[44px] flex items-center">
-                          <p className="text-white font-semibold">
+                          <p className="text-gray-300 font-semibold">
                             {provider.experience_years > 0 
                               ? `${provider.experience_years} year${provider.experience_years !== 1 ? 's' : ''}`
                               : 'Not specified'
@@ -548,7 +548,7 @@ export default function ProvidersPage() {
                         </div>
                         <div className="min-h-[44px] flex items-center">
                           {accreditationsDisplay ? (
-                            <p className="text-blue-400 truncate md:line-clamp-2">
+                            <p className="text-gray-300 truncate md:line-clamp-2">
                               {accreditationsDisplay}
                             </p>
                           ) : (

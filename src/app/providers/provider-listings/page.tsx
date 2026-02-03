@@ -757,8 +757,8 @@ function ProviderListingsContent() {
         <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
       </label>
       <textarea
-        name="other_services"
-        value={formData.other_services}
+        name="otherServices"
+        value={formData.otherServices}
         onChange={handleChange}
         rows={3}
         className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"

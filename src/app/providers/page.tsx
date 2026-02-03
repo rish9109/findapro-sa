@@ -558,7 +558,7 @@ export default function ProvidersPage() {
       
       return (
         <ul className="space-y-1">
-          {displayItems.map((item, index) => (
+          {displayItems.map((item: string, index: number) => (
             <li key={index} className="flex items-start text-gray-300">
               <span className="text-purple-400 mr-2 mt-0.5">•</span>
               <span className="line-clamp-1">{item}</span>

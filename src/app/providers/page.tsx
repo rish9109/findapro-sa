@@ -460,10 +460,10 @@ export default function ProvidersPage() {
                               title={provider.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
                             >
                               {syncingFavoriteId === provider.id ? (
-                                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                               ) : (
                                 <Heart
-                                  className={`w-5 h-5 ${provider.is_favorite ? 'fill-blue-500 text-blue-500' : 'text-gray-400 hover:text-blue-400'}`}
+                                  className={`w-5 h-5 ${provider.is_favorite ? 'fill-purple-500 text-purple-500' : 'text-gray-400 hover:text-blue-400'}`}
                                 />
                               )}
                             </button>
@@ -524,22 +524,56 @@ export default function ProvidersPage() {
                         </div>
                       </div>
                       
-                      {/* Other Services Offered */}
-                      <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Briefcase className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                          <span className="text-sm font-medium text-purple-400">Other Services</span>
-                        </div>
-                        <div className="min-h-[44px] flex items-center">
-                          <p className="text-gray-300 truncate md:line-clamp-2">
-                            {provider.other_services && provider.other_services.length > 0 
-                              ? provider.other_services.join(', ')
-                              : 'No additional services listed'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                      
+                 {/* Other Services Offered - Bullet Points */}
+<div className="mb-6">
+  <div className="flex items-center gap-2 mb-2">
+    <Briefcase className="w-4 h-4 text-purple-400 flex-shrink-0" />
+    <span className="text-sm font-medium text-purple-400">Details & Other Services</span>
+  </div>
+  <div className="min-h-[44px]">
+    {(() => {
+      const otherServicesText = provider.all_other_services;
+      
+      if (!otherServicesText?.trim()) {
+        return (
+          <p className="text-gray-500 italic">No additional services listed</p>
+        );
+      }
+      
+      // Split by new lines or commas and clean up
+      const items = otherServicesText
+        .split(/[\n,]+/)
+        .map(item => item.trim())
+        .filter(item => item)
+        .map(item => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
+      
+      if (items.length === 0) {
+        return (
+          <p className="text-gray-500 italic">No additional services listed</p>
+        );
+      }
+      
+      // Show as bullet points (max 3 items)
+      const displayItems = items.slice(0, 3);
+      
+      return (
+        <ul className="space-y-1">
+          {displayItems.map((item, index) => (
+            <li key={index} className="flex items-start text-gray-300">
+              <span className="text-purple-400 mr-2 mt-0.5">•</span>
+              <span className="line-clamp-1">{item}</span>
+            </li>
+          ))}
+          {items.length > 3 && (
+            <li className="text-gray-400 text-sm italic">
+              +{items.length - 3} more services
+            </li>
+          )}
+        </ul>
+      );
+    })()}
+  </div>
+</div>
                       {/* Accreditations - FROM SUPABASE TABLE */}
                       <div className="mb-6">
                         <div className="flex items-center gap-2 mb-2">

@@ -258,7 +258,11 @@ export default function ProviderDetailPage() {
 
   const getOtherServices = () => {
     if (!provider?.other_services) return []
-    return provider.other_services.split(',').map((s: string) => s.trim())
+    return provider.other_services
+      .split(/[\n,]+/)
+      .map((s: string) => s.trim())
+      .map(s => s.replace(/^[•\-*\s]+/, '')) // Remove bullet points if present
+      .filter(s => s) // Remove empty strings
   }
 
   const renderStarRating = (rating: number) => {
@@ -730,26 +734,50 @@ export default function ProviderDetailPage() {
                     </div>
                   </div>
 
-                  {/* Other Services - FIXED: Text uses full width on desktop */}
-                  {otherServices.length > 0 && (
+ {/* Other Services - Bullet Points */}
+{provider.other_services && (
   <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
     <div className="flex items-center gap-2 mb-4">
       <Briefcase className="w-5 h-5 text-purple-400" />
-      <h3 className="text-lg font-bold text-white">Other Services</h3>
+      <h3 className="text-lg font-bold text-white">Details & Other Services</h3>
     </div>
     
-    <div className="grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-      {otherServices.map((service, index) => (
-        <div
-          key={index}
-          className="flex items-start w-full"
-        >
-          <span className="text-purple-400 mr-2 mt-0.5 flex-shrink-0">•</span>
-          <span className="text-gray-300 text-left w-full leading-relaxed break-words inline-block">
-            {service}
-          </span>
-        </div>
-      ))}
+    <div className="space-y-2">
+      {(() => {
+        // Parse the other_services text (same as listings page)
+        const otherServicesText = provider.other_services;
+        
+        if (!otherServicesText?.trim()) {
+          return (
+            <p className="text-gray-500 italic">No additional services listed</p>
+          );
+        }
+        
+        // Split by new lines or commas and clean up
+        const items = otherServicesText
+          .split(/[\n,]+/)
+          .map(item => item.trim())
+          .filter(item => item)
+          .map(item => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
+        
+        if (items.length === 0) {
+          return (
+            <p className="text-gray-500 italic">No additional services listed</p>
+          );
+        }
+        
+        // Show all items as bullet points (no limit on detail page)
+        return (
+          <ul className="space-y-2">
+            {items.map((item, index) => (
+              <li key={index} className="flex items-start text-gray-300">
+                <span className="text-purple-400 mr-2 mt-0.5 flex-shrink-0">•</span>
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      })()}
     </div>
   </div>
 )}

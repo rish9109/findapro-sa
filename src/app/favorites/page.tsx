@@ -442,10 +442,10 @@ export default function FavoritesPage() {
                             }
                             
                             const items = otherServicesText
-                              .split(/[\n,]+/)
-                              .map(item => item.trim())
-                              .filter(item => item)
-                              .map(item => item.replace(/^[•\-*\s]+/, ''));
+                            .split(/[\n,]+/)
+                            .map((item: string) => item.trim())
+                            .filter((item: string) => item)
+                            .map((item: string) => item.replace(/^[•\-*\s]+/, ''));
                             
                             if (items.length === 0) {
                               return (

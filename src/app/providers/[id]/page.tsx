@@ -261,8 +261,8 @@ export default function ProviderDetailPage() {
     return provider.other_services
       .split(/[\n,]+/)
       .map((s: string) => s.trim())
-      .map(s => s.replace(/^[•\-*\s]+/, '')) // Remove bullet points if present
-      .filter(s => s) // Remove empty strings
+      .map((s: string) => s.replace(/^[•\-*\s]+/, '')) // Remove bullet points if present
+      .filter((s: string) => s) // Remove empty strings
   }
 
   const renderStarRating = (rating: number) => {

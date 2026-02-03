@@ -738,15 +738,15 @@ function ProviderListingsContent() {
       </label>
       <input
         type="text"
-        name="experience_years"
-        value={formData.experience_years}
+        name="experienceYears"
+        value={formData.experienceYears}
         onChange={handleChange}
         required
-        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experienceYears ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
         placeholder="e.g., 5 years"
       />
-      {formErrors.experience_years && (
-        <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
+      {formErrors.experienceYears && (
+        <p className="mt-1 text-sm text-red-400">{formErrors.experienceYears}</p>
       )}
     </div>
     

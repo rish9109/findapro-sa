@@ -1,4 +1,4 @@
-// File: src/components/ServiceAreaModal.tsx - CLEAN VERSION
+// File: src/components/ServiceAreaModal.tsx - UPDATED WITH CONSISTENT POSITIONING
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -32,6 +32,8 @@ export default function ServiceAreaModal({
   const [isLoading, setIsLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cityListRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
   
   useEffect(() => {
     if (isOpen) {
@@ -49,6 +51,27 @@ export default function ServiceAreaModal({
       return () => clearTimeout(timer);
     }
   }, [isOpen, initialPrimary, initialCustomAreas]);
+  
+  // Check if content overflows on mount and resize
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (modalRef.current) {
+        const modalHeight = modalRef.current.scrollHeight;
+        const viewportHeight = window.innerHeight;
+        
+        // If modal is taller than 80% of viewport, it needs scrolling
+        setIsOverflowing(modalHeight > viewportHeight * 0.8);
+      }
+    };
+
+    if (isOpen) {
+      // Small delay to ensure DOM is rendered
+      setTimeout(checkOverflow, 10);
+      window.addEventListener('resize', checkOverflow);
+    }
+
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [isOpen, primaryArea, customAreas, search, showCityList]);
   
   // Close city list when clicking outside
   useEffect(() => {
@@ -199,14 +222,33 @@ export default function ServiceAreaModal({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto">
+    <div className="fixed inset-0 z-[60]">
+      {/* Backdrop with click to close */}
       <div 
-        className="fixed inset-0 bg-black/70 transition-opacity duration-300" 
+        className="fixed inset-0 bg-black/70" 
         onClick={onClose}
       />
       
-      <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
-        <div className="relative w-full max-w-lg bg-gray-800 rounded-2xl shadow-2xl overflow-hidden my-8 max-h-[85vh] flex flex-col">
+      {/* Smart positioning container - SAME AS OTHER MODALS */}
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        {/* 
+          DYNAMIC MODAL with responsive height:
+          - On mobile: max-h-[80vh] (more conservative)
+          - On desktop: max-h-[85vh] (more space)
+          - Always centered with my-auto
+        */}
+        <div 
+          ref={modalRef}
+          className={`
+            relative w-full max-w-lg bg-gray-800 rounded-2xl shadow-2xl overflow-hidden
+            transition-all duration-200
+            my-auto  /* Always centers vertically */
+            ${isOverflowing 
+              ? 'max-h-[70vh]'  /* Even more conservative when overflowing */
+              : 'max-h-[80vh] md:max-h-[85vh]'  /* Responsive heights */
+            }
+          `}
+        >
           {/* Header */}
           <div className="sticky top-0 z-10 bg-gray-800 px-4 md:px-6 py-4 border-b border-gray-700">
             <div className="flex items-center justify-between mb-3">
@@ -237,217 +279,229 @@ export default function ServiceAreaModal({
             </div>
           )}
           
-          {/* Main content */}
-          <div className="flex-1 overflow-y-auto px-4">
-            {/* Search Area */}
-            <div className="py-4 border-b border-gray-700">
-              <h4 className="text-sm font-medium text-white mb-3">
-                <span className="text-orange-400">Search Areas</span>
-              </h4>
-              <div className="relative">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setShowCityList(true);
-                      setError('');
-                    }}
-                    onFocus={() => setShowCityList(true)}
-                    placeholder={getPlaceholder()}
-                    className="w-full pl-10 pr-10 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
-                    onKeyDown={handleKeyDown}
-                  />
-                  {search && (
-                    <button
-                      onClick={clearSearch}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors p-1"
-                      type="button"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                
-                {/* City suggestions */}
-                {showCityList && search && (
-                  <div 
-                    ref={cityListRef}
-                    className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"
-                  >
-                    <div className="sticky top-0 bg-gray-800 px-3 py-2 border-b border-gray-700">
-                      <p className="text-xs text-gray-400 font-medium">
-                        {primaryArea ? 'Select additional areas:' : 'Select primary area:'}
-                      </p>
-                    </div>
-                    {filteredCities.length > 0 ? (
-                      filteredCities.map(city => {
-                        const isPrimary = primaryArea === city.name;
-                        const isAdded = customAreas.includes(city.name);
-                        
-                        return (
-                          <button
-                            key={city.id}
-                            type="button"
-                            onClick={() => selectCity(city.name)}
-                            disabled={isPrimary || isAdded}
-                            className={`w-full px-4 py-3 text-left text-sm border-b border-gray-800 last:border-b-0 flex items-center justify-between transition-colors
-                              ${isPrimary 
-                                ? 'bg-orange-500/20 text-orange-300 cursor-default' 
-                                : isAdded 
-                                  ? 'bg-gray-800/50 text-gray-400 cursor-not-allowed' 
-                                  : 'text-gray-300 hover:bg-gray-800'
-                              }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <MapPin className={`w-3 h-3 ${
-                                isPrimary ? 'text-orange-400' : 
-                                isAdded ? 'text-gray-500' : 
-                                'text-gray-500'
-                              }`} />
-                              <span>{city.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {isPrimary && (
-                                <span className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded">
-                                  Primary
-                                </span>
-                              )}
-                              {isAdded && !isPrimary && (
-                                <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded">
-                                  Added
-                                </span>
-                              )}
-                              {!isPrimary && !isAdded && (
-                                <span className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
-                                  {primaryArea ? 'Add' : 'Set as Primary'}
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="px-4 py-6 text-center">
-                        <Search className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">No cities found for "{search}"</p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          Type a custom name and press Enter
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Primary Area Display */}
-            {primaryArea && (
+          {/* 
+            DYNAMIC CONTENT AREA:
+            - Adjusts height based on available space
+            - Always shows as much as possible without going off-screen
+          */}
+          <div className={`
+            overflow-y-auto
+            ${isOverflowing 
+              ? 'max-h-[calc(70vh-200px)]'  // Less height when overflowing
+              : 'max-h-[calc(80vh-200px)] md:max-h-[calc(85vh-200px)]'  // Responsive heights
+            }
+          `}>
+            <div className="px-4">
+              {/* Search Area */}
               <div className="py-4 border-b border-gray-700">
-                <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                  <span className="text-orange-400">Primary Service Area</span>
-                  <span className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded-full">
-                    Required
-                  </span>
+                <h4 className="text-sm font-medium text-white mb-3">
+                  <span className="text-orange-400">Search Areas</span>
                 </h4>
-                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/30">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-orange-400" />
-                    <span className="text-gray-300 text-sm font-medium">{primaryArea}</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setPrimaryArea('');
-                      setError('');
-                    }}
-                    className="text-orange-400 hover:text-orange-300 transition-colors p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-orange-300/70 mt-1">
-                  Your main service location
-                </p>
-              </div>
-            )}
-            
-            {/* Additional Areas */}
-            <div className="py-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-white flex items-center gap-2">
-                  <span className="text-orange-400">Additional Areas</span>
-                  <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full">
-                    Optional
-                  </span>
-                </h4>
-                <span className="text-xs text-orange-300 font-medium">
-                  {customAreas.length}/{maxCustomAreas}
-                </span>
-              </div>
-              
-              {/* Add custom area */}
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newArea}
-                    onChange={(e) => {
-                      setNewArea(e.target.value);
-                      setError('');
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && addCustomArea()}
-                    placeholder="Type a custom area name..."
-                    className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
-                  />
-                  <button
-                    onClick={addCustomArea}
-                    disabled={!newArea.trim() || customAreas.length >= maxCustomAreas || newArea.trim() === primaryArea}
-                    className="px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium text-sm hover:from-orange-500 hover:to-orange-400 transition-all disabled:cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Press Enter to add custom area
-                </p>
-              </div>
-              
-              {/* Areas list */}
-              {customAreas.length > 0 ? (
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                  {customAreas.map((area, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-900/50 to-gray-800/30 rounded-lg border border-gray-700 hover:border-orange-500/30 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-300 text-sm font-medium">{area}</span>
-                      </div>
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setShowCityList(true);
+                        setError('');
+                      }}
+                      onFocus={() => setShowCityList(true)}
+                      placeholder={getPlaceholder()}
+                      className="w-full pl-10 pr-10 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                      onKeyDown={handleKeyDown}
+                    />
+                    {search && (
                       <button
-                        onClick={() => removeCustomArea(area)}
-                        className="text-gray-400 hover:text-orange-400 transition-colors p-1"
+                        onClick={clearSearch}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors p-1"
+                        type="button"
                       >
                         <X className="w-4 h-4" />
                       </button>
+                    )}
+                  </div>
+                  
+                  {/* City suggestions */}
+                  {showCityList && search && (
+                    <div 
+                      ref={cityListRef}
+                      className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"
+                    >
+                      <div className="sticky top-0 bg-gray-800 px-3 py-2 border-b border-gray-700">
+                        <p className="text-xs text-gray-400 font-medium">
+                          {primaryArea ? 'Select additional areas:' : 'Select primary area:'}
+                        </p>
+                      </div>
+                      {filteredCities.length > 0 ? (
+                        filteredCities.map(city => {
+                          const isPrimary = primaryArea === city.name;
+                          const isAdded = customAreas.includes(city.name);
+                          
+                          return (
+                            <button
+                              key={city.id}
+                              type="button"
+                              onClick={() => selectCity(city.name)}
+                              disabled={isPrimary || isAdded}
+                              className={`w-full px-4 py-3 text-left text-sm border-b border-gray-800 last:border-b-0 flex items-center justify-between transition-colors
+                                ${isPrimary 
+                                  ? 'bg-orange-500/20 text-orange-300 cursor-default' 
+                                  : isAdded 
+                                    ? 'bg-gray-800/50 text-gray-400 cursor-not-allowed' 
+                                    : 'text-gray-300 hover:bg-gray-800'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <MapPin className={`w-3 h-3 ${
+                                  isPrimary ? 'text-orange-400' : 
+                                  isAdded ? 'text-gray-500' : 
+                                  'text-gray-500'
+                                }`} />
+                                <span>{city.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isPrimary && (
+                                  <span className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded">
+                                    Primary
+                                  </span>
+                                )}
+                                {isAdded && !isPrimary && (
+                                  <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded">
+                                    Added
+                                  </span>
+                                )}
+                                {!isPrimary && !isAdded && (
+                                  <span className="text-xs px-2 py-0.5 bg-gray-800 text-gray-400 rounded">
+                                    {primaryArea ? 'Add' : 'Set as Primary'}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="px-4 py-6 text-center">
+                          <Search className="w-6 h-6 text-gray-600 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">No cities found for "{search}"</p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            Type a custom name and press Enter
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-6 border-2 border-dashed border-gray-700 rounded-lg bg-gradient-to-r from-gray-900/20 to-gray-800/10">
-                  <MapPin className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No additional areas yet</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    {primaryArea 
-                      ? `Use search above to add areas near ${primaryArea}`
-                      : 'Select a primary area first'
-                    }
+              </div>
+              
+              {/* Primary Area Display */}
+              {primaryArea && (
+                <div className="py-4 border-b border-gray-700">
+                  <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                    <span className="text-orange-400">Primary Service Area</span>
+                    <span className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded-full">
+                      Required
+                    </span>
+                  </h4>
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/30">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-orange-400" />
+                      <span className="text-gray-300 text-sm font-medium">{primaryArea}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setPrimaryArea('');
+                        setError('');
+                      }}
+                      className="text-orange-400 hover:text-orange-300 transition-colors p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-orange-300/70 mt-1">
+                    Your main service location
                   </p>
                 </div>
               )}
+              
+              {/* Additional Areas */}
+              <div className="py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-white flex items-center gap-2">
+                    <span className="text-orange-400">Additional Areas</span>
+                    <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full">
+                      Optional
+                    </span>
+                  </h4>
+                  <span className="text-xs text-orange-300 font-medium">
+                    {customAreas.length}/{maxCustomAreas}
+                  </span>
+                </div>
+                
+                {/* Add custom area */}
+                <div className="mb-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newArea}
+                      onChange={(e) => {
+                        setNewArea(e.target.value);
+                        setError('');
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && addCustomArea()}
+                      placeholder="Type a custom area name..."
+                      className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                    />
+                    <button
+                      onClick={addCustomArea}
+                      disabled={!newArea.trim() || customAreas.length >= maxCustomAreas || newArea.trim() === primaryArea}
+                      className="px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium text-sm hover:from-orange-500 hover:to-orange-400 transition-all disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Press Enter to add custom area
+                  </p>
+                </div>
+                
+                {/* Areas list */}
+                {customAreas.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {customAreas.map((area, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-900/50 to-gray-800/30 rounded-lg border border-gray-700 hover:border-orange-500/30 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-300 text-sm font-medium">{area}</span>
+                        </div>
+                        <button
+                          onClick={() => removeCustomArea(area)}
+                          className="text-gray-400 hover:text-orange-400 transition-colors p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border-2 border-dashed border-gray-700 rounded-lg bg-gradient-to-r from-gray-900/20 to-gray-800/10">
+                    <MapPin className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">No additional areas yet</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {primaryArea 
+                        ? `Use search above to add areas near ${primaryArea}`
+                        : 'Select a primary area first'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           

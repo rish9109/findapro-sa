@@ -760,7 +760,7 @@ function ProviderListingsContent() {
         name="otherServices"
         value={formData.otherServices}
         onChange={handleChange}
-        rows={3}
+        rows={10}
         className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
         placeholder={
 `Examples:

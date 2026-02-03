@@ -1,7 +1,7 @@
 // File: src/components/AccreditationModal.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { X, Search, Plus, Check, Award, Filter } from 'lucide-react';
 
@@ -33,6 +33,8 @@ export default function AccreditationModal({
   const [sectors, setSectors] = useState<string[]>(['All Industries']);
   const [selectedSector, setSelectedSector] = useState<string>('All Industries');
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
   
   useEffect(() => {
     if (isOpen) {
@@ -41,6 +43,27 @@ export default function AccreditationModal({
       fetchAccreditations();
     }
   }, [isOpen, initialSelection]);
+  
+  // Check if content overflows on mount and resize
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (modalRef.current) {
+        const modalHeight = modalRef.current.scrollHeight;
+        const viewportHeight = window.innerHeight;
+        
+        // If modal is taller than 80% of viewport, it needs scrolling
+        setIsOverflowing(modalHeight > viewportHeight * 0.8);
+      }
+    };
+
+    if (isOpen) {
+      // Small delay to ensure DOM is rendered
+      setTimeout(checkOverflow, 10);
+      window.addEventListener('resize', checkOverflow);
+    }
+
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [isOpen, selected, accreditations, showCustomForm]);
   
   const fetchServiceCategories = async () => {
     try {
@@ -147,18 +170,32 @@ export default function AccreditationModal({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[60]">
+      {/* Backdrop with click to close */}
       <div 
-        className="fixed inset-0 bg-black/70 transition-opacity duration-300" 
+        className="fixed inset-0 bg-black/70" 
         onClick={onClose}
-        aria-hidden="true"
       />
       
-      {/* Center modal properly for all screen sizes */}
-      <div className="flex min-h-full items-center justify-center p-4 text-center">
-        {/* Modal panel */}
-        <div className="relative transform overflow-hidden rounded-2xl bg-gray-800 text-left shadow-2xl transition-all w-full max-w-4xl my-8 max-h-[90vh]">
+      {/* Smart positioning container */}
+      <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
+        {/* 
+          DYNAMIC MODAL:
+          - On large screens: Shows more content (max-h-[85vh])
+          - On small screens: Shows less but scrollable (max-h-[75vh])
+          - Always visible: Never goes off-screen
+        */}
+        <div 
+          ref={modalRef}
+          className={`
+            relative w-full max-w-4xl bg-gray-800 rounded-2xl shadow-2xl overflow-hidden
+            transition-all duration-200
+            ${isOverflowing 
+              ? 'max-h-[75vh] mt-4 mb-4'  // Smaller, with margins for scrolling
+              : 'max-h-[85vh] my-auto'    // Larger, centered vertically
+            }
+          `}
+        >
           {/* Header */}
           <div className="sticky top-0 z-10 bg-gray-800 px-4 md:px-6 py-4 border-b border-gray-700">
             <div className="flex items-center justify-between mb-3">
@@ -273,61 +310,73 @@ export default function AccreditationModal({
             </div>
           </div>
           
-          {/* Accreditation list - Better height calculation */}
-          <div className="p-4 overflow-y-auto max-h-[calc(90vh-300px)]">
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
-                <p className="text-gray-400 mt-2">Loading accreditations...</p>
-              </div>
-            ) : filteredAccreditations.length > 0 ? (
-              <div className="space-y-2">
-                {filteredAccreditations.map(acc => {
-                  const isSelected = selected.some(s => 
-                    !s.is_custom && s.accreditation_id === acc.id
-                  );
-                  const isDisabled = selected.length >= maxSelection && !isSelected;
-                  
-                  return (
-                    <button
-                      key={acc.id}
-                      onClick={() => !isDisabled && toggleAccreditation(acc)}
-                      disabled={isDisabled}
-                      className={`w-full p-3 rounded-lg border text-left transition-all ${isSelected
-                          ? 'bg-gradient-to-r from-orange-600/30 to-orange-500/30 border-orange-500'
-                          : isDisabled
-                          ? 'bg-gray-900/30 border-gray-700 opacity-50 cursor-not-allowed'
-                          : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800 hover:border-gray-600'
-                        }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center ${isSelected ? 'bg-orange-500 border-orange-500' : 'bg-gray-800 border-gray-600'}`}>
-                          {isSelected && <Check className="w-3 h-3 text-white" />}
+          {/* 
+            DYNAMIC CONTENT AREA:
+            - Adjusts height based on available space
+            - Always shows as much as possible without going off-screen
+          */}
+          <div className={`
+            overflow-y-auto
+            ${isOverflowing 
+              ? 'max-h-[calc(75vh-300px)]'  // Less height when overflowing
+              : 'max-h-[calc(85vh-300px)]'  // More height when fits
+            }
+          `}>
+            <div className="p-4">
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+                  <p className="text-gray-400 mt-2">Loading accreditations...</p>
+                </div>
+              ) : filteredAccreditations.length > 0 ? (
+                <div className="space-y-2">
+                  {filteredAccreditations.map(acc => {
+                    const isSelected = selected.some(s => 
+                      !s.is_custom && s.accreditation_id === acc.id
+                    );
+                    const isDisabled = selected.length >= maxSelection && !isSelected;
+                    
+                    return (
+                      <button
+                        key={acc.id}
+                        onClick={() => !isDisabled && toggleAccreditation(acc)}
+                        disabled={isDisabled}
+                        className={`w-full p-3 rounded-lg border text-left transition-all ${isSelected
+                            ? 'bg-gradient-to-r from-orange-600/30 to-orange-500/30 border-orange-500'
+                            : isDisabled
+                            ? 'bg-gray-900/30 border-gray-700 opacity-50 cursor-not-allowed'
+                            : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800 hover:border-gray-600'
+                          }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center ${isSelected ? 'bg-orange-500 border-orange-500' : 'bg-gray-800 border-gray-600'}`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-white text-sm mb-1 truncate">
+                              {acc.name}
+                            </h4>
+                            {acc.description && (
+                              <p className="text-xs text-gray-400 line-clamp-2">{acc.description}</p>
+                            )}
+                            {acc.sector && (
+                              <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-800 text-gray-300 rounded">
+                                {acc.sector}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-white text-sm mb-1 truncate">
-                            {acc.name}
-                          </h4>
-                          {acc.description && (
-                            <p className="text-xs text-gray-400 line-clamp-2">{acc.description}</p>
-                          )}
-                          {acc.sector && (
-                            <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-800 text-gray-300 rounded">
-                              {acc.sector}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No accreditations found</p>
-                <p className="text-sm text-gray-600 mt-1">Try a different search or sector</p>
-              </div>
-            )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No accreditations found</p>
+                  <p className="text-sm text-gray-600 mt-1">Try a different search or sector</p>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Footer */}

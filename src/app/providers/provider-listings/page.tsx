@@ -716,17 +716,17 @@ function ProviderListingsContent() {
       <button
         type="button"
         onClick={() => setShowServiceModal(true)}
-        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
+        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.mainService ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
       >
-        <span className={formData.main_service ? "text-white" : "text-gray-500"}>
-          {formData.main_service || "Select service category"}
+        <span className={formData.mainService ? "text-white" : "text-gray-500"}>
+          {formData.mainService || "Select service category"}
         </span>
         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {formErrors.main_service && (
-        <p className="mt-1 text-sm text-red-400">{formErrors.main_service}</p>
+      {formErrors.mainService && (
+        <p className="mt-1 text-sm text-red-400">{formErrors.mainService}</p>
       )}
     </div>
     

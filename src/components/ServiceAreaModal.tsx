@@ -1,4 +1,4 @@
-// File: src/components/ServiceAreaModal.tsx - PRODUCTION READY
+// File: src/components/ServiceAreaModal.tsx - CLEAN VERSION
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -170,9 +170,11 @@ export default function ServiceAreaModal({
     }
     
     setIsLoading(true);
+    setError('');
+    
     try {
       onSave(primaryArea, customAreas);
-      onClose(); // <-- THIS LINE CLOSES THE MODAL
+      onClose(); // Close modal after save
     } catch (err) {
       setError('Failed to save service areas. Please try again.');
       console.error('Save error:', err);
@@ -201,7 +203,6 @@ export default function ServiceAreaModal({
       <div 
         className="fixed inset-0 bg-black/70 transition-opacity duration-300" 
         onClick={onClose}
-        aria-hidden="true"
       />
       
       <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
@@ -211,12 +212,11 @@ export default function ServiceAreaModal({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-orange-400" />
-                <h2 className="text-lg font-bold text-white">Service Areas</h2>
+                <h3 className="text-lg font-bold text-white">Service Areas</h3>
               </div>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-white transition-colors p-1"
-                aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -241,9 +241,9 @@ export default function ServiceAreaModal({
           <div className="flex-1 overflow-y-auto px-4">
             {/* Search Area */}
             <div className="py-4 border-b border-gray-700">
-              <h3 className="text-sm font-medium text-white mb-3">
+              <h4 className="text-sm font-medium text-white mb-3">
                 <span className="text-orange-400">Search Areas</span>
-              </h3>
+              </h4>
               <div className="relative">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -260,16 +260,12 @@ export default function ServiceAreaModal({
                     placeholder={getPlaceholder()}
                     className="w-full pl-10 pr-10 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
                     onKeyDown={handleKeyDown}
-                    aria-label="Search for service areas"
-                    aria-expanded={showCityList}
-                    aria-controls="city-suggestions-list"
                   />
                   {search && (
                     <button
                       onClick={clearSearch}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors p-1"
                       type="button"
-                      aria-label="Clear search"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -280,10 +276,7 @@ export default function ServiceAreaModal({
                 {showCityList && search && (
                   <div 
                     ref={cityListRef}
-                    id="city-suggestions-list"
                     className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"
-                    role="listbox"
-                    aria-label="City suggestions"
                   >
                     <div className="sticky top-0 bg-gray-800 px-3 py-2 border-b border-gray-700">
                       <p className="text-xs text-gray-400 font-medium">
@@ -308,8 +301,6 @@ export default function ServiceAreaModal({
                                   ? 'bg-gray-800/50 text-gray-400 cursor-not-allowed' 
                                   : 'text-gray-300 hover:bg-gray-800'
                               }`}
-                            role="option"
-                            aria-selected={isPrimary}
                           >
                             <div className="flex items-center gap-2">
                               <MapPin className={`w-3 h-3 ${
@@ -356,12 +347,12 @@ export default function ServiceAreaModal({
             {/* Primary Area Display */}
             {primaryArea && (
               <div className="py-4 border-b border-gray-700">
-                <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+                <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
                   <span className="text-orange-400">Primary Service Area</span>
                   <span className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded-full">
                     Required
                   </span>
-                </h3>
+                </h4>
                 <div className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/30">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-orange-400" />
@@ -373,7 +364,6 @@ export default function ServiceAreaModal({
                       setError('');
                     }}
                     className="text-orange-400 hover:text-orange-300 transition-colors p-1"
-                    aria-label={`Remove primary area ${primaryArea}`}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -387,12 +377,12 @@ export default function ServiceAreaModal({
             {/* Additional Areas */}
             <div className="py-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                <h4 className="text-sm font-medium text-white flex items-center gap-2">
                   <span className="text-orange-400">Additional Areas</span>
                   <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full">
                     Optional
                   </span>
-                </h3>
+                </h4>
                 <span className="text-xs text-orange-300 font-medium">
                   {customAreas.length}/{maxCustomAreas}
                 </span>
@@ -411,13 +401,11 @@ export default function ServiceAreaModal({
                     onKeyDown={(e) => e.key === 'Enter' && addCustomArea()}
                     placeholder="Type a custom area name..."
                     className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
-                    aria-label="Custom area name"
                   />
                   <button
                     onClick={addCustomArea}
                     disabled={!newArea.trim() || customAreas.length >= maxCustomAreas || newArea.trim() === primaryArea}
                     className="px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium text-sm hover:from-orange-500 hover:to-orange-400 transition-all disabled:cursor-not-allowed"
-                    aria-label="Add custom area"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -442,7 +430,6 @@ export default function ServiceAreaModal({
                       <button
                         onClick={() => removeCustomArea(area)}
                         className="text-gray-400 hover:text-orange-400 transition-colors p-1"
-                        aria-label={`Remove area ${area}`}
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -493,12 +480,6 @@ export default function ServiceAreaModal({
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Screen reader announcements */}
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {primaryArea && `Primary area: ${primaryArea}. ${customAreas.length} additional areas.`}
-        {error && `Error: ${error}`}
       </div>
     </div>
   );

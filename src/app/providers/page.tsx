@@ -543,9 +543,9 @@ export default function ProvidersPage() {
       // Split by new lines or commas and clean up
       const items = otherServicesText
         .split(/[\n,]+/)
-        .map(item => item.trim())
-        .filter(item => item)
-        .map(item => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
+        .map((item: string) => item.trim())
+        .filter((item: string) => item)
+        .map((item: string) => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
       
       if (items.length === 0) {
         return (

@@ -19,7 +19,6 @@ import {
   Shield,
   Award,
   MapPin,
-  DollarSign,
   CreditCard,
   FileText,
   Loader2
@@ -162,7 +161,7 @@ function EditListingContent() {
     callout_fee: '',
     insurance: false,
     insurance_details: '',
-    portfolio_url: '',
+  
     
     // Status (for display only)
     status: '',
@@ -215,7 +214,7 @@ function EditListingContent() {
           callout_fee: listingData.callout_fee || '',
           insurance: listingData.insurance || false,
           insurance_details: listingData.insurance_details || '',
-          portfolio_url: listingData.portfolio_url || '',
+  
           status: listingData.status || '',
           verified: listingData.verified || false
         })
@@ -428,7 +427,6 @@ function EditListingContent() {
         callout_fee: formData.emergency_service ? formData.callout_fee : null,
         insurance: formData.insurance,
         insurance_details: formData.insurance ? formData.insurance_details : null,
-        portfolio_url: formData.portfolio_url || null,
         updated_at: new Date().toISOString(),
         // Reset status to pending if changes are made (requires re-approval)
         status: formData.status === 'approved' ? 'pending' : formData.status
@@ -812,118 +810,136 @@ function EditListingContent() {
             </div>
           </div>
 
-          {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
-          <div className="mb-10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
-              <h2 className="text-xl font-bold text-white">Service Information</h2>
-            </div>
-            
-            <div className="space-y-6">
-              {/* Main Service Category */}
-              <div>
-                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-                  <span>Main Service Category</span>
-                  <span className="text-red-500">*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowServiceModal(true)}
-                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
-                >
-                  <span className={formData.main_service ? "text-white" : "text-gray-500"}>
-                    {formData.main_service || "Select service category"}
-                  </span>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {formErrors.main_service && (
-                  <p className="mt-1 text-sm text-red-400">{formErrors.main_service}</p>
-                )}
-              </div>
-              
-              {/* Years of Experience */}
-              <div>
-                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-                  <span>Years of Experience</span>
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="experience_years"
-                  value={formData.experience_years}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
-                  placeholder="e.g., 5 years"
-                />
-                {formErrors.experience_years && (
-                  <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
-                )}
-              </div>
-              
-              {/* Other Services */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Other Services Offered
-                </label>
-                <textarea
-                  name="other_services"
-                  value={formData.other_services}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-                  placeholder="List any additional services (comma separated)"
-                />
-              </div>
-              
-              {/* Accreditations */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
-                    <span>Accreditations</span>
-                  </label>
-                  <span className="text-xs text-gray-500">
-                    {selectedAccreditations.length}/10 selected
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAccreditationModal(true)}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
-                >
-                  <div className="flex-1">
-                    <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
-                      {selectedAccreditations.length > 0 
-                        ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
-                        : "Add your accreditations"}
-                    </span>
-                  </div>
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-                
-                {/* Selected accreditations preview */}
-                {selectedAccreditations.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {selectedAccreditations.slice(0, 3).map(acc => (
-                      <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
-                        <Award className="w-3 h-3" />
-                        {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
-                      </span>
-                    ))}
-                    {selectedAccreditations.length > 3 && (
-                      <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
-                        +{selectedAccreditations.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+   {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
+<div className="mb-10">
+  <div className="flex items-center gap-3 mb-6">
+    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
+    <h2 className="text-xl font-bold text-white">Service Information</h2>
+  </div>
+  
+  <div className="space-y-6">
+    {/* Main Service Category */}
+    <div>
+      <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+        <span>Main Service Category</span>
+        <span className="text-red-500">*</span>
+      </label>
+      <button
+        type="button"
+        onClick={() => setShowServiceModal(true)}
+        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
+      >
+        <span className={formData.main_service ? "text-white" : "text-gray-500"}>
+          {formData.main_service || "Select service category"}
+        </span>
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {formErrors.main_service && (
+        <p className="mt-1 text-sm text-red-400">{formErrors.main_service}</p>
+      )}
+    </div>
+    
+    {/* Years of Experience */}
+    <div>
+      <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+        <span>Years of Experience</span>
+        <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        name="experience_years"
+        value={formData.experience_years}
+        onChange={handleChange}
+        required
+        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+        placeholder="e.g., 5 years"
+      />
+      {formErrors.experience_years && (
+        <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
+      )}
+    </div>
+    
+    {/* Other Services - Simple & Flexible */}
+    <div>
+      <label className="block text-sm font-medium text-gray-300 mb-2">
+      Details & Other Services
+        <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
+      </label>
+      <textarea
+        name="other_services"
+        value={formData.other_services}
+        onChange={handleChange}
+        rows={3}
+        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+        placeholder={
+`Examples:
+• Plumbing repairs, Drain cleaning, Toilet installations
+OR
+Plumbing repairs
+Drain cleaning
+Toilet installations
+OR
+I provide comprehensive plumbing services including repairs, maintenance, and installations.`
+        }
+      />
+      
+      {/* Simple Format Hint */}
+      <div className="mt-2 text-xs text-gray-500">
+        <span className="inline-flex items-center gap-1">
+          <span className="text-orange-400">💡</span>
+          Enter services separated by commas or on separate lines. Will display as a bullet list.
+        </span>
+      </div>
+    </div>
+    
+    {/* Accreditations */}
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+          <span>Accreditations</span>
+        </label>
+        <span className="text-xs text-gray-500">
+          {selectedAccreditations.length}/10 selected
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => setShowAccreditationModal(true)}
+        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
+      >
+        <div className="flex-1">
+          <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
+            {selectedAccreditations.length > 0 
+              ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
+              : "Add your accreditations"}
+          </span>
+        </div>
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      
+      {/* Selected accreditations preview */}
+      {selectedAccreditations.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {selectedAccreditations.slice(0, 3).map(acc => (
+            <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
+              <Award className="w-3 h-3" />
+              {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
+            </span>
+          ))}
+          {selectedAccreditations.length > 3 && (
+            <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
+              +{selectedAccreditations.length - 3} more
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+</div>
 
           {/* ==================== SECTION 4: SERVICE AREAS ==================== */}
           <div className="mb-10">
@@ -1001,7 +1017,6 @@ function EditListingContent() {
                 </label>
                 <div className="relative">
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                    <DollarSign className="w-5 h-5" />
                   </div>
                   <input
                     type="text"
@@ -1014,20 +1029,7 @@ function EditListingContent() {
                 </div>
               </div>
               
-              {/* Portfolio URL */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Portfolio/Website URL
-                </label>
-                <input
-                  type="url"
-                  name="portfolio_url"
-                  value={formData.portfolio_url}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-                  placeholder="https://yourbusiness.co.za"
-                />
-              </div>
+     
               
               {/* Checkboxes Grid */}
               <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-700">
@@ -1042,7 +1044,6 @@ function EditListingContent() {
                       className="mr-3 accent-orange-500 w-5 h-5"
                     />
                     <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
                       <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
                     </div>
                   </div>
@@ -1098,7 +1099,6 @@ function EditListingContent() {
                       <div className="mt-3 pl-8">
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                            <DollarSign className="w-4 h-4" />
                           </div>
                           <input
                             type="text"
@@ -1235,7 +1235,7 @@ function EditListingContent() {
         callout_fee: formData.emergency_service ? formData.callout_fee : null,
         insurance: formData.insurance,
         insurance_details: formData.insurance ? formData.insurance_details : null,
-        portfolio_url: formData.portfolio_url || null,
+
         updated_at: new Date().toISOString(),
       }
       

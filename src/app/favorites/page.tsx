@@ -1,15 +1,16 @@
-// File: src/app/favorites/page.tsx - NEW FAVORITES PAGE
+// File: src/app/favorites/page.tsx - MOBILE RESPONSIVE VERSION
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getFavoriteProviders } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { 
-  Heart, MapPin, Star, Clock, DollarSign, 
-  ChevronRight, Shield, Zap, ArrowLeft,
-  Sparkles, Users, Award, ShieldCheck,TrendingUp 
+  Heart, MapPin, Star, Briefcase,
+  Shield, Zap, Award, ChevronRight,
+  CheckCircle, Calendar, ArrowLeft,
+  Sparkles
 } from 'lucide-react'
 
 export default function FavoritesPage() {
@@ -19,6 +20,7 @@ export default function FavoritesPage() {
   const [favoriteProviders, setFavoriteProviders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
 
   // Redirect if not logged in
   useEffect(() => {
@@ -27,6 +29,30 @@ export default function FavoritesPage() {
       router.push('/providers')
     }
   }, [user, router, showAuthModal])
+
+  // Fetch accreditations from Supabase
+  useEffect(() => {
+    const fetchAccreditations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('accreditations')
+          .select('*')
+          .eq('is_global', true)
+        
+        if (!error && data) {
+          const map = new Map()
+          data.forEach(acc => {
+            map.set(acc.id, acc)
+          })
+          setAccreditationsMap(map)
+        }
+      } catch (error) {
+        console.error('Error fetching accreditations:', error)
+      }
+    }
+    
+    fetchAccreditations()
+  }, [])
 
   // Load favorite providers
   useEffect(() => {
@@ -37,15 +63,94 @@ export default function FavoritesPage() {
         setLoading(true)
         setError('')
         
-        const providers = await getFavoriteProviders(user.id)
-        setFavoriteProviders(providers)
+        // Get favorite provider IDs
+        const { data: favoritesData, error: favoritesError } = await supabase
+          .from('user_favorites')
+          .select('provider_id')
+          .eq('user_id', user.id)
         
-        if (providers.length === 0) {
+        if (favoritesError) throw favoritesError
+        
+        if (!favoritesData || favoritesData.length === 0) {
+          setFavoriteProviders([])
           setError('You haven\'t saved any favorites yet.')
+          return
         }
+        
+        const providerIds = favoritesData.map(fav => fav.provider_id)
+        
+        // Fetch complete provider data
+        const { data, error } = await supabase
+          .from('providers')
+          .select(`
+            *,
+            provider_service_areas (area_name, is_primary),
+            provider_accreditations (id, custom_name, is_custom, accreditation_id)
+          `)
+          .in('id', providerIds)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+        
+        if (error) throw error
+        
+        if (data && data.length > 0) {
+          const transformedData = data.map(provider => {
+            const serviceAreas = provider.provider_service_areas || []
+            const allServiceAreas = serviceAreas.map((area: any) => area.area_name)
+            const primaryArea = serviceAreas.find((area: any) => area.is_primary)?.area_name || 
+                              provider.main_service_area || 
+                              'Service Area'
+            
+            let otherServices = []
+            if (provider.other_services) {
+              otherServices = provider.other_services.split(',').map((s: string) => s.trim()).slice(0, 3)
+            }
+            
+            const displayAccreditations = provider.provider_accreditations || []
+            
+            return {
+              id: provider.id,
+              business_name: provider.business_name,
+              main_service: provider.main_service || 'Professional Service',
+              main_service_id: provider.main_service_id,
+              
+              primary_area: primaryArea,
+              service_areas: serviceAreas,
+              all_service_areas: allServiceAreas,
+              
+              hourly_rate: provider.hourly_rate,
+              callout_fee: provider.callout_fee,
+              
+              rating: provider.rating || 4.5,
+              total_reviews: provider.total_reviews || 0,
+              
+              other_services: otherServices,
+              all_other_services: provider.other_services || '',
+              
+              experience_years: provider.experience_years || 0,
+              emergency_service: provider.emergency_service || false,
+              insurance: provider.insurance || false,
+              accepts_card: provider.accepts_card || false,
+              accepts_cash: provider.accepts_cash || true,
+              verified: provider.verified || false,
+              
+              accreditations: provider.provider_accreditations || [],
+              display_accreditations: displayAccreditations,
+              
+              is_favorite: true
+            }
+          })
+          
+          setFavoriteProviders(transformedData)
+        } else {
+          setFavoriteProviders([])
+          setError('No favorite providers found.')
+        }
+        
       } catch (err: any) {
         console.error('Error loading favorites:', err)
         setError('Failed to load your favorites. Please try again.')
+        setFavoriteProviders([])
       } finally {
         setLoading(false)
       }
@@ -70,16 +175,79 @@ export default function FavoritesPage() {
     return 'Contact for rates'
   }
 
+  // Get service areas display - MOBILE FRIENDLY
+  const getServiceAreasDisplay = (provider: any) => {
+    if (provider.all_service_areas && provider.all_service_areas.length > 0) {
+      const displayAreas = provider.all_service_areas.slice(0, 2)
+      const additionalCount = provider.all_service_areas.length - 2
+      
+      let display = displayAreas.join(', ')
+      if (additionalCount > 0) {
+        display += ` +${additionalCount}`
+      }
+      return display
+    }
+    return provider.primary_area || 'Service area not specified'
+  }
+
+  // Get accreditations display
+  const getAccreditationsDisplay = (provider: any) => {
+    if (provider.display_accreditations && provider.display_accreditations.length > 0) {
+      const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
+        if (acc.is_custom) {
+          return acc.custom_name?.substring(0, 12) || 'Custom'
+        } else if (acc.accreditation_id) {
+          const accreditation = accreditationsMap.get(acc.accreditation_id)
+          return accreditation?.name?.substring(0, 12) || 'Certified'
+        }
+        return 'Certified'
+      })
+      
+      const display = accreditationNames.join(', ')
+      const additionalCount = provider.accreditations.length - 2
+      
+      if (additionalCount > 0) {
+        return `${display} +${additionalCount}`
+      }
+      return display
+    }
+    return null
+  }
+
+  // Get business initials
+  const getBusinessInitials = (businessName: string) => {
+    if (!businessName) return 'P'
+    return businessName.charAt(0).toUpperCase()
+  }
+
+  // Get business color
+  const getBusinessColor = (businessName: string) => {
+    const colors = [
+      '#3B82F6', // Blue
+      '#10B981', // Emerald
+      '#6366F1', // Indigo
+      '#EF4444', // Red
+      '#F59E0B', // Amber
+      '#06B6D4', // Cyan
+      '#84CC16', // Lime
+      '#8B5CF6', // Purple
+    ]
+    
+    if (!businessName) return colors[0]
+    const charCode = businessName.charCodeAt(0)
+    return colors[charCode % colors.length]
+  }
+
   // Handle back to providers
   const handleBack = () => {
-    router.push('/providers')
+    router.push('/')
   }
 
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
           <p className="text-gray-400">Checking authentication...</p>
         </div>
       </div>
@@ -88,39 +256,29 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
-      {/* Animated background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-pink-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-40 left-1/2 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl" />
-      </div>
-
-      {/* Main Content */}
-      <main className="relative container mx-auto px-3 sm:px-4 py-6 sm:py-8">
-        {/* Header */}
+      {/* Main Content - Mobile optimized */}
+      <main className="relative container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        
+        {/* Header - Mobile optimized */}
         <div className="mb-6 sm:mb-8">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 mb-4 sm:mb-6 group text-sm sm:text-base"
-          >
-            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-1 transition-transform" />
-            Back to All Providers
-          </button>
+      
 
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 flex items-center gap-2">
-                <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-pink-400 fill-pink-400" />
-                My Favorite Professionals
-              </h1>
-              <p className="text-gray-400">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-6">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-purple-400 fill-purple-400" />
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white truncate">
+                  My Favorites
+                </h1>
+              </div>
+              <p className="text-gray-400 text-sm sm:text-base">
                 {favoriteProviders.length} saved {favoriteProviders.length === 1 ? 'professional' : 'professionals'}
               </p>
             </div>
 
-            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600/20 to-pink-500/20 border border-pink-500/30 rounded-xl">
-              <Sparkles className="w-4 h-4 text-pink-400" />
-              <span className="text-white text-sm">Personal Collection</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-600/20 to-purple-500/20 border border-purple-500/30 rounded-lg sm:rounded-xl mt-2 sm:mt-0">
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400" />
+              <span className="text-white text-xs sm:text-sm whitespace-nowrap">Personal Collection</span>
             </div>
           </div>
         </div>
@@ -128,187 +286,301 @@ export default function FavoritesPage() {
         {/* Loading State */}
         {loading ? (
           <div className="text-center py-12 sm:py-20">
-            <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-pink-500"></div>
+            <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500"></div>
             <p className="mt-4 text-gray-400 text-sm sm:text-base">Loading your favorites...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-12 sm:py-20 modern-glass rounded-2xl border border-gray-700">
-            <Heart className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-4" />
+          <div className="text-center py-12 sm:py-20 bg-gray-800/30 rounded-xl sm:rounded-2xl border border-gray-700 mx-2 sm:mx-0">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500" />
+            </div>
             <h3 className="text-lg sm:text-xl font-semibold text-gray-300 mb-2">
               No favorites yet
             </h3>
-            <p className="text-gray-500 text-sm sm:text-base mb-6">
+            <p className="text-gray-500 text-sm sm:text-base mb-6 px-4">
               {error}
             </p>
             <button
               onClick={handleBack}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-lg hover:from-emerald-500 hover:to-emerald-400 text-sm sm:text-base"
+              className="px-4 py-2 sm:px-6 sm:py-2 bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-lg hover:from-purple-500 hover:to-purple-400 text-sm sm:text-base"
             >
               Browse Professionals
             </button>
           </div>
         ) : (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
-          >
-            {favoriteProviders.map((provider, index) => (
-              <motion.div
-                key={provider.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -6 }}
-                className="group cursor-pointer"
-              >
-                <div 
-                  onClick={() => handleProviderClick(provider.id)}
-                  className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl sm:rounded-2xl shadow-xl sm:shadow-2xl border border-pink-500/30 overflow-hidden hover:border-pink-500/50 transition-all duration-500 hover:shadow-[0_10px_30px_rgba(236,72,153,0.15)] sm:hover:shadow-[0_20px_40px_rgba(236,72,153,0.15)] relative card-3d"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {favoriteProviders.map((provider, index) => {
+              const businessColor = getBusinessColor(provider.business_name)
+              const businessInitials = getBusinessInitials(provider.business_name)
+              const accreditationsDisplay = getAccreditationsDisplay(provider)
+              
+              return (
+                <motion.div
+                  key={provider.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                  className="group cursor-pointer"
                 >
-                  {/* Favorite Badge */}
-                  <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 p-1.5 sm:p-2 rounded-full bg-gradient-to-r from-pink-600 to-pink-500">
-                    <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-white" />
-                  </div>
-
-                  {/* Badges */}
-                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-col gap-1">
-                    {provider.emergency_service && (
-                      <div className="px-2 py-1 rounded-full bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold flex items-center gap-1">
-                        <Zap className="w-2 h-2" />
-                        <span className="text-xs">24/7</span>
-                      </div>
-                    )}
-                    {provider.insurance && (
-                      <div className="px-2 py-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs font-bold flex items-center gap-1">
-                        <Shield className="w-2 h-2" />
-                        <span className="text-xs">Insured</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Provider Image/Logo */}
-                  <div className="relative h-36 sm:h-40 md:h-48 overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-pink-500/20 to-purple-500/20" />
-                    <div className="relative h-full flex items-center justify-center">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center text-white text-xl sm:text-2xl font-bold">
-                        {provider.business_name?.charAt(0) || 'P'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-4 sm:p-6">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3 sm:mb-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-pink-300 transition-colors duration-300 truncate">
-                          {provider.business_name}
-                        </h3>
-                        <p className="text-gray-400 text-xs sm:text-sm mt-0.5 truncate">{provider.main_service}</p>
-                      </div>
-                    </div>
-
-                    {/* Rating and Price */}
-                    <div className="flex items-center justify-between mb-3 sm:mb-4">
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
-                          <span className="font-bold text-white text-sm sm:text-base">
-                            {provider.rating || 'New'}
-                          </span>
+                  {/* PROVIDER CARD - Mobile optimized */}
+                  <div 
+                    onClick={() => handleProviderClick(provider.id)}
+                    className="h-full bg-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-purple-500/30 overflow-hidden hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(139,92,246,0.15)] sm:hover:shadow-[0_20px_40px_rgba(139,92,246,0.15)] flex flex-col"
+                  >
+                    {/* Card Header - Mobile optimized */}
+                    <div className="p-4 sm:p-6 border-b border-gray-700/50">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        {/* Business Logo - Smaller on mobile */}
+                        <div className="relative flex-shrink-0">
+                          <div 
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl border-2 border-purple-500/30 flex items-center justify-center shadow-lg overflow-hidden"
+                            style={{ 
+                              backgroundColor: businessColor + '10',
+                            }}
+                          >
+                            <div 
+                              className="w-full h-full flex items-center justify-center"
+                              style={{ backgroundColor: businessColor }}
+                            >
+                              <span className="text-xl sm:text-2xl font-bold text-white">
+                                {businessInitials}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Favorite Badge - Smaller on mobile */}
+                          <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-purple-600 to-purple-500 rounded-full border-2 border-gray-800 flex items-center justify-center shadow-lg">
+                            <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-white fill-white" />
+                          </div>
                         </div>
-                        {provider.total_reviews > 0 && (
-                          <span className="text-gray-500 text-xs sm:text-sm">({provider.total_reviews})</span>
-                        )}
+                        
+                        {/* Business Name and Service Category - Mobile optimized */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0">
+                              {/* Business Name - Truncated on mobile */}
+                              <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                                {provider.business_name}
+                              </h3>
+                              {/* Service Category */}
+                              <p className="text-xs sm:text-sm text-purple-400 mt-0.5 sm:mt-1 truncate">
+                                {provider.main_service}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Rating and Price - Mobile optimized */}
+                          <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-3">
+                            <div className="flex items-center gap-1 sm:gap-1.5">
+                              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
+                              <span className="font-semibold text-white text-sm sm:text-base">
+                                {provider.rating || 'New'}
+                              </span>
+                              {provider.total_reviews > 0 && (
+                                <span className="text-gray-400 text-xs sm:text-sm">
+                                  ({provider.total_reviews})
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-1 sm:gap-1.5">
+                              <span className="font-semibold text-emerald-400 text-sm sm:text-base">
+                                {getPriceDisplay(provider)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
-                        <span className="text-emerald-400 font-semibold text-sm sm:text-base">
-                          {getPriceDisplay(provider)}
+                    </div>
+                    
+                    {/* Card Body - Mobile optimized spacing */}
+                    <div className="p-4 sm:p-6 flex-1 flex flex-col">
+                      {/* Service Areas */}
+                      <div className="mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-medium text-blue-400">Service Areas</span>
+                        </div>
+                        <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
+                          <p className="text-gray-300 font-semibold text-sm sm:text-base truncate md:line-clamp-2">
+                            {getServiceAreasDisplay(provider)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Years of Experience */}
+                      <div className="mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-medium text-emerald-400">Experience</span>
+                        </div>
+                        <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
+                          <p className="text-gray-300 font-semibold text-sm sm:text-base">
+                            {provider.experience_years > 0 
+                              ? `${provider.experience_years} year${provider.experience_years !== 1 ? 's' : ''}`
+                              : 'Not specified'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Other Services Offered */}
+                      <div className="mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                          <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-medium text-purple-400">Other Services</span>
+                        </div>
+                        <div className="min-h-[36px] sm:min-h-[44px]">
+                          {(() => {
+                            const otherServicesText = provider.all_other_services;
+                            
+                            if (!otherServicesText?.trim()) {
+                              return (
+                                <p className="text-gray-500 italic text-xs sm:text-sm">No additional services listed</p>
+                              );
+                            }
+                            
+                            const items = otherServicesText
+                            .split(/[\n,]+/)
+                            .map((item: string) => item.trim())
+                            .filter((item: string) => item)
+                            .map((item: string) => item.replace(/^[•\-*\s]+/, ''));
+                            
+                            if (items.length === 0) {
+                              return (
+                                <p className="text-gray-500 italic text-xs sm:text-sm">No additional services listed</p>
+                              );
+                            }
+                            
+                            const displayItems = items.slice(0, 2); // Show only 2 on mobile
+                            
+                            return (
+                              <ul className="space-y-0.5 sm:space-y-1">
+                                {displayItems.map((item: string, index: number) => (
+                                  <li key={index} className="flex items-start text-gray-300 text-xs sm:text-sm">
+                                    <span className="text-purple-400 mr-1.5 sm:mr-2 mt-0.5">•</span>
+                                    <span className="line-clamp-1">{item}</span>
+                                  </li>
+                                ))}
+                                {items.length > 2 && (
+                                  <li className="text-gray-400 text-xs sm:text-sm italic">
+                                    +{items.length - 2} more
+                                  </li>
+                                )}
+                              </ul>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      
+                      {/* Accreditations */}
+                      <div className="mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                          <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm font-medium text-amber-400">Accreditations</span>
+                        </div>
+                        <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
+                          {accreditationsDisplay ? (
+                            <p className="text-gray-300 text-sm sm:text-base truncate sm:line-clamp-2">
+                              {accreditationsDisplay}
+                            </p>
+                          ) : (
+                            <p className="text-gray-500 italic text-xs sm:text-sm">No accreditations listed</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Features/Badges Row - Mobile optimized */}
+                      <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-700/50">
+                        <div className="flex gap-1.5 sm:gap-2 min-h-[32px] sm:min-h-[40px] items-center overflow-x-auto pb-1 sm:pb-0">
+                          {provider.emergency_service || provider.insurance || provider.accepts_card || provider.accepts_cash ? (
+                            <div className="flex gap-1.5 sm:gap-2 flex-nowrap">
+                              {/* Emergency Service */}
+                              {provider.emergency_service && (
+                                <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 min-w-[60px] sm:min-w-[70px] justify-center flex-shrink-0">
+                                  <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
+                                  <span className="text-xs font-medium text-red-400">24/7</span>
+                                </div>
+                              )}
+                              
+                              {/* Insurance */}
+                              {provider.insurance && (
+                                <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 min-w-[60px] sm:min-w-[70px] justify-center flex-shrink-0">
+                                  <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
+                                  <span className="text-xs font-medium text-blue-400">Insured</span>
+                                </div>
+                              )}
+                              
+                              {/* Payment Methods */}
+                              {provider.accepts_card && (
+                                <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[50px] sm:min-w-[60px] flex items-center justify-center flex-shrink-0">
+                                  <span className="text-xs font-medium text-emerald-400">Card</span>
+                                </div>
+                              )}
+                              
+                              {provider.accepts_cash && (
+                                <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[50px] sm:min-w-[60px] flex items-center justify-center flex-shrink-0">
+                                  <span className="text-xs font-medium text-emerald-400">Cash</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="min-h-[32px] sm:min-h-[40px] flex items-center">
+                              <p className="text-gray-500 text-xs sm:text-sm italic">No features specified</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* View Details CTA - Mobile optimized */}
+                      <div className="pt-3 sm:pt-4 border-t border-gray-700/50 flex items-center justify-between mt-3 sm:mt-4">
+                        <span className="text-gray-400 text-xs sm:text-sm">
+                          Click for full details
                         </span>
+                        <div className="flex items-center gap-0.5 sm:gap-1 text-purple-400 group-hover:text-purple-300 transition-colors">
+                          <span className="text-xs sm:text-sm font-medium">View</span>
+                          <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </div>
                       </div>
                     </div>
-
-                    {/* Location */}
-                    <div className="flex items-center gap-1 sm:gap-2 text-gray-400 mb-3 sm:mb-4">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="text-xs sm:text-sm truncate">
-                        {provider.city}, {provider.province}
-                      </span>
-                    </div>
-
-                    {/* Experience & Completed Jobs */}
-                    <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                      {provider.experience_years > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
-                          <span className="text-xs sm:text-sm text-gray-400">
-                            {provider.experience_years} years
-                          </span>
-                        </div>
-                      )}
-                      {provider.completed_jobs > 0 && (
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
-                          <span className="text-xs sm:text-sm text-gray-400">
-                            {provider.completed_jobs} jobs
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Description */}
-                    {provider.description && (
-                      <p className="text-gray-400 text-xs sm:text-sm line-clamp-2 mb-4 sm:mb-6">
-                        {provider.description}
-                      </p>
-                    )}
-
-                    {/* View Button */}
-                    <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-gray-800">
-                      <span className="text-gray-500 text-xs sm:text-sm">
-                        View Details
-                      </span>
-                      <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 group-hover:text-pink-400 group-hover:translate-x-1 transition-all duration-300" />
-                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+                </motion.div>
+              )
+            })}
+          </div>
         )}
 
-        {/* Empty state help */}
+        {/* Empty state help - Mobile optimized */}
         {!loading && favoriteProviders.length === 0 && (
-          <div className="mt-8 modern-glass rounded-2xl p-6 border border-gray-700">
-            <h3 className="text-lg font-semibold text-white mb-3">How to save favorites</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-pink-500/20 to-pink-600/20 flex items-center justify-center">
-                  <span className="text-pink-400 font-bold">1</span>
+          <div className="mt-6 sm:mt-8 bg-gray-800/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-700 mx-2 sm:mx-0">
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-3">How to save favorites</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-400 font-bold text-sm sm:text-base">1</span>
                 </div>
                 <div>
-                  <p className="text-white font-medium mb-1">Browse professionals</p>
-                  <p className="text-gray-400 text-sm">Find service providers in any category</p>
+                  <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Browse professionals</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">Find service providers</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-pink-500/20 to-pink-600/20 flex items-center justify-center">
-                  <span className="text-pink-400 font-bold">2</span>
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-400 font-bold text-sm sm:text-base">2</span>
                 </div>
                 <div>
-                  <p className="text-white font-medium mb-1">Click the heart icon</p>
-                  <p className="text-gray-400 text-sm">On any provider card to save them</p>
+                  <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Click heart icon</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">On any provider card</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-pink-500/20 to-pink-600/20 flex items-center justify-center">
-                  <span className="text-pink-400 font-bold">3</span>
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-400 font-bold text-sm sm:text-base">3</span>
                 </div>
                 <div>
-                  <p className="text-white font-medium mb-1">Access anytime</p>
-                  <p className="text-gray-400 text-sm">View all saved favorites here or in your profile</p>
+                  <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Access anytime</p>
+                  <p className="text-gray-400 text-xs sm:text-sm">View saved favorites here</p>
                 </div>
               </div>
             </div>

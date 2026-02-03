@@ -65,7 +65,6 @@ export interface Provider {
   emergency_service: boolean
   insurance: boolean
   insurance_details?: string
-  portfolio_url?: string
   status: 'pending' | 'approved' | 'rejected' | 'pause' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
   verified: boolean
   launch_trial: boolean

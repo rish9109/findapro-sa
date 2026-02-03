@@ -631,3 +631,16 @@ input:not([class*="bg-"]):not([class*="text-"]) {
 input[style*="color:"] {
   /* Let inline styles win */
 }
+/* Fix for iOS modal scrolling */
+@supports (-webkit-touch-callout: none) {
+  .modal-ios-fix {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Prevent body scroll when modal is open */
+.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}

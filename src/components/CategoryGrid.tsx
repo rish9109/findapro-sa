@@ -233,49 +233,44 @@ export default function CategoryGrid() {
   )
 }
 
-// Loading skeleton component
+// Update the CategoryGridSkeleton function:
 function CategoryGridSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {[...Array(12)].map((_, index) => (
         <div
           key={index}
-          className="h-full rounded-2xl bg-gradient-to-br from-luxury-navy to-luxury-midnight border border-white/20 overflow-hidden"
+          className="h-full rounded-2xl bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-gray-700/50 overflow-hidden" // MATCHES PAGE
         >
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-white/20 to-white/10" />
-          
           <div className="p-6 h-full">
             <div className="flex items-center gap-4 mb-6 min-h-[56px]">
-              <div className="w-14 h-14 rounded-xl bg-white/10 flex-shrink-0 animate-pulse" />
+              <div className="w-14 h-14 rounded-xl bg-gray-700/50 flex-shrink-0 animate-pulse" />
               <div className="flex-1">
-                <div className="h-6 bg-white/10 rounded animate-pulse mb-2" />
-                <div className="h-4 bg-white/5 rounded animate-pulse w-3/4" />
+                <div className="h-6 bg-gray-700/50 rounded animate-pulse mb-2" />
+                <div className="h-4 bg-gray-700/30 rounded animate-pulse w-3/4" />
               </div>
             </div>
             
-            <div className="h-px w-full mb-6 bg-white/10" />
+            <div className="h-px w-full mb-6 bg-gray-700/30" />
             
             <div className="flex-1" />
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-white/10 w-10 h-10 animate-pulse" />
+                <div className="p-2 rounded-lg bg-gray-700/50 w-10 h-10 animate-pulse" />
                 <div>
-                  <div className="h-7 w-12 bg-white/10 rounded animate-pulse mb-1" />
-                  <div className="h-4 w-16 bg-white/5 rounded animate-pulse" />
+                  <div className="h-7 w-12 bg-gray-700/50 rounded animate-pulse mb-1" />
+                  <div className="h-4 w-16 bg-gray-700/30 rounded animate-pulse" />
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
+              <div className="w-10 h-10 rounded-full bg-gray-700/50 animate-pulse" />
             </div>
           </div>
-          
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
       ))}
     </div>
   )
 }
-
 // CategoryCard component - Keep your original implementation
 function CategoryCard({ category, index, onClick }: { 
   category: any, 

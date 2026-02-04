@@ -111,16 +111,16 @@ export default function ProvidersPage() {
       if (data && data.length > 0) {
         const transformedData = data.map(provider => {
           // Get service areas - SIMPLIFIED: Just basic formatting, NO filtering
-          let formattedServiceAreas = []
+          let formattedServiceAreas: string[] = []
           
           if (provider.service_areas) {
             formattedServiceAreas = provider.service_areas
               .split(',')
               .map((area: string) => area.trim())
-              .map(area => {
+              .map((area: string) => { // ✅ Added type annotation here
                 return area
                   .split(' ')
-                  .map(word => {
+                  .map((word: string) => { // ✅ Could also add type here for consistency
                     const trimmedWord = word.trim()
                     if (trimmedWord.length === 0) return ''
                     return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()

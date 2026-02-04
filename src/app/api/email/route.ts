@@ -5,61 +5,67 @@ import {
   sendNewListingAdminEmail, 
   sendNewListingConfirmationEmail,
   sendProviderStatusEmail,
-  sendAdminConfirmationEmail 
+  sendAdminConfirmationEmail,
+  sendListingUpdatedEmail  // ADD THIS IMPORT
 } from '@/lib/resend'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log('📧 Email API called:', body)
+    console.log('📧 Email API called:', { event: body.event, providerId: body.providerId })
 
-    const { event, providerId, adminEmail, action, reason } = body
+    const { 
+      event, 
+      providerId, 
+      adminEmail, 
+      action, 
+      reason,
+      businessName,
+      status,
+      recipientEmail,
+      recipientType = 'provider'
+    } = body
 
     if (!event) {
       return NextResponse.json({ error: 'Event type required' }, { status: 400 })
     }
 
-    if (!providerId) {
+    // For listing_updated, we don't need provider object
+    if (event !== 'listing_updated' && !providerId) {
       return NextResponse.json({ error: 'Provider ID required' }, { status: 400 })
     }
 
-    // Get provider details - with better error handling
-    const { data: provider, error: providerError } = await supabase
-      .from('providers')
-      .select('*')
-      .eq('id', providerId)
-      .single()
+    let provider = null
+    let result = null
+
+    // Get provider details (except for listing_updated)
+    if (providerId && event !== 'listing_updated') {
+      const { data: providerData, error: providerError } = await supabase
+        .from('providers')
+        .select('*')
+        .eq('id', providerId)
+        .single()
 
       if (providerError) {
         console.error('Provider lookup error:', providerError)
-        
-        // Check if provider exists at all
-        const { count } = await supabase
-          .from('providers')
-          .select('*', { count: 'exact', head: true })
-          .eq('id', providerId)
-  
         return NextResponse.json({ 
           error: 'Provider not found',
-          details: providerError.message,
-          providerExists: (count || 0) > 0
+          details: providerError.message
         }, { status: 404 })
-      } 
+      }
 
-    if (!provider) {
-      return NextResponse.json({ 
-        error: 'Provider not found',
-        providerId,
-        note: 'Check if provider was saved to database'
-      }, { status: 404 })
+      provider = providerData
     }
-
-    let result
 
     switch (event) {
       case 'new_listing':
-        console.log('📤 Sending new listing emails for:', provider.business_name)
+        console.log('📤 Sending new listing emails for:', provider?.business_name)
         
+        if (!provider) {
+          return NextResponse.json({ error: 'Provider not found' }, { status: 404 })
+        }
+
+        // Use your existing working functions
         const [adminResult, providerResult] = await Promise.allSettled([
           sendNewListingAdminEmail(provider),
           sendNewListingConfirmationEmail(provider)
@@ -79,10 +85,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Action required' }, { status: 400 })
         }
 
-        // Send email to provider
+        if (!provider) {
+          return NextResponse.json({ error: 'Provider not found' }, { status: 404 })
+        }
+
+        // Use your existing working functions
         const providerEmailResult = await sendProviderStatusEmail(provider, action, reason)
         
-        // Send confirmation to admin
         let adminConfirmResult = null
         if (adminEmail) {
           adminConfirmResult = await sendAdminConfirmationEmail(adminEmail, provider, action, reason)
@@ -95,6 +104,38 @@ export async function POST(request: NextRequest) {
         }
         break
 
+      case 'listing_updated':
+        console.log('📝 Processing listing update:', { 
+          businessName, 
+          status, 
+          recipientType 
+        })
+        
+        // Simple validation
+        if (!businessName) {
+          return NextResponse.json({ error: 'Business name required' }, { status: 400 })
+        }
+
+        if (!status) {
+          return NextResponse.json({ error: 'Status required' }, { status: 400 })
+        }
+
+        if (recipientType === 'provider' && !recipientEmail) {
+          return NextResponse.json({ error: 'Provider email required' }, { status: 400 })
+        }
+
+        // SIMPLE SOLUTION: Use the same function for both, just pass recipientType
+        result = await sendListingUpdatedEmail(
+          recipientType === 'provider' ? recipientEmail! : (recipientEmail || 'admin@findapro.co.za'),
+          businessName,
+          status,
+          providerId || 'N/A',
+          recipientType
+        )
+        
+        console.log(`✅ Email sent to ${recipientType}:`, result.success)
+        break
+
       default:
         return NextResponse.json({ error: 'Unknown event type' }, { status: 400 })
     }
@@ -102,12 +143,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Email processing complete',
-      data: result,
-      provider: {
-        id: provider.id,
-        business_name: provider.business_name,
-        status: provider.status
-      }
+      data: result
     })
 
   } catch (error: any) {
@@ -115,8 +151,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false,
-        error: error.message || 'Failed to process email',
-        note: 'Check your configuration'
+        error: error.message || 'Failed to process email'
       },
       { status: 500 }
     )
@@ -127,8 +162,6 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     service: 'FindAPro Email Service',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    resendConfigured: !!process.env.RESEND_API_KEY
+    timestamp: new Date().toISOString()
   })
 }

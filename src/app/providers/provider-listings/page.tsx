@@ -10,13 +10,7 @@ import ServiceAreaModal from '@/components/ServiceAreaModal'
 import ServiceCategoryModal from '@/components/ServiceCategoryModal'
 import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
 
-// Types
-interface City {
-  id: string
-  name: string
-  province_id: string
-}
-
+// Types - Removed City interface
 interface ServiceCategory {
   id: string
   name: string
@@ -42,8 +36,7 @@ function ProviderListingsContent() {
   const [showAccreditationModal, setShowAccreditationModal] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   
-  // Dynamic data
-  const [cities, setCities] = useState<City[]>([])
+  // Dynamic data - Removed cities state
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   const [loadingData, setLoadingData] = useState(true)
   
@@ -74,11 +67,11 @@ function ProviderListingsContent() {
     // Service Information
     mainService: '',
     mainServiceId: '',
-    otherServices: '',
+    otherServices: '', // Will store "Details"
     experienceYears: '',
     
     // Pricing & Payment
-    hourlyRate: '',
+    hourlyRate: '', // Will store "Fees & Pricing"
     acceptsCard: false,
     acceptsCash: true,
     depositRequired: false,
@@ -87,8 +80,7 @@ function ProviderListingsContent() {
     emergencyService: false,
     emergencyCalloutFee: '',
     insurance: false,
-    insuranceDetails: '',
-
+    // Removed insuranceDetails
     
     // Terms
     acceptTerms: false
@@ -132,12 +124,7 @@ function ProviderListingsContent() {
           }
         }
         
-        // Fetch cities
-        const { data: citiesData } = await supabase
-          .from('cities')
-          .select('id, name, province_id')
-          .order('name')
-        setCities(citiesData || [])
+        // Removed cities fetch
         
         // Fetch service categories
         const { data: servicesData } = await supabase
@@ -241,15 +228,25 @@ function ProviderListingsContent() {
     setSelectedAccreditations(accreditations)
   }
 
-  // Handle service areas save
-  const handleServiceAreasSave = (primary: string, additional: string[]) => {
-    setServiceAreas({
-      primaryArea: primary,
-      additionalAreas: additional
-    })
+  // Handle service areas save - UPDATED for new modal format
+  const handleServiceAreasSave = (areas: string[]) => {
+    // If we have areas, first is primary, rest are additional
+    if (areas && areas.length > 0) {
+      setServiceAreas({
+        primaryArea: areas[0],
+        additionalAreas: areas.slice(1) || [] // Ensure it's always an array
+      });
+    } else {
+      // No areas selected
+      setServiceAreas({
+        primaryArea: '',
+        additionalAreas: []
+      });
+    }
+    
     // Clear error
     if (formErrors.primaryArea) {
-      setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+      setFormErrors(prev => ({ ...prev, primaryArea: '' }));
     }
   }
 
@@ -279,7 +276,7 @@ function ProviderListingsContent() {
     }
     
     // Service Areas
-    if (!serviceAreas.primaryArea.trim()) {
+    if (!serviceAreas.primaryArea?.trim()) {
       errors.primaryArea = 'Primary service area is required'
     }
     
@@ -288,10 +285,7 @@ function ProviderListingsContent() {
       errors.emergencyCalloutFee = 'Emergency callout fee is required when offering emergency service'
     }
     
-    // Insurance details validation
-    if (formData.insurance && !formData.insuranceDetails.trim()) {
-      errors.insuranceDetails = 'Insurance details are required when you have insurance'
-    }
+    // Removed insurance details validation
     
     // Terms
     if (!formData.acceptTerms) {
@@ -340,10 +334,6 @@ function ProviderListingsContent() {
       // Use locked business name if exists, otherwise use form data
       const businessNameToUse = existingBusinessName || formData.businessName
       
-      // Find city ID for the selected primary area
-      const selectedCity = cities.find(city => city.name === serviceAreas.primaryArea)
-      const cityId = selectedCity?.id || null
-      
       // Prepare data for Supabase
       const providerData = {
         user_id: user.id,
@@ -356,14 +346,16 @@ function ProviderListingsContent() {
         
         main_service: formData.mainService,
         main_service_id: formData.mainServiceId,
-        other_services: formData.otherServices,
+        details: formData.otherServices, // Changed from other_services to details
         experience_years: formData.experienceYears,
         
-        // ✅ FIXED: Set main_service_area_id to null instead of empty string
-        main_service_area: serviceAreas.primaryArea,
-        main_service_area_id: cityId, // ✅ Now properly set to city ID or null
+        // Store service areas as JSON array in the providers table
+        service_areas: JSON.stringify([
+          serviceAreas.primaryArea, 
+          ...(serviceAreas.additionalAreas || [])
+        ]),
         
-        hourly_rate: formData.hourlyRate || null,
+        fees_pricing: formData.hourlyRate || null, // Changed from hourly_rate to fees_pricing
         accepts_card: formData.acceptsCard,
         accepts_cash: formData.acceptsCash,
         deposit_required: formData.depositRequired,
@@ -372,17 +364,13 @@ function ProviderListingsContent() {
         callout_fee: formData.emergencyService ? formData.emergencyCalloutFee : null,
         
         insurance: formData.insurance,
-        insurance_details: formData.insurance ? formData.insuranceDetails : null,
-
+        // Removed insurance_details
         
         status: 'pending',
         verified: false,
         created_at: new Date().toISOString(),
         launch_trial: true,
-        
-        // Backward compatibility
-        service_areas: JSON.stringify([serviceAreas.primaryArea, ...serviceAreas.additionalAreas])
-      }
+      };
       
       console.log('Submitting provider data:', providerData)
       
@@ -422,30 +410,7 @@ function ProviderListingsContent() {
         }
       }
       
-      // Save service areas to new table
-      const serviceAreasData = [
-        {
-          provider_id: providerId,
-          area_name: serviceAreas.primaryArea,
-          is_primary: true,
-          position: 0
-        },
-        ...serviceAreas.additionalAreas.map((area, index) => ({
-          provider_id: providerId,
-          area_name: area,
-          is_primary: false,
-          position: index + 1
-        }))
-      ]
-      
-      const { error: areasError } = await supabase
-        .from('provider_service_areas')
-        .insert(serviceAreasData)
-        
-      if (areasError) {
-        console.error('Error saving service areas:', areasError)
-        // Don't throw - continue with provider creation
-      }
+      // Removed provider_service_areas table insertion
       
       // Send notification
       try {
@@ -486,8 +451,7 @@ function ProviderListingsContent() {
         emergencyService: false,
         emergencyCalloutFee: '',
         insurance: false,
-        insuranceDetails: '',
-   
+        // Removed insuranceDetails
         acceptTerms: false
       })
       setSelectedAccreditations([])
@@ -699,70 +663,70 @@ function ProviderListingsContent() {
             </div>
           </div>
 
-    {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
-<div className="mb-10">
-  <div className="flex items-center gap-3 mb-6">
-    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
-    <h2 className="text-xl font-bold text-white">Service Information</h2>
-  </div>
-  
-  <div className="space-y-6">
-    {/* Main Service Category */}
-    <div>
-      <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-        <span>Main Service Category</span>
-        <span className="text-red-500">*</span>
-      </label>
-      <button
-        type="button"
-        onClick={() => setShowServiceModal(true)}
-        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.mainService ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
-      >
-        <span className={formData.mainService ? "text-white" : "text-gray-500"}>
-          {formData.mainService || "Select service category"}
-        </span>
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {formErrors.mainService && (
-        <p className="mt-1 text-sm text-red-400">{formErrors.mainService}</p>
-      )}
-    </div>
-    
-    {/* Years of Experience */}
-    <div>
-      <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-        <span>Years of Experience</span>
-        <span className="text-red-500">*</span>
-      </label>
-      <input
-        type="text"
-        name="experienceYears"
-        value={formData.experienceYears}
-        onChange={handleChange}
-        required
-        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experienceYears ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
-        placeholder="e.g., 5 years"
-      />
-      {formErrors.experienceYears && (
-        <p className="mt-1 text-sm text-red-400">{formErrors.experienceYears}</p>
-      )}
-    </div>
-    
-    {/* Other Services - Simple & Flexible */}
-    <div>
-      <label className="block text-sm font-medium text-gray-300 mb-2">
-      Details & Other Services
-        <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
-      </label>
-      <textarea
-        name="otherServices"
-        value={formData.otherServices}
-        onChange={handleChange}
-        rows={10}
-        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-        placeholder={
+          {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
+              <h2 className="text-xl font-bold text-white">Service Information</h2>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Main Service Category */}
+              <div>
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Main Service Category</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowServiceModal(true)}
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.mainService ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
+                >
+                  <span className={formData.mainService ? "text-white" : "text-gray-500"}>
+                    {formData.mainService || "Select service category"}
+                  </span>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {formErrors.mainService && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.mainService}</p>
+                )}
+              </div>
+              
+              {/* Years of Experience */}
+              <div>
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Years of Experience</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="experienceYears"
+                  value={formData.experienceYears}
+                  onChange={handleChange}
+                  required
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experienceYears ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+                  placeholder="e.g., 5 years"
+                />
+                {formErrors.experienceYears && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.experienceYears}</p>
+                )}
+              </div>
+              
+              {/* Details - Renamed from Other Services */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Details
+                  <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
+                </label>
+                <textarea
+                  name="otherServices"
+                  value={formData.otherServices}
+                  onChange={handleChange}
+                  rows={10}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                  placeholder={
 `Examples:
 • Plumbing repairs, Drain cleaning, Toilet installations
 OR
@@ -771,64 +735,64 @@ Drain cleaning
 Toilet installations
 OR
 I provide comprehensive plumbing services including repairs, maintenance, and installations.`
-        }
-      />
-      
-      {/* Simple Format Hint */}
-      <div className="mt-2 text-xs text-gray-500">
-        <span className="inline-flex items-center gap-1">
-          <span className="text-orange-400">💡</span>
-          Enter services separated by commas or on separate lines. Will display as a bullet list.
-        </span>
-      </div>
-    </div>
-    
-    {/* Accreditations */}
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
-          <span>Accreditations</span>
-        </label>
-        <span className="text-xs text-gray-500">
-          {selectedAccreditations.length}/10 selected
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={() => setShowAccreditationModal(true)}
-        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
-      >
-        <div className="flex-1">
-          <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
-            {selectedAccreditations.length > 0 
-              ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
-              : "Add your accreditations"}
-          </span>
-        </div>
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-      
-      {/* Selected accreditations preview */}
-      {selectedAccreditations.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {selectedAccreditations.slice(0, 3).map(acc => (
-            <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
-              <Award className="w-3 h-3" />
-              {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
-            </span>
-          ))}
-          {selectedAccreditations.length > 3 && (
-            <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
-              +{selectedAccreditations.length - 3} more
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
-</div>
+                  }
+                />
+                
+                {/* Simple Format Hint */}
+                <div className="mt-2 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="text-orange-400">💡</span>
+                    Enter services separated by commas or on separate lines. Will display as a bullet list.
+                  </span>
+                </div>
+              </div>
+              
+              {/* Accreditations */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+                    <span>Accreditations</span>
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {selectedAccreditations.length}/10 selected
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAccreditationModal(true)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
+                >
+                  <div className="flex-1">
+                    <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
+                      {selectedAccreditations.length > 0 
+                        ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
+                        : "Add your accreditations"}
+                    </span>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                
+                {/* Selected accreditations preview */}
+                {selectedAccreditations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedAccreditations.slice(0, 3).map(acc => (
+                      <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
+                      </span>
+                    ))}
+                    {selectedAccreditations.length > 3 && (
+                      <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
+                        +{selectedAccreditations.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* ==================== SECTION 4: SERVICE AREAS ==================== */}
           <div className="mb-10">
@@ -849,9 +813,9 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                   className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.primaryArea ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
                 >
                   <div className="flex-1">
-                    <span className={serviceAreas.primaryArea || serviceAreas.additionalAreas.length > 0 ? "text-white" : "text-gray-500"}>
+                    <span className={serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0 ? "text-white" : "text-gray-500"}>
                       {serviceAreas.primaryArea 
-                        ? `${serviceAreas.primaryArea}${serviceAreas.additionalAreas.length > 0 ? ` + ${serviceAreas.additionalAreas.length} more` : ''}`
+                        ? `${serviceAreas.primaryArea}${(serviceAreas.additionalAreas?.length || 0) > 0 ? ` + ${serviceAreas.additionalAreas?.length} more` : ''}`
                         : "Select your service areas"}
                     </span>
                   </div>
@@ -864,7 +828,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                 )}
                 
                 {/* Selected areas preview */}
-                {(serviceAreas.primaryArea || serviceAreas.additionalAreas.length > 0) && (
+                {(serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0) && (
                   <div className="mt-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                     <div className="flex flex-wrap gap-2">
                       {serviceAreas.primaryArea && (
@@ -873,15 +837,15 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                           {serviceAreas.primaryArea} (Primary)
                         </span>
                       )}
-                      {serviceAreas.additionalAreas.slice(0, 3).map((area, index) => (
+                      {serviceAreas.additionalAreas?.slice(0, 3).map((area, index) => (
                         <span key={index} className="px-3 py-2 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700 flex items-center gap-2">
                           <MapPin className="w-4 h-4" />
                           {area}
                         </span>
                       ))}
-                      {serviceAreas.additionalAreas.length > 3 && (
+                      {(serviceAreas.additionalAreas?.length || 0) > 3 && (
                         <span className="px-3 py-2 bg-gray-700 text-gray-400 text-sm rounded-lg border border-gray-600">
-                          +{serviceAreas.additionalAreas.length - 3} more
+                          +{(serviceAreas.additionalAreas?.length || 0) - 3} more
                         </span>
                       )}
                     </div>
@@ -899,26 +863,22 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
             </div>
             
             <div className="space-y-6">
-              {/* Hourly Rate */}
+              {/* Fees & Pricing - Renamed from Hourly Rate */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Hourly Rate
+                  Fees & Pricing
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  </div>
                   <input
                     type="text"
                     name="hourlyRate"
                     value={formData.hourlyRate}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-                    placeholder="e.g., 450"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                    placeholder="e.g., 450 per hour, Free consultation"
                   />
                 </div>
               </div>
-              
-        
               
               {/* Checkboxes Grid */}
               <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-700">
@@ -933,7 +893,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                       className="mr-3 accent-orange-500 w-5 h-5"
                     />
                     <div className="flex items-center gap-2">
-                     <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
+                      <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
                     </div>
                   </div>
                   
@@ -967,7 +927,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                     </div>
                   </div>
                   
-                  {/* Emergency Service - FIXED: Now includes callout fee */}
+                  {/* Emergency Service */}
                   <div className={`flex flex-col p-3 rounded-lg border transition-colors ${formData.emergencyService ? 'bg-orange-500/10 border-orange-500/30' : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'}`}>
                     <div className="flex items-center">
                       <input
@@ -983,18 +943,16 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                       </div>
                     </div>
                     
-                    {/* ✅ FIXED: Callout fee appears below emergency service checkbox */}
+                    {/* Callout fee appears below emergency service checkbox */}
                     {formData.emergencyService && (
                       <div className="mt-3 pl-8">
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                          </div>
                           <input
                             type="text"
                             name="emergencyCalloutFee"
                             value={formData.emergencyCalloutFee}
                             onChange={handleChange}
-                            className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.emergencyCalloutFee ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
+                            className={`w-full px-4 py-2 bg-gray-900 border ${formErrors.emergencyCalloutFee ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
                             placeholder="Emergency callout fee (e.g., 300)"
                           />
                         </div>
@@ -1005,7 +963,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                     )}
                   </div>
                   
-                  {/* Insurance */}
+                  {/* Insurance - Simplified without details */}
                   <div className={`flex flex-col p-3 rounded-lg border transition-colors ${formData.insurance ? 'bg-orange-500/10 border-orange-500/30' : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'}`}>
                     <div className="flex items-center">
                       <input
@@ -1020,23 +978,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                         <label className="text-gray-300 text-sm font-medium">Have Insurance</label>
                       </div>
                     </div>
-                    
-                    {/* Insurance details - appears below insurance checkbox */}
-                    {formData.insurance && (
-                      <div className="mt-3 pl-8">
-                        <input
-                          type="text"
-                          name="insuranceDetails"
-                          value={formData.insuranceDetails}
-                          onChange={handleChange}
-                          className={`w-full px-4 py-2 bg-gray-900 border ${formErrors.insuranceDetails ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
-                          placeholder="Insurance provider and coverage"
-                        />
-                        {formErrors.insuranceDetails && (
-                          <p className="mt-1 text-xs text-red-400">{formErrors.insuranceDetails}</p>
-                        )}
-                      </div>
-                    )}
+                    {/* Removed insurance details field */}
                   </div>
                 </div>
               </div>
@@ -1142,15 +1084,15 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
         serviceCategoryId={formData.mainServiceId}
       />
 
-      {/* Service Area Modal */}
+      {/* Service Area Modal - Simplified */}
       <ServiceAreaModal
         isOpen={showServiceAreaModal}
         onClose={() => setShowServiceAreaModal(false)}
-        initialPrimary={serviceAreas.primaryArea}
-        initialCustomAreas={serviceAreas.additionalAreas}
+        initialAreas={serviceAreas.primaryArea ? 
+          [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : 
+          []}
         onSave={handleServiceAreasSave}
-        maxCustomAreas={10}
-        cities={cities}
+        maxAreas={7}
       />
     </div>
   )

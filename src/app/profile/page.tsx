@@ -406,21 +406,11 @@ export default function ProfilePage() {
   const allPasswordChecksMet = Object.values(passwordChecks).every(check => check)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pt-24">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pt-10">
       <div className="container mx-auto px-4 pb-16">
-        {/* Back Button */}
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </Link>
-        </div>
 
         {/* Header */}
-        <div className="mb-10">
+        <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
             Profile Settings
           </h1>
@@ -568,12 +558,6 @@ export default function ProfilePage() {
                   </div>
                   <h2 className="text-xl font-bold text-white">My Service Listings</h2>
                 </div>
-                <Link
-                  href="/providers/provider-listings"
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-medium transition-colors text-sm"
-                >
-                  Add New Listing
-                </Link>
               </div>
 
               {errors.listings && (

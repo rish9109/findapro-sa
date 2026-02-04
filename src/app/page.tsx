@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import SearchBar from '../components/SearchBar'
 import CategoryGrid from '../components/CategoryGrid'
+import Footer from '@/components/Footer'  // <-- ADD THIS IMPORT
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
@@ -192,34 +193,8 @@ export default function Home() {
           </div>
         </div>
       </section>
-      
-      {/* Footer Note */}
-      <div className="container mx-auto px-4 md:px-6 pb-8 max-w-full">
-        <div className="border-t border-gray-800 pt-6">
-          <div className="text-center space-y-3 px-2">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 md:gap-3 mb-3">
-              <div className="text-xl text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400 font-bold">
-                FindAPro
-              </div>
-              <div className="hidden sm:block w-0.5 h-5 bg-gradient-to-b from-gray-700 via-gray-600 to-gray-700"></div>
-              <div className="text-xs text-gray-500 text-center sm:text-left">
-                Connecting South Africans since 2024
-              </div>
-            </div>
-            <p className="text-gray-500 text-xs max-w-2xl mx-auto leading-relaxed px-2">
-              Trusted by thousands of homeowners and service providers across South Africa. 
-              Join our growing community of professionals and customers today.
-            </p>
-            <div className="pt-2">
-              <a 
-                href="/providers/provider-listings"
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent hover:from-yellow-300 hover:to-amber-300 text-xs font-medium hover:underline transition-all duration-300"              >
-                <span>List your service now →</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
+
+
 
       {/* Add custom CSS */}
       <style jsx global>{`

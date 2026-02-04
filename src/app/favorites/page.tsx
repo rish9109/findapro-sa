@@ -1,4 +1,4 @@
-// File: src/app/favorites/page.tsx - MOBILE RESPONSIVE VERSION
+// File: src/app/favorites/page.tsx - UPDATED WITH NO SERVICE AREA FILTERING
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -79,12 +79,11 @@ export default function FavoritesPage() {
         
         const providerIds = favoritesData.map(fav => fav.provider_id)
         
-        // Fetch complete provider data
+        // UPDATED: Removed provider_service_areas join, using providers.service_areas text field
         const { data, error } = await supabase
           .from('providers')
           .select(`
             *,
-            provider_service_areas (area_name, is_primary),
             provider_accreditations (id, custom_name, is_custom, accreditation_id)
           `)
           .in('id', providerIds)
@@ -95,15 +94,23 @@ export default function FavoritesPage() {
         
         if (data && data.length > 0) {
           const transformedData = data.map(provider => {
-            const serviceAreas = provider.provider_service_areas || []
-            const allServiceAreas = serviceAreas.map((area: any) => area.area_name)
-            const primaryArea = serviceAreas.find((area: any) => area.is_primary)?.area_name || 
-                              provider.main_service_area || 
-                              'Service Area'
+            // UPDATED: Get service areas from providers.service_areas text field - NO FILTERING
+            let formattedServiceAreas = []
+            if (provider.service_areas) {
+              formattedServiceAreas = provider.service_areas
+                .split(',')
+                .map((area: string) => area.trim())
+                .filter((area: string) => area !== ''); // Only remove empty strings
+            }
             
+            // UPDATED: Get details (other services) from providers.details text field
             let otherServices = []
-            if (provider.other_services) {
-              otherServices = provider.other_services.split(',').map((s: string) => s.trim()).slice(0, 3)
+            if (provider.details) {
+              otherServices = provider.details
+                .split(/[\n,]+/)
+                .map((s: string) => s.trim())
+                .filter((s: string) => s && s.length > 0)
+                .slice(0, 3)
             }
             
             const displayAccreditations = provider.provider_accreditations || []
@@ -114,18 +121,20 @@ export default function FavoritesPage() {
               main_service: provider.main_service || 'Professional Service',
               main_service_id: provider.main_service_id,
               
-              primary_area: primaryArea,
-              service_areas: serviceAreas,
-              all_service_areas: allServiceAreas,
+              // UPDATED: Service area info
+              service_areas: provider.service_areas || '',
+              formatted_service_areas: formattedServiceAreas,
               
-              hourly_rate: provider.hourly_rate,
+              // UPDATED: Pricing - uses fees_pricing instead of hourly_rate
+              fees_pricing: provider.fees_pricing,
               callout_fee: provider.callout_fee,
               
               rating: provider.rating || 4.5,
               total_reviews: provider.total_reviews || 0,
               
+              // UPDATED: Services from details field
               other_services: otherServices,
-              all_other_services: provider.other_services || '',
+              all_other_services: provider.details || '',
               
               experience_years: provider.experience_years || 0,
               emergency_service: provider.emergency_service || false,
@@ -164,32 +173,61 @@ export default function FavoritesPage() {
     router.push(`/providers/${providerId}?ref=favorites`)
   }
 
-  // Get price display
+  // UPDATED: Get price display - uses fees_pricing instead of hourly_rate
   const getPriceDisplay = (provider: any) => {
-    if (provider.hourly_rate) {
-      return `R${provider.hourly_rate}/hr`
+    if (provider.fees_pricing) {
+      const price = provider.fees_pricing.toString().replace(/[^0-9]/g, '')
+      if (price) {
+        return `R${price}/hr`
+      }
+      return provider.fees_pricing
     }
     if (provider.callout_fee) {
-      return `R${provider.callout_fee} callout`
+      const callout = provider.callout_fee.toString().replace(/[^0-9]/g, '')
+      if (callout) {
+        return `R${callout} callout`
+      }
+      return provider.callout_fee
     }
     return 'Contact for rates'
   }
-
-  // Get service areas display - MOBILE FRIENDLY
+  // Get service areas display - YOUR EXACT ENHANCED FUNCTION
   const getServiceAreasDisplay = (provider: any) => {
-    if (provider.all_service_areas && provider.all_service_areas.length > 0) {
-      const displayAreas = provider.all_service_areas.slice(0, 2)
-      const additionalCount = provider.all_service_areas.length - 2
-      
-      let display = displayAreas.join(', ')
-      if (additionalCount > 0) {
-        display += ` +${additionalCount}`
+    try {
+      // Use ONLY the formatted_service_areas array
+      if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
+        // Filter out single letters and common typos
+        const cleanedAreas = provider.formatted_service_areas
+    
+          .map((area: string) => {
+            // Additional cleaning for each area
+            return area
+              .trim()
+              .replace(/^[^a-zA-Z]+/, '') // Remove leading non-letters
+              .replace(/[^a-zA-Z\s]+$/, '') // Remove trailing non-letters
+          })
+          .filter((area: string) => area.length > 0); // Final filter
+        
+        if (cleanedAreas.length === 0) {
+          return 'Service area not specified';
+        }
+        
+        const displayAreas = cleanedAreas.slice(0, 2)
+        const additionalCount = cleanedAreas.length - 2
+        
+        let display = displayAreas.join(', ')
+        if (additionalCount > 0) {
+          display += ` +${additionalCount}`
+        }
+        return display
       }
-      return display
+      
+      return 'Service area not specified'
+    } catch (error) {
+      console.error('Error in getServiceAreasDisplay:', error)
+      return 'Service area not specified'
     }
-    return provider.primary_area || 'Service area not specified'
   }
-
   // Get accreditations display
   const getAccreditationsDisplay = (provider: any) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
@@ -261,8 +299,6 @@ export default function FavoritesPage() {
         
         {/* Header - Mobile optimized */}
         <div className="mb-6 sm:mb-8">
-      
-
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-6">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
@@ -417,9 +453,9 @@ export default function FavoritesPage() {
                         </div>
                         <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
                           <p className="text-gray-300 font-semibold text-sm sm:text-base">
-                            {provider.experience_years > 0 
-                              ? `${provider.experience_years} year${provider.experience_years !== 1 ? 's' : ''}`
-                              : 'Not specified'
+                            {provider.experience_years ? 
+                              `${provider.experience_years} years` : 
+                              'Not specified'
                             }
                           </p>
                         </div>
@@ -429,19 +465,19 @@ export default function FavoritesPage() {
                       <div className="mb-4 sm:mb-6">
                         <div className="flex items-center gap-2 mb-1 sm:mb-2">
                           <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm font-medium text-purple-400">Other Services</span>
+                          <span className="text-xs sm:text-sm font-medium text-purple-400">Details & Services</span>
                         </div>
                         <div className="min-h-[36px] sm:min-h-[44px]">
                           {(() => {
-                            const otherServicesText = provider.all_other_services;
+                            const detailsText = provider.all_other_services;
                             
-                            if (!otherServicesText?.trim()) {
+                            if (!detailsText?.trim()) {
                               return (
-                                <p className="text-gray-500 italic text-xs sm:text-sm">No additional services listed</p>
+                                <p className="text-gray-500 italic text-xs sm:text-sm">No details provided</p>
                               );
                             }
                             
-                            const items = otherServicesText
+                            const items = detailsText
                             .split(/[\n,]+/)
                             .map((item: string) => item.trim())
                             .filter((item: string) => item)
@@ -449,7 +485,7 @@ export default function FavoritesPage() {
                             
                             if (items.length === 0) {
                               return (
-                                <p className="text-gray-500 italic text-xs sm:text-sm">No additional services listed</p>
+                                <p className="text-gray-500 italic text-xs sm:text-sm">No details provided</p>
                               );
                             }
                             

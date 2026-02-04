@@ -570,3 +570,88 @@ export async function testEmailConnection() {
 export {
   sendEmailWithTemplate
 }
+
+// ==================== LISTING UPDATE EMAILS ====================
+
+export async function sendListingUpdatedProviderEmail(
+  to: string,
+  businessName: string,
+  status: string,
+  providerId: string
+): Promise<{ success: boolean; data?: any; error?: string; templateUsed?: string }> {
+  console.log(`📝 Sending listing update to provider: ${to}`)
+  
+  const statusMessages: Record<string, string> = {
+    pending: 'has been submitted for review',
+    approved: 'has been updated and requires re-approval',
+    rejected: 'changes have been saved (listing remains rejected)'
+  }
+  
+  const statusMessage = statusMessages[status] || 'has been updated'
+  const baseUrl = getBaseUrl()
+  
+  const variables = {
+    business_name: businessName,
+    status: status,
+    provider_id: providerId,
+    dashboard_url: `${baseUrl}/providers/dashboard`,
+    status_message: statusMessage,
+    status_initial: status.charAt(0).toUpperCase(),
+    pending_review: status === 'pending' ? '<li>You will receive another email when review is complete (24-48 hours)</li>' : ''
+  }
+
+  return sendEmailWithTemplate(
+    to,
+    'provider_listing_updated',
+    variables
+  )
+}
+
+export async function sendListingUpdatedEmail(
+  to: string,
+  businessName: string,
+  status: string,
+  providerId: string,
+  recipientType: 'provider' | 'admin'
+): Promise<{ success: boolean; data?: any; error?: string; templateUsed?: string }> {
+  console.log(`📝 Sending listing update to ${recipientType}: ${to}`)
+  
+  const baseUrl = getBaseUrl()
+  
+  // Determine template name
+  const templateName = recipientType === 'provider' 
+    ? 'provider_listing_updated' 
+    : 'admin_listing_updated'
+  
+  // Prepare variables
+  const variables: Record<string, string> = {
+    business_name: businessName,
+    status: status,
+    provider_id: providerId,
+    dashboard_url: `${baseUrl}/providers/dashboard`,
+    admin_dashboard_url: `${baseUrl}/admin/providers/${providerId}`,
+    status_message: getStatusMessage(status),
+    status_initial: status.charAt(0).toUpperCase(),
+    pending_review: status === 'pending' ? '<li>You will receive another email when review is complete (24-48 hours)</li>' : '',
+    updated_date: new Date().toLocaleDateString('en-ZA', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  // Use your existing, proven sendEmailWithTemplate function
+  return sendEmailWithTemplate(to, templateName, variables)
+}
+
+// Helper function
+function getStatusMessage(status: string): string {
+  const messages: Record<string, string> = {
+    pending: 'has been submitted for review',
+    approved: 'has been updated and requires re-approval',
+    rejected: 'changes have been saved (listing remains rejected)'
+  }
+  return messages[status] || 'has been updated'
+}

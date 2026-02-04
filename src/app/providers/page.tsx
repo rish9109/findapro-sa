@@ -1,4 +1,4 @@
-// File: src/app/providers/page.tsx - BUG FIXES
+// File: src/app/providers/page.tsx - WITH YOUR EXACT ENHANCED FUNCTION
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -21,7 +21,7 @@ export default function ProvidersPage() {
   const [filteredProviders, setFilteredProviders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [favorites, setFavorites] = useState<string[]>([])
-  const [syncingFavoriteId, setSyncingFavoriteId] = useState<string | null>(null) // TRACK INDIVIDUAL HEART
+  const [syncingFavoriteId, setSyncingFavoriteId] = useState<string | null>(null)
   const [favoritesLoaded, setFavoritesLoaded] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
@@ -97,35 +97,49 @@ export default function ProvidersPage() {
     try {
       setLoading(true)
       
-      // Fetch providers with related data
       const { data, error } = await supabase
         .from('providers')
         .select(`
           *,
-          provider_service_areas (area_name, is_primary),
           provider_accreditations (id, custom_name, is_custom, accreditation_id)
         `)
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
-
+  
       if (error) throw error
       
       if (data && data.length > 0) {
         const transformedData = data.map(provider => {
-          // Get ALL service areas from provider_service_areas
-          const serviceAreas = provider.provider_service_areas || []
-          const allServiceAreas = serviceAreas.map((area: any) => area.area_name)
-          const primaryArea = serviceAreas.find((area: any) => area.is_primary)?.area_name || 
-                            provider.main_service_area || 
-                            'Service Area'
+          // Get service areas - SIMPLIFIED: Just basic formatting, NO filtering
+          let formattedServiceAreas: string[] = []
           
-          // Get other services (parse from comma-separated string)
-          let otherServices = []
-          if (provider.other_services) {
-            otherServices = provider.other_services.split(',').map((s: string) => s.trim()).slice(0, 3)
+          if (provider.service_areas) {
+            formattedServiceAreas = provider.service_areas
+              .split(',')
+              .map((area: string) => area.trim())
+              .map((area: string) => { // ✅ Added type annotation here
+                return area
+                  .split(' ')
+                  .map((word: string) => { // ✅ Could also add type here for consistency
+                    const trimmedWord = word.trim()
+                    if (trimmedWord.length === 0) return ''
+                    return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()
+                  })
+                  .join(' ')
+              })
+              .filter((area: string) => area.length > 0)
           }
           
-          // Get accreditations for display - LINKED TO ACCREDITATIONS TABLE
+          // Get details for services
+          let otherServices = []
+          if (provider.details) {
+            otherServices = provider.details
+              .split(/[\n,]+/)
+              .map((s: string) => s.trim())
+              .filter((s: string) => s && s.length > 0)
+              .slice(0, 3)
+          }
+          
           const displayAccreditations = provider.provider_accreditations || []
           
           return {
@@ -134,13 +148,12 @@ export default function ProvidersPage() {
             main_service: provider.main_service || 'Professional Service',
             main_service_id: provider.main_service_id,
             
-            // Service area info
-            primary_area: primaryArea,
-            service_areas: serviceAreas,
-            all_service_areas: allServiceAreas,
+            // Service area info - NO FILTERING HERE
+            service_areas: provider.service_areas || '',
+            formatted_service_areas: formattedServiceAreas,
             
             // Pricing
-            hourly_rate: provider.hourly_rate,
+            fees_pricing: provider.fees_pricing,
             callout_fee: provider.callout_fee,
             
             // Ratings
@@ -149,7 +162,7 @@ export default function ProvidersPage() {
             
             // Services
             other_services: otherServices,
-            all_other_services: provider.other_services || '',
+            all_other_services: provider.details || '',
             
             // Features
             experience_years: provider.experience_years || 0,
@@ -202,7 +215,7 @@ export default function ProvidersPage() {
     }
   }, [selectedCategory, providers])
 
-  // Toggle favorite - FIXED: Only shows loading for clicked heart
+  // Toggle favorite
   const toggleFavorite = async (providerId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -213,7 +226,6 @@ export default function ProvidersPage() {
     }
     
     try {
-      // Set only this specific heart as loading
       setSyncingFavoriteId(providerId)
       
       const isCurrentlyFavorite = favorites.includes(providerId)
@@ -229,7 +241,6 @@ export default function ProvidersPage() {
       setFavorites(newFavorites)
       localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
       
-      // Update UI immediately
       setProviders(prev => prev.map(provider => 
         provider.id === providerId 
           ? { ...provider, is_favorite: !isCurrentlyFavorite }
@@ -242,11 +253,10 @@ export default function ProvidersPage() {
           : provider
       ))
       
-      // Sync with Supabase in background
+      // Sync with Supabase
       const success = await toggleFavoriteSupabase(user.id, providerId)
       
       if (!success) {
-        // Revert if Supabase sync fails
         console.error('Failed to sync favorite with Supabase')
         if (isCurrentlyFavorite) {
           newFavorites = [...newFavorites, providerId]
@@ -256,7 +266,6 @@ export default function ProvidersPage() {
         setFavorites(newFavorites)
         localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
         
-        // Revert UI
         setProviders(prev => prev.map(provider => 
           provider.id === providerId 
             ? { ...provider, is_favorite: isCurrentlyFavorite }
@@ -289,35 +298,64 @@ export default function ProvidersPage() {
 
   // Get price display
   const getPriceDisplay = (provider: any) => {
-    if (provider.hourly_rate) {
-      return `R${provider.hourly_rate}/hr`
+    if (provider.fees_pricing) {
+      const price = provider.fees_pricing.toString().replace(/[^0-9]/g, '')
+      if (price) {
+        return `R${price}/hr`
+      }
+      return provider.fees_pricing
     }
     if (provider.callout_fee) {
-      return `R${provider.callout_fee} callout`
+      const callout = provider.callout_fee.toString().replace(/[^0-9]/g, '')
+      if (callout) {
+        return `R${callout} callout`
+      }
+      return provider.callout_fee
     }
     return 'Contact for rates'
   }
 
-  // Get service areas display - SINGLE LINE ON MOBILE
+  // Get service areas display - YOUR EXACT ENHANCED FUNCTION
   const getServiceAreasDisplay = (provider: any) => {
-    if (provider.all_service_areas && provider.all_service_areas.length > 0) {
-      // Show first 2 areas, then +X more
-      const displayAreas = provider.all_service_areas.slice(0, 2)
-      const additionalCount = provider.all_service_areas.length - 2
-      
-      let display = displayAreas.join(', ')
-      if (additionalCount > 0) {
-        display += ` +${additionalCount}`
+    try {
+      // Use ONLY the formatted_service_areas array
+      if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
+        // Filter out single letters and common typos
+        const cleanedAreas = provider.formatted_service_areas
+    
+          .map((area: string) => {
+            // Additional cleaning for each area
+            return area
+              .trim()
+              .replace(/^[^a-zA-Z]+/, '') // Remove leading non-letters
+              .replace(/[^a-zA-Z\s]+$/, '') // Remove trailing non-letters
+          })
+          .filter((area: string) => area.length > 0); // Final filter
+        
+        if (cleanedAreas.length === 0) {
+          return 'Service area not specified';
+        }
+        
+        const displayAreas = cleanedAreas.slice(0, 2)
+        const additionalCount = cleanedAreas.length - 2
+        
+        let display = displayAreas.join(', ')
+        if (additionalCount > 0) {
+          display += ` +${additionalCount}`
+        }
+        return display
       }
-      return display
+      
+      return 'Service area not specified'
+    } catch (error) {
+      console.error('Error in getServiceAreasDisplay:', error)
+      return 'Service area not specified'
     }
-    return provider.primary_area || 'Service area not specified'
   }
 
-  // Get accreditations display - FROM SUPABASE ACCREDITATIONS TABLE
+  // Get accreditations display
   const getAccreditationsDisplay = (provider: any) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
-      // Get accreditation names from Supabase table or use custom names
       const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
           return acc.custom_name?.substring(0, 15) || 'Custom'
@@ -348,14 +386,8 @@ export default function ProvidersPage() {
   // Get business color
   const getBusinessColor = (businessName: string) => {
     const colors = [
-      '#3B82F6', // Blue
-      '#10B981', // Emerald
-      '#6366F1', // Indigo
-      '#EF4444', // Red
-      '#F59E0B', // Amber
-      '#06B6D4', // Cyan
-      '#84CC16', // Lime
-      '#EC4899', // Pink
+      '#3B82F6', '#10B981', '#6366F1', '#EF4444',
+      '#F59E0B', '#06B6D4', '#84CC16', '#EC4899',
     ]
     
     if (!businessName) return colors[0]
@@ -365,10 +397,8 @@ export default function ProvidersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
-      {/* Main Content */}
       <main className="relative container mx-auto px-4 py-8">
         
-        {/* UNIFORM CARD DESIGN - Works on mobile and desktop */}
         {loading ? (
           <div className="text-center py-20">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -404,21 +434,17 @@ export default function ProvidersPage() {
                   whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   className="group cursor-pointer"
                 >
-                  {/* PROVIDER CARD - Uniform design with FIXED HEIGHTS */}
                   <div 
                     onClick={() => handleProviderClick(provider.id)}
                     className="h-full bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden hover:border-blue-500/50 transition-all duration-300 hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] flex flex-col"
                   >
-                    {/* Card Header with Logo and Business Name */}
+                    {/* Card Header */}
                     <div className="p-6 border-b border-gray-700/50">
                       <div className="flex items-center gap-4">
-                        {/* Business Logo */}
                         <div className="relative flex-shrink-0">
                           <div 
                             className="w-20 h-20 rounded-2xl border-2 border-gray-600 flex items-center justify-center shadow-lg overflow-hidden"
-                            style={{ 
-                              backgroundColor: businessColor + '10',
-                            }}
+                            style={{ backgroundColor: businessColor + '10' }}
                           >
                             <div 
                               className="w-full h-full flex items-center justify-center"
@@ -430,7 +456,6 @@ export default function ProvidersPage() {
                             </div>
                           </div>
                           
-                          {/* Verification Badge */}
                           {provider.verified && (
                             <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-full border-2 border-gray-800 flex items-center justify-center shadow-lg">
                               <CheckCircle className="w-4 h-4 text-white" />
@@ -438,21 +463,17 @@ export default function ProvidersPage() {
                           )}
                         </div>
                         
-                        {/* Business Name and Service Category */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between">
-                            <div>
-                              {/* LARGER BUSINESS NAME */}
+                            <div className="flex-1 min-w-0">
                               <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors truncate">
                                 {provider.business_name}
                               </h3>
-                              {/* Service Category - Smaller font below */}
                               <p className="text-sm text-blue-400 mt-1 truncate">
                                 {provider.main_service}
                               </p>
                             </div>
                             
-                            {/* Favorite Button - FIXED: Only shows loading for clicked heart */}
                             <button
                               onClick={(e) => toggleFavorite(provider.id, e)}
                               disabled={syncingFavoriteId !== null}
@@ -469,7 +490,6 @@ export default function ProvidersPage() {
                             </button>
                           </div>
                           
-                          {/* Rating and Price */}
                           <div className="flex items-center gap-4 mt-3">
                             <div className="flex items-center gap-1.5">
                               <Star className="w-4 h-4 text-yellow-400 fill-current" />
@@ -493,154 +513,139 @@ export default function ProvidersPage() {
                       </div>
                     </div>
                     
-                    {/* Card Body - All Required Information with CONSISTENT HEIGHTS */}
                     <div className="p-6 flex-1 flex flex-col">
-                      {/* Service Areas - SINGLE LINE ON MOBILE */}
-                      <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="mb-5">
+                        <div className="flex items-center gap-2 mb-1">
                           <MapPin className="w-4 h-4 text-blue-400 flex-shrink-0" />
                           <span className="text-sm font-medium text-blue-400">Service Areas</span>
                         </div>
-                        <div className="min-h-[44px] flex items-center">
+                        <div className="min-h-[40px] flex items-center">
                           <p className="text-gray-300 font-semibold truncate md:line-clamp-2">
                             {getServiceAreasDisplay(provider)}
                           </p>
                         </div>
                       </div>
                       
-                      {/* Years of Experience */}
-                      <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="mb-5">
+                        <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                           <span className="text-sm font-medium text-emerald-400">Experience</span>
                         </div>
-                        <div className="min-h-[44px] flex items-center">
+                        <div className="min-h-[40px] flex items-center">
                           <p className="text-gray-300 font-semibold">
-                            {provider.experience_years > 0 
-                              ? `${provider.experience_years} year${provider.experience_years !== 1 ? 's' : ''}`
-                              : 'Not specified'
+                            {provider.experience_years ? 
+                              `${provider.experience_years} years` : 
+                              'Not specified'
                             }
                           </p>
                         </div>
                       </div>
                       
-                 {/* Other Services Offered - Bullet Points */}
-<div className="mb-6">
-  <div className="flex items-center gap-2 mb-2">
-    <Briefcase className="w-4 h-4 text-purple-400 flex-shrink-0" />
-    <span className="text-sm font-medium text-purple-400">Details & Other Services</span>
-  </div>
-  <div className="min-h-[44px]">
-    {(() => {
-      const otherServicesText = provider.all_other_services;
-      
-      if (!otherServicesText?.trim()) {
-        return (
-          <p className="text-gray-500 italic">No additional services listed</p>
-        );
-      }
-      
-      // Split by new lines or commas and clean up
-      const items = otherServicesText
-        .split(/[\n,]+/)
-        .map((item: string) => item.trim())
-        .filter((item: string) => item)
-        .map((item: string) => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
-      
-      if (items.length === 0) {
-        return (
-          <p className="text-gray-500 italic">No additional services listed</p>
-        );
-      }
-      
-      // Show as bullet points (max 3 items)
-      const displayItems = items.slice(0, 3);
-      
-      return (
-        <ul className="space-y-1">
-          {displayItems.map((item: string, index: number) => (
-            <li key={index} className="flex items-start text-gray-300">
-              <span className="text-purple-400 mr-2 mt-0.5">•</span>
-              <span className="line-clamp-1">{item}</span>
-            </li>
-          ))}
-          {items.length > 3 && (
-            <li className="text-gray-400 text-sm italic">
-              +{items.length - 3} more services
-            </li>
-          )}
-        </ul>
-      );
-    })()}
-  </div>
-</div>
-                      {/* Accreditations - FROM SUPABASE TABLE */}
-                      <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="mb-5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Briefcase className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                          <span className="text-sm font-medium text-purple-400">Details & Services</span>
+                        </div>
+                        <div className="min-h-[40px]">
+                          {(() => {
+                            const detailsText = provider.all_other_services;
+                            
+                            if (!detailsText?.trim()) {
+                              return (
+                                <p className="text-gray-500 italic text-sm">No details provided</p>
+                              );
+                            }
+                            
+                            const items = detailsText
+                              .split(/[\n,]+/)
+                              .map((item: string) => item.trim())
+                              .filter((item: string) => item)
+                              .slice(0, 3);
+                            
+                            if (items.length === 0) {
+                              return (
+                                <p className="text-gray-500 italic text-sm">No details provided</p>
+                              );
+                            }
+                            
+                            return (
+                              <ul className="space-y-0.5">
+                                {items.map((item: string, index: number) => (
+                                  <li key={index} className="flex items-start text-gray-300">
+                                    <span className="text-purple-400 mr-2 mt-0.5 text-xs">•</span>
+                                    <span className="line-clamp-1 text-sm">{item}</span>
+                                  </li>
+                                ))}
+                                {provider.all_other_services.split(/[\n,]+/).length > 3 && (
+                                  <li className="text-gray-400 text-xs italic">
+                                    +{provider.all_other_services.split(/[\n,]+/).length - 3} more
+                                  </li>
+                                )}
+                              </ul>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      
+                      <div className="mb-5">
+                        <div className="flex items-center gap-2 mb-1">
                           <Award className="w-4 h-4 text-amber-400 flex-shrink-0" />
                           <span className="text-sm font-medium text-amber-400">Accreditations</span>
                         </div>
-                        <div className="min-h-[44px] flex items-center">
+                        <div className="min-h-[40px] flex items-center">
                           {accreditationsDisplay ? (
-                            <p className="text-gray-300 truncate md:line-clamp-2">
+                            <p className="text-gray-300 truncate md:line-clamp-2 text-sm">
                               {accreditationsDisplay}
                             </p>
                           ) : (
-                            <p className="text-gray-500 italic">No accreditations listed</p>
+                            <p className="text-gray-500 italic text-sm">No accreditations listed</p>
                           )}
                         </div>
                       </div>
                       
-                      {/* Features/Badges Row - TRUNCATE ON MOBILE (NO SCROLL BAR) */}
                       <div className="mt-auto pt-4 border-t border-gray-700/50">
-                        <div className="flex gap-2 min-h-[40px] items-center overflow-hidden">
-                          {provider.emergency_service || provider.insurance || provider.accepts_card || provider.accepts_cash ? (
-                            <div className="flex gap-2 flex-nowrap w-full">
-                              {/* Emergency Service */}
-                              {provider.emergency_service && (
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 min-w-[70px] justify-center flex-shrink-0">
-                                  <Zap className="w-3.5 h-3.5 text-red-400" />
-                                  <span className="text-xs font-medium text-red-400">24/7</span>
-                                </div>
-                              )}
-                              
-                              {/* Insurance */}
-                              {provider.insurance && (
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 min-w-[70px] justify-center flex-shrink-0">
-                                  <Shield className="w-3.5 h-3.5 text-blue-400" />
-                                  <span className="text-xs font-medium text-blue-400">Insured</span>
-                                </div>
-                              )}
-                              
-                              {/* Payment Methods - SAME SIZE */}
-                              {provider.accepts_card && (
-                                <div className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[70px] flex items-center justify-center flex-shrink-0">
-                                  <span className="text-xs font-medium text-emerald-400">Card</span>
-                                </div>
-                              )}
-                              
-                              {provider.accepts_cash && (
-                                <div className="px-3 py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[70px] flex items-center justify-center flex-shrink-0">
-                                  <span className="text-xs font-medium text-emerald-400">Cash</span>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="min-h-[40px] flex items-center">
-                              <p className="text-gray-500 text-sm italic">No features specified</p>
-                            </div>
-                          )}
-                        </div>
+                        {provider.emergency_service || provider.insurance || provider.accepts_card || provider.accepts_cash ? (
+                          <div className="flex gap-2 min-h-[36px] items-center overflow-x-auto no-scrollbar">
+                            {provider.emergency_service && (
+                              <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 flex-shrink-0">
+                                <Zap className="w-3 h-3 text-red-400" />
+                                <span className="text-xs font-medium text-red-400">24/7</span>
+                              </div>
+                            )}
+                            
+                            {provider.insurance && (
+                              <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 flex-shrink-0">
+                                <Shield className="w-3 h-3 text-blue-400" />
+                                <span className="text-xs font-medium text-blue-400">Insured</span>
+                              </div>
+                            )}
+                            
+                            {provider.accepts_card && (
+                              <div className="px-3 py-1 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 flex-shrink-0">
+                                <span className="text-xs font-medium text-emerald-400">Card</span>
+                              </div>
+                            )}
+                            
+                            {provider.accepts_cash && (
+                              <div className="px-3 py-1 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 flex-shrink-0">
+                                <span className="text-xs font-medium text-emerald-400">Cash</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="min-h-[36px] flex items-center">
+                            <p className="text-gray-500 text-xs italic">No features specified</p>
+                          </div>
+                        )}
                       </div>
                       
-                      {/* View Details CTA - Fixed at bottom */}
                       <div className="pt-4 border-t border-gray-700/50 flex items-center justify-between mt-4">
-                        <span className="text-sm text-gray-400">
-                          {user ? 'Click for full details & contact' : 'Sign in to view details'}
+                        <span className="text-xs text-gray-400">
+                          {user ? 'Click for details & contact' : 'Sign in to view details'}
                         </span>
                         <div className="flex items-center gap-1 text-blue-400 group-hover:text-blue-300 transition-colors">
-                          <span className="text-sm font-medium">View</span>
-                          <ChevronRight className="w-4 h-4" />
+                          <span className="text-xs font-medium">View</span>
+                          <ChevronRight className="w-3 h-3" />
                         </div>
                       </div>
                     </div>

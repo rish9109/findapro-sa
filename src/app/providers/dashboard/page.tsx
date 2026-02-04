@@ -122,8 +122,10 @@ export default function ProviderDashboard() {
             }
           } else {
             // Fallback to old service_areas field
+            const primaryServiceArea = listing.main_service || 'Not specified'
+
             areasData[listing.id] = {
-              primaryArea: listing.main_service_area || listing.main_service || 'Not specified',
+              primaryArea: primaryServiceArea, // ✅ FIXED: Using correct property name
               additionalAreas: []
             }
           }

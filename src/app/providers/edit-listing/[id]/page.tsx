@@ -21,16 +21,13 @@ import {
   MapPin,
   CreditCard,
   FileText,
-  Loader2
+  Loader2,
+  Mail,
+  Bell,
+  Users
 } from 'lucide-react'
 
 // Types
-interface City {
-  id: string
-  name: string
-  province_id: string
-}
-
 interface ServiceCategory {
   id: string
   name: string
@@ -44,13 +41,6 @@ interface SelectedAccreditation {
   custom_name?: string
   custom_description?: string
   is_custom: boolean
-  position: number
-}
-
-interface ServiceArea {
-  id?: string
-  area_name: string
-  is_primary: boolean
   position: number
 }
 
@@ -106,9 +96,10 @@ function EditListingContent() {
   const listingId = params.id as string
   
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   
   // Modal states
   const [showServiceModal, setShowServiceModal] = useState(false)
@@ -119,7 +110,6 @@ function EditListingContent() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   
   // Dynamic data
-  const [cities, setCities] = useState<City[]>([])
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   
   // Existing data
@@ -133,7 +123,7 @@ function EditListingContent() {
     additionalAreas: []
   })
   
-  // Form state - Updated to match new listing page
+  // Form state
   const [formData, setFormData] = useState({
     // Business Information
     business_name: '',
@@ -147,11 +137,11 @@ function EditListingContent() {
     // Service Information
     main_service: '',
     main_service_id: '',
-    other_services: '',
+    details: '',
     experience_years: '',
     
     // Pricing & Payment
-    hourly_rate: '',
+    fees_pricing: '',
     accepts_card: false,
     accepts_cash: true,
     deposit_required: false,
@@ -160,8 +150,6 @@ function EditListingContent() {
     emergency_service: false,
     callout_fee: '',
     insurance: false,
-    insurance_details: '',
-  
     
     // Status (for display only)
     status: '',
@@ -195,6 +183,16 @@ function EditListingContent() {
         
         setListing(listingData)
         
+        // Parse service areas from JSON string
+        let parsedServiceAreas: string[] = []
+        try {
+          if (listingData.service_areas) {
+            parsedServiceAreas = JSON.parse(listingData.service_areas)
+          }
+        } catch (e) {
+          console.error('Error parsing service areas:', e)
+        }
+        
         // Set form data from listing
         setFormData({
           business_name: listingData.business_name || '',
@@ -204,20 +202,26 @@ function EditListingContent() {
           alternate_phone: listingData.alternate_phone || '',
           main_service: listingData.main_service || '',
           main_service_id: listingData.main_service_id || '',
-          other_services: listingData.other_services || '',
+          details: listingData.details || '',
           experience_years: listingData.experience_years || '',
-          hourly_rate: listingData.hourly_rate || '',
+          fees_pricing: listingData.fees_pricing || '',
           accepts_card: listingData.accepts_card || false,
           accepts_cash: listingData.accepts_cash ?? true,
           deposit_required: listingData.deposit_required || false,
           emergency_service: listingData.emergency_service || false,
           callout_fee: listingData.callout_fee || '',
           insurance: listingData.insurance || false,
-          insurance_details: listingData.insurance_details || '',
-  
           status: listingData.status || '',
           verified: listingData.verified || false
         })
+        
+        // Set service areas from parsed data
+        if (parsedServiceAreas.length > 0) {
+          setServiceAreas({
+            primaryArea: parsedServiceAreas[0] || '',
+            additionalAreas: parsedServiceAreas.slice(1) || []
+          })
+        }
         
         // Load existing accreditations
         const { data: accreditationsData } = await supabase
@@ -237,30 +241,6 @@ function EditListingContent() {
           }))
           setSelectedAccreditations(formattedAccreditations)
         }
-        
-        // Load existing service areas
-        const { data: serviceAreasData } = await supabase
-          .from('provider_service_areas')
-          .select('*')
-          .eq('provider_id', listingId)
-          .order('position')
-        
-        if (serviceAreasData) {
-          const primaryArea = serviceAreasData.find(area => area.is_primary)
-          const additionalAreas = serviceAreasData.filter(area => !area.is_primary)
-          
-          setServiceAreas({
-            primaryArea: primaryArea?.area_name || '',
-            additionalAreas: additionalAreas.map(area => area.area_name)
-          })
-        }
-        
-        // Fetch cities
-        const { data: citiesData } = await supabase
-          .from('cities')
-          .select('id, name, province_id')
-          .order('name')
-        setCities(citiesData || [])
         
         // Fetch service categories
         const { data: servicesData } = await supabase
@@ -320,14 +300,22 @@ function EditListingContent() {
   }
 
   // Handle service areas save
-  const handleServiceAreasSave = (primary: string, additional: string[]) => {
-    setServiceAreas({
-      primaryArea: primary,
-      additionalAreas: additional
-    })
+  const handleServiceAreasSave = (areas: string[]) => {
+    if (areas && areas.length > 0) {
+      setServiceAreas({
+        primaryArea: areas[0],
+        additionalAreas: areas.slice(1) || []
+      });
+    } else {
+      setServiceAreas({
+        primaryArea: '',
+        additionalAreas: []
+      });
+    }
+    
     // Clear error
     if (formErrors.primaryArea) {
-      setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+      setFormErrors(prev => ({ ...prev, primaryArea: '' }));
     }
   }
 
@@ -366,13 +354,53 @@ function EditListingContent() {
       errors.callout_fee = 'Emergency callout fee is required when offering emergency service'
     }
     
-    // Insurance details validation
-    if (formData.insurance && !formData.insurance_details.trim()) {
-      errors.insurance_details = 'Insurance details are required when you have insurance'
-    }
-    
     setFormErrors(errors)
     return Object.keys(errors).length === 0
+  }
+
+  // Send email notifications
+  const sendEmailNotifications = async (providerId: string, businessName: string, newStatus: string, userEmail: string) => {
+    try {
+      // Send notification to provider
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          event: 'listing_updated',
+          providerId: providerId,
+          businessName: businessName,
+          status: newStatus,
+          recipientEmail: userEmail,
+          recipientType: 'provider'
+        })
+      })
+
+      // If status requires admin review (pending), notify admin
+      if (newStatus === 'pending') {
+        await fetch('/api/email', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            event: 'listing_updated',
+            providerId: providerId,
+            businessName: businessName,
+            status: newStatus,
+            recipientType: 'admin',
+            recipientEmail: 'admin@findapro.co.za'
+          })
+        })
+      }
+      
+    } catch (emailError: any) {
+      console.log('Email notification failed:', emailError.message)
+      // Don't throw - continue with success flow
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -391,46 +419,61 @@ function EditListingContent() {
     
     if (!listing) return
     
-    setSaving(true)
+    setIsSubmitting(true)
     setError('')
-    setSuccess('')
+    setIsSuccess(false)
     
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('Please log in to update your listing')
+        setIsSubmitting(false)
         return
       }
       
-      // Find city ID for the selected primary area
-      const selectedCity = cities.find(city => city.name === serviceAreas.primaryArea)
-      const cityId = selectedCity?.id || null
-      
       // Prepare data for Supabase update
-      const updateData = {
+      const updateData: any = {
         business_name: formData.business_name,
         contact_person: formData.contact_person,
         contact_phone: formData.contact_phone,
         alternate_phone: formData.alternate_phone,
         main_service: formData.main_service,
         main_service_id: formData.main_service_id,
-        other_services: formData.other_services,
+        details: formData.details,
         experience_years: formData.experience_years,
-        main_service_area: serviceAreas.primaryArea,
-        main_service_area_id: cityId,
-        hourly_rate: formData.hourly_rate || null,
+        
+        // Store service areas as JSON in providers table
+        service_areas: JSON.stringify([
+          serviceAreas.primaryArea, 
+          ...(serviceAreas.additionalAreas || [])
+        ]),
+        
+        fees_pricing: formData.fees_pricing || null,
         accepts_card: formData.accepts_card,
         accepts_cash: formData.accepts_cash,
         deposit_required: formData.deposit_required,
         emergency_service: formData.emergency_service,
         callout_fee: formData.emergency_service ? formData.callout_fee : null,
         insurance: formData.insurance,
-        insurance_details: formData.insurance ? formData.insurance_details : null,
+        
         updated_at: new Date().toISOString(),
-        // Reset status to pending if changes are made (requires re-approval)
-        status: formData.status === 'approved' ? 'pending' : formData.status
       }
+      
+      // Determine new status
+      let newStatus = formData.status;
+      let needsReview = false;
+      
+      if (formData.status === 'approved') {
+        updateData.status = 'pending';
+        newStatus = 'pending';
+        needsReview = true;
+      } else if (formData.status === 'rejected') {
+        updateData.status = 'rejected';
+        newStatus = 'rejected';
+        needsReview = false;
+      }
+      // For other statuses (pending, pause, etc.), keep the current status
       
       // Update provider
       const { error: updateError } = await supabase
@@ -479,50 +522,35 @@ function EditListingContent() {
           .eq('provider_id', listing.id)
       }
       
-      // Delete existing service areas and save new ones
-      await supabase
-        .from('provider_service_areas')
-        .delete()
-        .eq('provider_id', listing.id)
+      // Send email notifications to provider and admin
+      await sendEmailNotifications(
+        listing.id,
+        formData.business_name,
+        newStatus,
+        formData.contact_email || user.email || ''
+      )
       
-      if (serviceAreas.primaryArea) {
-        const serviceAreasData = [
-          {
-            provider_id: listing.id,
-            area_name: serviceAreas.primaryArea,
-            is_primary: true,
-            position: 0
-          },
-          ...serviceAreas.additionalAreas.map((area, index) => ({
-            provider_id: listing.id,
-            area_name: area,
-            is_primary: false,
-            position: index + 1
-          }))
-        ]
-        
-        const { error: areasError } = await supabase
-          .from('provider_service_areas')
-          .insert(serviceAreasData)
-          
-        if (areasError) {
-          console.error('Error saving service areas:', areasError)
-          // Continue anyway
-        }
-      }
+      // Show success message
+      setSuccessMessage(
+        newStatus === 'pending' 
+          ? 'Changes submitted for review! Our team will review your updates within 24-48 hours.'
+          : newStatus === 'rejected'
+          ? 'Changes saved successfully! Your listing remains rejected.'
+          : 'Changes saved successfully!'
+      )
       
-      setSuccess('Listing updated successfully! Your changes will be reviewed by our team.')
+      setIsSuccess(true)
+      setIsSubmitting(false)
       
-      // Clear success message after 3 seconds
+      // Auto-redirect after 3 seconds
       setTimeout(() => {
-        setSuccess('')
+        router.push('/providers/dashboard')
       }, 3000)
       
     } catch (err: any) {
       console.error('Error updating listing:', err)
       setError(err.message || 'Failed to update listing')
-    } finally {
-      setSaving(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -668,24 +696,39 @@ function EditListingContent() {
           )}
         </div>
 
-        {/* Success Message */}
-        {success && (
-          <div className="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-emerald-400" />
-              <div>
-                <p className="text-emerald-400 font-medium">{success}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Error Message */}
         {error && (
           <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-5 h-5 text-red-400" />
               <p className="text-red-400">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {isSuccess && (
+          <div className="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+              <div>
+                <p className="text-emerald-400 font-medium mb-1">✓ {successMessage}</p>
+                <p className="text-sm text-emerald-300">
+                  Redirecting to dashboard in 3 seconds...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submitting Indicator */}
+        {isSubmitting && (
+          <div className="mb-8 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+              <p className="text-blue-400">
+                {formData.status === 'rejected' ? 'Saving changes...' : 'Submitting changes for review...'}
+              </p>
             </div>
           </div>
         )}
@@ -810,70 +853,70 @@ function EditListingContent() {
             </div>
           </div>
 
-   {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
-<div className="mb-10">
-  <div className="flex items-center gap-3 mb-6">
-    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
-    <h2 className="text-xl font-bold text-white">Service Information</h2>
-  </div>
-  
-  <div className="space-y-6">
-    {/* Main Service Category */}
-    <div>
-      <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-        <span>Main Service Category</span>
-        <span className="text-red-500">*</span>
-      </label>
-      <button
-        type="button"
-        onClick={() => setShowServiceModal(true)}
-        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
-      >
-        <span className={formData.main_service ? "text-white" : "text-gray-500"}>
-          {formData.main_service || "Select service category"}
-        </span>
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {formErrors.main_service && (
-        <p className="mt-1 text-sm text-red-400">{formErrors.main_service}</p>
-      )}
-    </div>
-    
-    {/* Years of Experience */}
-    <div>
-      <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-        <span>Years of Experience</span>
-        <span className="text-red-500">*</span>
-      </label>
-      <input
-        type="text"
-        name="experience_years"
-        value={formData.experience_years}
-        onChange={handleChange}
-        required
-        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
-        placeholder="e.g., 5 years"
-      />
-      {formErrors.experience_years && (
-        <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
-      )}
-    </div>
-    
-    {/* Other Services - Simple & Flexible */}
-    <div>
-      <label className="block text-sm font-medium text-gray-300 mb-2">
-      Details & Other Services
-        <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
-      </label>
-      <textarea
-        name="other_services"
-        value={formData.other_services}
-        onChange={handleChange}
-        rows={10}
-        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-        placeholder={
+          {/* ==================== SECTION 3: SERVICE INFORMATION ==================== */}
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">3</div>
+              <h2 className="text-xl font-bold text-white">Service Information</h2>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Main Service Category */}
+              <div>
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Main Service Category</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowServiceModal(true)}
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
+                >
+                  <span className={formData.main_service ? "text-white" : "text-gray-500"}>
+                    {formData.main_service || "Select service category"}
+                  </span>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {formErrors.main_service && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.main_service}</p>
+                )}
+              </div>
+              
+              {/* Years of Experience */}
+              <div>
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+                  <span>Years of Experience</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="experience_years"
+                  value={formData.experience_years}
+                  onChange={handleChange}
+                  required
+                  className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all`}
+                  placeholder="e.g., 5 years"
+                />
+                {formErrors.experience_years && (
+                  <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
+                )}
+              </div>
+              
+              {/* Details */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Details
+                  <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
+                </label>
+                <textarea
+                  name="details"
+                  value={formData.details}
+                  onChange={handleChange}
+                  rows={10}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                  placeholder={
 `Examples:
 • Plumbing repairs, Drain cleaning, Toilet installations
 OR
@@ -882,64 +925,64 @@ Drain cleaning
 Toilet installations
 OR
 I provide comprehensive plumbing services including repairs, maintenance, and installations.`
-        }
-      />
-      
-      {/* Simple Format Hint */}
-      <div className="mt-2 text-xs text-gray-500">
-        <span className="inline-flex items-center gap-1">
-          <span className="text-orange-400">💡</span>
-          Enter services separated by commas or on separate lines. Will display as a bullet list.
-        </span>
-      </div>
-    </div>
-    
-    {/* Accreditations */}
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
-          <span>Accreditations</span>
-        </label>
-        <span className="text-xs text-gray-500">
-          {selectedAccreditations.length}/10 selected
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={() => setShowAccreditationModal(true)}
-        className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
-      >
-        <div className="flex-1">
-          <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
-            {selectedAccreditations.length > 0 
-              ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
-              : "Add your accreditations"}
-          </span>
-        </div>
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-      
-      {/* Selected accreditations preview */}
-      {selectedAccreditations.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {selectedAccreditations.slice(0, 3).map(acc => (
-            <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
-              <Award className="w-3 h-3" />
-              {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
-            </span>
-          ))}
-          {selectedAccreditations.length > 3 && (
-            <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
-              +{selectedAccreditations.length - 3} more
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
-</div>
+                  }
+                />
+                
+                {/* Simple Format Hint */}
+                <div className="mt-2 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="text-orange-400">💡</span>
+                    Enter services separated by commas or on separate lines. Will display as a bullet list.
+                  </span>
+                </div>
+              </div>
+              
+              {/* Accreditations */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+                    <span>Accreditations</span>
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {selectedAccreditations.length}/10 selected
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAccreditationModal(true)}
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
+                >
+                  <div className="flex-1">
+                    <span className={selectedAccreditations.length > 0 ? "text-white" : "text-gray-500"}>
+                      {selectedAccreditations.length > 0 
+                        ? `${selectedAccreditations.length} accreditation${selectedAccreditations.length !== 1 ? 's' : ''} selected`
+                        : "Add your accreditations"}
+                    </span>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                
+                {/* Selected accreditations preview */}
+                {selectedAccreditations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedAccreditations.slice(0, 3).map(acc => (
+                      <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
+                      </span>
+                    ))}
+                    {selectedAccreditations.length > 3 && (
+                      <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
+                        +{selectedAccreditations.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* ==================== SECTION 4: SERVICE AREAS ==================== */}
           <div className="mb-10">
@@ -960,9 +1003,9 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                   className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.primaryArea ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
                 >
                   <div className="flex-1">
-                    <span className={serviceAreas.primaryArea || serviceAreas.additionalAreas.length > 0 ? "text-white" : "text-gray-500"}>
+                    <span className={serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0 ? "text-white" : "text-gray-500"}>
                       {serviceAreas.primaryArea 
-                        ? `${serviceAreas.primaryArea}${serviceAreas.additionalAreas.length > 0 ? ` + ${serviceAreas.additionalAreas.length} more` : ''}`
+                        ? `${serviceAreas.primaryArea}${(serviceAreas.additionalAreas?.length || 0) > 0 ? ` + ${serviceAreas.additionalAreas?.length} more` : ''}`
                         : "Select your service areas"}
                     </span>
                   </div>
@@ -975,7 +1018,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                 )}
                 
                 {/* Selected areas preview */}
-                {(serviceAreas.primaryArea || serviceAreas.additionalAreas.length > 0) && (
+                {(serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0) && (
                   <div className="mt-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
                     <div className="flex flex-wrap gap-2">
                       {serviceAreas.primaryArea && (
@@ -984,15 +1027,15 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                           {serviceAreas.primaryArea} (Primary)
                         </span>
                       )}
-                      {serviceAreas.additionalAreas.slice(0, 3).map((area, index) => (
+                      {serviceAreas.additionalAreas?.slice(0, 3).map((area, index) => (
                         <span key={index} className="px-3 py-2 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700 flex items-center gap-2">
                           <MapPin className="w-4 h-4" />
                           {area}
                         </span>
                       ))}
-                      {serviceAreas.additionalAreas.length > 3 && (
+                      {(serviceAreas.additionalAreas?.length || 0) > 3 && (
                         <span className="px-3 py-2 bg-gray-700 text-gray-400 text-sm rounded-lg border border-gray-600">
-                          +{serviceAreas.additionalAreas.length - 3} more
+                          +{(serviceAreas.additionalAreas?.length || 0) - 3} more
                         </span>
                       )}
                     </div>
@@ -1010,26 +1053,22 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
             </div>
             
             <div className="space-y-6">
-              {/* Hourly Rate */}
+              {/* Fees & Pricing */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Hourly Rate
+                  Fees & Pricing
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  </div>
                   <input
                     type="text"
-                    name="hourly_rate"
-                    value={formData.hourly_rate}
+                    name="fees_pricing"
+                    value={formData.fees_pricing}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-                    placeholder="e.g., 450"
+                    className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
+                    placeholder="e.g., 450 per hour, Free consultation"
                   />
                 </div>
               </div>
-              
-     
               
               {/* Checkboxes Grid */}
               <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-700">
@@ -1098,14 +1137,12 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                     {formData.emergency_service && (
                       <div className="mt-3 pl-8">
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                          </div>
                           <input
                             type="text"
                             name="callout_fee"
                             value={formData.callout_fee}
                             onChange={handleChange}
-                            className={`w-full pl-10 pr-4 py-2 bg-gray-900 border ${formErrors.callout_fee ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
+                            className={`w-full px-4 py-2 bg-gray-900 border ${formErrors.callout_fee ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
                             placeholder="Emergency callout fee (e.g., 300)"
                           />
                         </div>
@@ -1131,23 +1168,6 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                         <label className="text-gray-300 text-sm font-medium">Have Insurance</label>
                       </div>
                     </div>
-                    
-                    {/* Insurance details - appears below insurance checkbox */}
-                    {formData.insurance && (
-                      <div className="mt-3 pl-8">
-                        <input
-                          type="text"
-                          name="insurance_details"
-                          value={formData.insurance_details}
-                          onChange={handleChange}
-                          className={`w-full px-4 py-2 bg-gray-900 border ${formErrors.insurance_details ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm`}
-                          placeholder="Insurance provider and coverage"
-                        />
-                        {formErrors.insurance_details && (
-                          <p className="mt-1 text-xs text-red-400">{formErrors.insurance_details}</p>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1157,16 +1177,16 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
           {/* ==================== SECTION 6: FORM ACTIONS ==================== */}
           <div className="pt-6 border-t border-gray-700">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-center md:text-left">
-  <p className="text-sm text-gray-400">
-    {formData.status === 'rejected' 
-      ? 'Save your changes, then resubmit for review from the dashboard'
-      : formData.status === 'approved'
-      ? 'Changes will reset your listing status to "Pending Review"'
-      : 'Your changes will be reviewed by our team'
-    }
-  </p>
-</div>
+              <div className="text-center md:text-left">
+                <p className="text-sm text-gray-400">
+                  {formData.status === 'rejected' 
+                    ? 'Save your changes, then resubmit for review from the dashboard'
+                    : formData.status === 'approved'
+                    ? 'Changes will reset your listing status to "Pending Review"'
+                    : 'Your changes will be reviewed by our team'
+                  }
+                </p>
+              </div>
               
               <div className="flex items-center gap-4">
                 <Link
@@ -1177,189 +1197,31 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                 </Link>
                 
                 <button
-  type="submit"
-  disabled={saving}
-  className={`px-8 py-3 rounded-lg font-semibold transition-all duration-300 flex items-center gap-2 ${
-    saving
-      ? 'bg-gray-700 cursor-not-allowed text-gray-400'
-      : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white hover:shadow-[0_0_30px_rgba(255,122,69,0.3)]'
-  }`}
-  onClick={async (e) => {
-    e.preventDefault()
-    
-    // Validate form
-    if (!validateForm()) {
-      // Scroll to first error
-      const firstErrorKey = Object.keys(formErrors)[0]
-      const element = document.querySelector(`[name="${firstErrorKey}"]`)
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-      return
-    }
-    
-    setSaving(true)
-    setError('')
-    setSuccess('')
-    
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('Please log in to update your listing')
-        setSaving(false)
-        return
-      }
-      
-      // Find city ID for the selected primary area
-      const selectedCity = cities.find(city => city.name === serviceAreas.primaryArea)
-      const cityId = selectedCity?.id || null
-      
-      // Prepare data for Supabase update
-      const updateData: any = {
-        business_name: formData.business_name,
-        contact_person: formData.contact_person,
-        contact_phone: formData.contact_phone,
-        alternate_phone: formData.alternate_phone,
-        main_service: formData.main_service,
-        main_service_id: formData.main_service_id,
-        other_services: formData.other_services,
-        experience_years: formData.experience_years,
-        main_service_area: serviceAreas.primaryArea,
-        main_service_area_id: cityId,
-        hourly_rate: formData.hourly_rate || null,
-        accepts_card: formData.accepts_card,
-        accepts_cash: formData.accepts_cash,
-        deposit_required: formData.deposit_required,
-        emergency_service: formData.emergency_service,
-        callout_fee: formData.emergency_service ? formData.callout_fee : null,
-        insurance: formData.insurance,
-        insurance_details: formData.insurance ? formData.insurance_details : null,
-
-        updated_at: new Date().toISOString(),
-      }
-      
-      // If status is rejected, keep it as rejected (just save changes)
-      // If status is approved, set to pending (needs re-approval)
-      if (formData.status === 'approved') {
-        updateData.status = 'pending'
-      } else if (formData.status === 'rejected') {
-        updateData.status = 'rejected'
-      }
-      // For other statuses (pending, pause, etc.), keep the current status
-      
-      // Update provider
-      const { error: updateError } = await supabase
-        .from('providers')
-        .update(updateData)
-        .eq('id', listing!.id)
-        .eq('user_id', user.id)
-      
-      if (updateError) {
-        console.error('Supabase update error:', updateError)
-        throw updateError
-      }
-      
-      // Delete existing accreditations and save new ones
-      if (selectedAccreditations.length > 0) {
-        // First, delete existing accreditations
-        await supabase
-          .from('provider_accreditations')
-          .delete()
-          .eq('provider_id', listing!.id)
-        
-        // Insert new accreditations
-        const accreditationsData = selectedAccreditations.map((acc, index) => ({
-          provider_id: listing!.id,
-          accreditation_id: acc.is_custom ? null : acc.accreditation_id,
-          custom_name: acc.is_custom ? acc.custom_name : null,
-          custom_description: acc.custom_description,
-          is_custom: acc.is_custom,
-          position: index,
-          is_verified: false
-        }))
-        
-        const { error: accError } = await supabase
-          .from('provider_accreditations')
-          .insert(accreditationsData)
-          
-        if (accError) {
-          console.error('Error saving accreditations:', accError)
-          // Continue anyway
-        }
-      } else {
-        // Delete all accreditations if none selected
-        await supabase
-          .from('provider_accreditations')
-          .delete()
-          .eq('provider_id', listing!.id)
-      }
-      
-      // Delete existing service areas and save new ones
-      await supabase
-        .from('provider_service_areas')
-        .delete()
-        .eq('provider_id', listing!.id)
-      
-      if (serviceAreas.primaryArea) {
-        const serviceAreasData = [
-          {
-            provider_id: listing!.id,
-            area_name: serviceAreas.primaryArea,
-            is_primary: true,
-            position: 0
-          },
-          ...serviceAreas.additionalAreas.map((area, index) => ({
-            provider_id: listing!.id,
-            area_name: area,
-            is_primary: false,
-            position: index + 1
-          }))
-        ]
-        
-        const { error: areasError } = await supabase
-          .from('provider_service_areas')
-          .insert(serviceAreasData)
-          
-        if (areasError) {
-          console.error('Error saving service areas:', areasError)
-          // Continue anyway
-        }
-      }
-      
-      // Show appropriate success message based on status
-      if (formData.status === 'rejected') {
-        setSuccess('Changes saved successfully! Your listing remains rejected. Please resubmit for review from the dashboard.')
-      } else if (formData.status === 'approved') {
-        setSuccess('Listing updated successfully! Your changes have been submitted for review.')
-      } else {
-        setSuccess('Listing updated successfully!')
-      }
-      
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        router.push('/providers/dashboard')
-      }, 2000)
-      
-    } catch (err: any) {
-      console.error('Error updating listing:', err)
-      setError(err.message || 'Failed to update listing')
-      setSaving(false)
-    }
-  }}
->
-  {saving ? (
-    <>
-      <Loader2 className="w-5 h-5 animate-spin" />
-      {formData.status === 'rejected' ? 'Saving Changes...' : 'Submitting...'}
-    </>
-  ) : (
-    <>
-      <Save className="w-5 h-5" />
-      {formData.status === 'rejected' ? 'Save Changes' : 'Submit Changes for Review'}
-    </>
-  )}
-</button>
+                  type="submit"
+                  disabled={isSubmitting || isSuccess}
+                  className={`px-8 py-3 rounded-lg font-semibold transition-all duration-300 flex items-center gap-2 ${
+                    isSubmitting || isSuccess
+                      ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+                      : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white hover:shadow-[0_0_30px_rgba(255,122,69,0.3)]'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      {formData.status === 'rejected' ? 'Saving Changes...' : 'Submitting...'}
+                    </>
+                  ) : isSuccess ? (
+                    <>
+                      <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      Submitted!
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      {formData.status === 'rejected' ? 'Save Changes' : 'Submit Changes for Review'}
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -1391,11 +1253,12 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
       <ServiceAreaModal
         isOpen={showServiceAreaModal}
         onClose={() => setShowServiceAreaModal(false)}
-        initialPrimary={serviceAreas.primaryArea}
-        initialCustomAreas={serviceAreas.additionalAreas}
+        // Convert existing structure to flat array for the modal
+        initialAreas={serviceAreas.primaryArea ? 
+          [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : 
+          []}
         onSave={handleServiceAreasSave}
-        maxCustomAreas={10}
-        cities={cities}
+        maxAreas={10}
       />
     </div>
   )

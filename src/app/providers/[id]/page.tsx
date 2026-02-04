@@ -1,4 +1,4 @@
-// File: src/app/providers/[id]/page.tsx - PRODUCTION READY WITH MOBILE FIXES
+// File: src/app/providers/[id]/page.tsx - FIXED SERVICE AREAS
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -26,7 +26,6 @@ export default function ProviderDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [syncingFavorite, setSyncingFavorite] = useState(false)
   const [accreditations, setAccreditations] = useState<any[]>([])
-  const [serviceAreas, setServiceAreas] = useState<any[]>([])
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details')
   const [notification, setNotification] = useState<{show: boolean; message: string}>({show: false, message: ''})
@@ -86,11 +85,11 @@ export default function ProviderDetailPage() {
       setLoading(true)
       setError('')
 
+      // UPDATED: Removed provider_service_areas join, using providers.service_areas text field
       const { data, error: providerError } = await supabase
         .from('providers')
         .select(`
           *,
-          provider_service_areas (*),
           provider_accreditations (*)
         `)
         .eq('id', providerId)
@@ -100,9 +99,36 @@ export default function ProviderDetailPage() {
       if (providerError) throw providerError
 
       if (data) {
-        if (data.provider_service_areas && data.provider_service_areas.length > 0) {
-          setServiceAreas(data.provider_service_areas)
+        // FIXED: Properly parse service areas (handles both JSON and comma strings)
+        let formattedServiceAreas = []
+        if (data.service_areas) {
+          const serviceAreasStr = data.service_areas.trim();
+          
+          // Check if it's a JSON array
+          if (serviceAreasStr.startsWith('[') && serviceAreasStr.endsWith(']')) {
+            try {
+              formattedServiceAreas = JSON.parse(serviceAreasStr)
+                .map((area: any) => String(area).trim())
+                .filter((area: string) => area !== '');
+            } catch (error) {
+              console.error('Error parsing JSON service areas:', error);
+              // Fallback to comma splitting
+              formattedServiceAreas = serviceAreasStr
+                .split(',')
+                .map((area: string) => area.trim())
+                .filter((area: string) => area !== '');
+            }
+          } else {
+            // Regular comma-separated string
+            formattedServiceAreas = serviceAreasStr
+              .split(',')
+              .map((area: string) => area.trim())
+              .filter((area: string) => area !== '');
+          }
         }
+
+        // Store formatted service areas on provider object
+        data.formatted_service_areas = formattedServiceAreas;
 
         if (data.provider_accreditations && data.provider_accreditations.length > 0) {
           setAccreditations(data.provider_accreditations)
@@ -224,12 +250,21 @@ export default function ProviderDetailPage() {
     }, 3000)
   }
 
+  // UPDATED: Get price display using fees_pricing instead of hourly_rate
   const getPriceDisplay = () => {
-    if (provider?.hourly_rate) {
-      return `R${provider.hourly_rate}/hr`
+    if (provider?.fees_pricing) {
+      const price = provider.fees_pricing.toString().replace(/[^0-9]/g, '')
+      if (price) {
+        return `R${price}/hr`
+      }
+      return provider.fees_pricing
     }
     if (provider?.callout_fee) {
-      return `R${provider.callout_fee} callout fee`
+      const callout = provider.callout_fee.toString().replace(/[^0-9]/g, '')
+      if (callout) {
+        return `R${callout} callout fee`
+      }
+      return provider.callout_fee
     }
     return 'Contact for rates'
   }
@@ -256,9 +291,10 @@ export default function ProviderDetailPage() {
     return businessName.charAt(0).toUpperCase()
   }
 
+  // UPDATED: Get other services from details field
   const getOtherServices = () => {
-    if (!provider?.other_services) return []
-    return provider.other_services
+    if (!provider?.details) return []
+    return provider.details
       .split(/[\n,]+/)
       .map((s: string) => s.trim())
       .map((s: string) => s.replace(/^[•\-*\s]+/, '')) // Remove bullet points if present
@@ -311,7 +347,7 @@ export default function ProviderDetailPage() {
               onClick={() => router.back()}
               className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-semibold hover:from-blue-500 hover:to-blue-400"
             >
-              ← Back to Providers
+              ← Back
             </button>
           </div>
         </div>
@@ -322,8 +358,8 @@ export default function ProviderDetailPage() {
   const businessColor = getBusinessColor(provider.business_name)
   const businessInitials = getBusinessInitials(provider.business_name)
   const otherServices = getOtherServices()
-  const primaryArea = serviceAreas.find(area => area.is_primary)
-  const additionalAreas = serviceAreas.filter(area => !area.is_primary)
+  // FIXED: Use the already-parsed formatted_service_areas
+  const serviceAreas = provider.formatted_service_areas || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
@@ -347,7 +383,7 @@ export default function ProviderDetailPage() {
           className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-4 group"
         >
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          Back to Providers
+          Back
         </button>
       </div>
 
@@ -358,11 +394,11 @@ export default function ProviderDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden"
         >
-          {/* Header Section - IMPROVED MOBILE LAYOUT */}
+          {/* Header Section */}
           <div className="p-6 border-b border-gray-700/50">
-            {/* Mobile Layout: Logo and CTA buttons side by side */}
+            {/* Mobile Layout */}
             <div className="flex items-start justify-between mb-6 md:mb-0 md:hidden">
-              {/* Logo on left (mobile) */}
+              {/* Logo */}
               <div className="relative">
                 <div 
                   className="w-20 h-20 rounded-xl border border-gray-600 flex items-center justify-center"
@@ -387,7 +423,7 @@ export default function ProviderDetailPage() {
                 )}
               </div>
 
-              {/* CTA buttons on right (mobile) */}
+              {/* CTA buttons */}
               <div className="flex gap-2">
                 <button
                   onClick={toggleFavorite}
@@ -412,7 +448,7 @@ export default function ProviderDetailPage() {
               </div>
             </div>
 
-            {/* Desktop Layout (unchanged) */}
+            {/* Desktop Layout */}
             <div className="hidden md:flex md:flex-row md:items-start gap-6">
               {/* Left side: Logo and Business Info */}
               <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -448,7 +484,7 @@ export default function ProviderDetailPage() {
                       {provider.business_name}
                     </h1>
                     
-                    {/* Rating and Price */}
+                    {/* Rating and Price - UPDATED: Uses fees_pricing */}
                     <div className="flex flex-wrap items-center gap-4 mb-3">
                       <div className="flex items-center gap-1.5">
                         {provider.rating > 0 ? (
@@ -474,7 +510,7 @@ export default function ProviderDetailPage() {
                     </div>
 
                     {/* Experience */}
-                    {provider.experience_years > 0 && (
+                    {provider.experience_years && (
                       <div className="flex items-center gap-2 text-gray-300 text-sm">
                         <Calendar className="w-4 h-4" />
                         <span>{provider.experience_years} years experience</span>
@@ -484,7 +520,7 @@ export default function ProviderDetailPage() {
                 </div>
               </div>
 
-              {/* Action Buttons - Desktop layout */}
+              {/* Action Buttons */}
               <div className="flex gap-3 md:flex-col md:items-end md:justify-start md:mt-0">
                 <button
                   onClick={toggleFavorite}
@@ -515,7 +551,7 @@ export default function ProviderDetailPage() {
                 {provider.business_name}
               </h1>
               
-              {/* Rating and Price */}
+              {/* Rating and Price - UPDATED: Uses fees_pricing */}
               <div className="flex flex-wrap items-center gap-4 mb-3">
                 <div className="flex items-center gap-1.5">
                   {provider.rating > 0 ? (
@@ -541,7 +577,7 @@ export default function ProviderDetailPage() {
               </div>
 
               {/* Experience */}
-              {provider.experience_years > 0 && (
+              {provider.experience_years && (
                 <div className="flex items-center gap-2 text-gray-300 text-sm">
                   <Calendar className="w-4 h-4" />
                   <span>{provider.experience_years} years experience</span>
@@ -697,90 +733,51 @@ export default function ProviderDetailPage() {
                     </div>
                   </div>
 
-                  {/* Service Areas */}
-                  <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-                    <div className="flex items-center gap-2 mb-4">
-                      <MapPin className="w-5 h-5 text-blue-400" />
-                      <h3 className="text-lg font-bold text-white">Service Areas</h3>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      {/* Primary Area */}
-                      {primaryArea && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-2">Primary Service Area</p>
-                          <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                            <p className="text-white font-medium">{primaryArea.area_name}</p>
-                          </div>
-                        </div>
-                      )}
+                  {/* Service Areas - FIXED: Shows parsed data correctly */}
+                  {serviceAreas.length > 0 && (
+                    <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+                      <div className="flex items-center gap-2 mb-4">
+                        <MapPin className="w-5 h-5 text-blue-400" />
+                        <h3 className="text-lg font-bold text-white">Service Areas</h3>
+                      </div>
                       
-                      {/* Additional Areas */}
-                      {additionalAreas.length > 0 && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-2">Additional Service Areas ({additionalAreas.length})</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {additionalAreas.map((area, index) => (
-                              <div
-                                key={index}
-                                className="p-3 bg-gray-800/50 rounded-lg border border-gray-700"
-                              >
-                                <p className="text-gray-300">{area.area_name}</p>
-                              </div>
-                            ))}
-                          </div>
+                      <div className="space-y-4">
+                        <div className="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                          <p className="text-gray-300 text-lg leading-relaxed">
+                            {serviceAreas.join(', ')}
+                          </p>
                         </div>
-                      )}
+                        <p className="text-gray-500 text-sm">
+                          Service available in {serviceAreas.length} area{serviceAreas.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
- {/* Other Services - Bullet Points */}
-{provider.other_services && (
-  <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-    <div className="flex items-center gap-2 mb-4">
-      <Briefcase className="w-5 h-5 text-purple-400" />
-      <h3 className="text-lg font-bold text-white">Details & Other Services</h3>
-    </div>
-    
-    <div className="space-y-2">
-      {(() => {
-        // Parse the other_services text (same as listings page)
-        const otherServicesText = provider.other_services;
-        
-        if (!otherServicesText?.trim()) {
-          return (
-            <p className="text-gray-500 italic">No additional services listed</p>
-          );
-        }
-        
-        // Split by new lines or commas and clean up
-        const items = otherServicesText
-        .split(/[\n,]+/)
-        .map((item: string) => item.trim())
-        .filter((item: string) => item)
-        .map((item: string) => item.replace(/^[•\-*\s]+/, '')); // Remove bullet points if present
-        
-        if (items.length === 0) {
-          return (
-            <p className="text-gray-500 italic">No additional services listed</p>
-          );
-        }
-        
-        // Show all items as bullet points (no limit on detail page)
-        return (
-          <ul className="space-y-2">
-            {items.map((item: string, index: number) => (
-              <li key={index} className="flex items-start text-gray-300">
-                <span className="text-purple-400 mr-2 mt-0.5 flex-shrink-0">•</span>
-                <span className="leading-relaxed">{item}</span>
-              </li>
-            ))}
-          </ul>
-        );
-      })()}
-    </div>
-  </div>
-)}
+                  {/* Details & Services - UPDATED: Uses providers.details field */}
+                  {provider.details && (
+                    <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Briefcase className="w-5 h-5 text-purple-400" />
+                        <h3 className="text-lg font-bold text-white">Details & Services</h3>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {otherServices.length === 0 ? (
+                          <p className="text-gray-500 italic">No additional details provided</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {otherServices.map((item: string, index: number) => (
+                              <li key={index} className="flex items-start text-gray-300">
+                                <span className="text-purple-400 mr-2 mt-0.5 flex-shrink-0">•</span>
+                                <span className="leading-relaxed">{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Column */}
@@ -809,7 +806,7 @@ export default function ProviderDetailPage() {
                           <div>
                             <p className="font-medium text-white">Emergency Service</p>
                             {provider.callout_fee && (
-                              <p className="text-sm text-red-400">R{provider.callout_fee} callout fee</p>
+                              <p className="text-sm text-red-400">{provider.callout_fee} callout fee</p>
                             )}
                           </div>
                         </div>

@@ -1,5 +1,5 @@
 // File: src/lib/vercel-blob.ts
-import { put, del } from '@vercel/blob'
+import { put, del } from '@vercel/blob/client' // Changed import for client-side
 
 export interface UploadLogoOptions {
   userId: string
@@ -14,19 +14,20 @@ export interface UploadLogoResponse {
 
 export async function uploadLogo({ userId, file }: UploadLogoOptions): Promise<UploadLogoResponse> {
   try {
-    if (!process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN) {
-      throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
-    }
-
+    // For client-side uploads, we don't check for token in env vars
+    // The SDK handles authentication automatically via browser headers
+    
     const timestamp = Date.now()
     const extension = file.name.split('.').pop()?.toLowerCase() || 'png'
     const filename = `logos/${userId}/logo-${timestamp}.${extension}`
     
     console.log('Uploading logo to:', filename)
     
+    // Client-side put doesn't require a token parameter
+    // It uses the browser session/headers automatically
     const { url } = await put(filename, file, {
       access: 'public',
-      token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN
+      // Token parameter removed - SDK handles it automatically
     })
 
     console.log('Logo uploaded successfully:', url)
@@ -44,14 +45,8 @@ export async function deleteLogo(url: string): Promise<{ success: boolean; error
   try {
     console.log('Delete logo called for URL:', url)
     
-    if (!process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN) {
-      return { success: false, error: 'BLOB_READ_WRITE_TOKEN not configured' }
-    }
-
-    // Try to delete - if it fails with 404, that's OK
-    await del(url, { 
-      token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN 
-    })
+    // Client-side delete doesn't require a token parameter
+    await del(url)
     
     console.log('Delete successful')
     return { success: true }

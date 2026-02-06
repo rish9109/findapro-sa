@@ -325,15 +325,14 @@ export default function ProviderDashboard() {
           {/* Left Column: Logo & Actions */}
           <div className="lg:col-span-1">
             {/* Logo Upload Card - UPDATED TO USE PROVIDERLOGO COMPONENT */}
+            
             <ProviderLogo
-  userId={user?.id}
-  allowDelete={true}
-  requireActiveListing={true}
-  onSuccess={() => {
-    setSuccess('Logo updated successfully!')
+  size="md"
+  onSuccess={(message) => {
+    setSuccess(message)
     setTimeout(() => setSuccess(''), 3000)
   }}
-  onError={(errorMsg) => setError(errorMsg)}
+  onError={(message) => setError(message)}
 />
 
             {/* Quick Stats */}

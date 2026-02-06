@@ -1,6 +1,4 @@
 // File: src/lib/vercel-blob.ts
-import { put, del } from '@vercel/blob/client' // Changed import for client-side
-
 export interface UploadLogoOptions {
   userId: string
   file: File
@@ -14,24 +12,31 @@ export interface UploadLogoResponse {
 
 export async function uploadLogo({ userId, file }: UploadLogoOptions): Promise<UploadLogoResponse> {
   try {
-    // For client-side uploads, we don't check for token in env vars
-    // The SDK handles authentication automatically via browser headers
-    
     const timestamp = Date.now()
     const extension = file.name.split('.').pop()?.toLowerCase() || 'png'
     const filename = `logos/${userId}/logo-${timestamp}.${extension}`
     
     console.log('Uploading logo to:', filename)
     
-    // Client-side put doesn't require a token parameter
-    // It uses the browser session/headers automatically
-    const { url } = await put(filename, file, {
-      access: 'public',
-      // Token parameter removed - SDK handles it automatically
+    // Send to API route instead of direct upload
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('userId', userId)
+    formData.append('filename', filename)
+    
+    const response = await fetch('/api/blob/upload', {
+      method: 'POST',
+      body: formData,
     })
-
-    console.log('Logo uploaded successfully:', url)
-    return { success: true, url }
+    
+    const result = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Upload failed')
+    }
+    
+    console.log('Logo uploaded successfully:', result.url)
+    return { success: true, url: result.url }
   } catch (error: any) {
     console.error('Error uploading logo:', error)
     return { 
@@ -45,8 +50,25 @@ export async function deleteLogo(url: string): Promise<{ success: boolean; error
   try {
     console.log('Delete logo called for URL:', url)
     
-    // Client-side delete doesn't require a token parameter
-    await del(url)
+    // Only delete from Vercel Blob if it's a blob URL
+    if (!url.includes('.vercel-storage.com')) {
+      console.log('Not a vercel blob URL, skipping deletion:', url)
+      return { success: true }
+    }
+    
+    const response = await fetch('/api/blob/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    })
+    
+    const result = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Delete failed')
+    }
     
     console.log('Delete successful')
     return { success: true }

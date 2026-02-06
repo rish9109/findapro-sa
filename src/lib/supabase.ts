@@ -72,6 +72,7 @@ export interface Provider {
   rejection_reason?: string
   pause_reason?: string
   deletion_reason?: string
+  logo_url?: string
 }
 
 export interface EmailTemplate {

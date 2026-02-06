@@ -8,7 +8,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import AccreditationModal from '@/components/AccreditationModal'
 import ServiceAreaModal from '@/components/ServiceAreaModal'
 import ServiceCategoryModal from '@/components/ServiceCategoryModal'
-import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
+import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle, ArrowLeft } from 'lucide-react'
 
 // Types - Removed City interface
 interface ServiceCategory {
@@ -159,6 +159,29 @@ function ProviderListingsContent() {
     }
     
     return (count || 0) < 3
+  }
+
+  // Get existing logo URL for user
+  const getExistingLogoUrl = async (userId: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('providers')
+        .select('logo_url')
+        .eq('user_id', userId)
+        .not('logo_url', 'is', null)  // Only get listings with logos
+        .order('created_at', { ascending: false })
+        .limit(1)
+        
+      if (error) {
+        console.error('Error fetching existing logo:', error)
+        return null
+      }
+      
+      return data?.[0]?.logo_url || null
+    } catch (error) {
+      console.error('Error in getExistingLogoUrl:', error)
+      return null
+    }
   }
 
   // Update user to provider status
@@ -328,6 +351,9 @@ function ProviderListingsContent() {
         return
       }
       
+      // ✅ NEW: Get existing logo URL (if any)
+      const existingLogoUrl = await getExistingLogoUrl(user.id)
+      
       // Update user to provider status
       await updateUserToProvider()
       
@@ -338,6 +364,9 @@ function ProviderListingsContent() {
       const providerData = {
         user_id: user.id,
         business_name: businessNameToUse,
+        
+        // ✅ NEW: Add logo_url to new listing
+        logo_url: existingLogoUrl,
         
         contact_person: formData.contactPerson,
         contact_email: userEmail,
@@ -474,6 +503,13 @@ function ProviderListingsContent() {
     }
   }
 
+  // Cancel button handler
+  const handleCancel = () => {
+    if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+      router.back()
+    }
+  }
+
   if (loadingData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
@@ -489,40 +525,77 @@ function ProviderListingsContent() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-6 px-4">
       <div className="max-w-4xl mx-auto">
         
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-3">
-            Create Service Listing
-          </h1>
-          <p className="text-gray-300 mb-6">
-            Complete all sections to join FindAPro
-          </p>
+        {/* Header with Cancel Button */}
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={handleCancel}
+            className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Cancel</span>
+          </button>
           
-          {/* Progress */}
-          <div className="flex items-center justify-center mb-6">
-            <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">1</div>
-              <div className="w-12 h-1 bg-gray-600"></div>
-              <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 font-bold">2</div>
-              <div className="w-12 h-1 bg-gray-600"></div>
-              <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 font-bold">3</div>
-            </div>
+          <div className="text-center flex-1">
+            <h1 className="text-3xl font-bold text-white mb-3">
+              Create Service Listing
+            </h1>
+            <p className="text-gray-300 mb-6">
+              Complete all sections to join FindAPro
+            </p>
           </div>
           
-          {/* Listings counter */}
-          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 max-w-xs mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-300">Your Listings:</span>
-              <span className="text-white font-bold">{existingListingsCount}/3</span>
-            </div>
-            <div className="bg-gray-700 h-2 rounded-full overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-orange-500 to-yellow-500 h-full rounded-full transition-all"
-                style={{ width: `${(existingListingsCount / 3) * 100}%` }}
-              ></div>
-            </div>
+          {/* Spacer for alignment */}
+          <div className="w-24"></div>
+        </div>
+        
+        {/* Progress */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">1</div>
+            <div className="w-12 h-1 bg-gray-600"></div>
+            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 font-bold">2</div>
+            <div className="w-12 h-1 bg-gray-600"></div>
+            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 font-bold">3</div>
           </div>
         </div>
+        
+        {/* Listings counter */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 max-w-xs mx-auto mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-300">Your Listings:</span>
+            <span className="text-white font-bold">{existingListingsCount}/3</span>
+          </div>
+          <div className="bg-gray-700 h-2 rounded-full overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-orange-500 to-yellow-500 h-full rounded-full transition-all"
+              style={{ width: `${(existingListingsCount / 3) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* ✅ NEW: Logo notification for existing users */}
+        {existingListingsCount > 0 && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-orange-400 text-sm">ⓘ</span>
+              </div>
+              <div>
+                <p className="text-sm text-orange-300 font-medium mb-1">
+                  Logo Notice
+                </p>
+                <p className="text-xs text-orange-400/80">
+                  Your business logo (if uploaded) will automatically appear on this new listing.
+                  {existingListingsCount >= 2 && (
+                    <span className="block mt-1">
+                      You can update your logo in your Provider Dashboard.
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Form */}
         <form onSubmit={handleSubmit} className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-4 md:p-6 border border-gray-700 mb-6">
@@ -1040,24 +1113,36 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                 </div>
               </div>
               
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${loading
-                    ? 'bg-gray-700 cursor-not-allowed text-gray-500'
-                    : 'bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 hover:shadow-lg'
-                  }`}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Creating Listing...
-                  </span>
-                ) : (
-                  'Create Listing'
-                )}
-              </button>
+              {/* Action Buttons */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Cancel Button */}
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="py-4 rounded-xl font-bold text-lg transition-all duration-300 bg-gray-700 hover:bg-gray-600 text-white"
+                >
+                  Cancel
+                </button>
+                
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`py-4 rounded-xl font-bold text-lg transition-all duration-300 ${loading
+                      ? 'bg-gray-700 cursor-not-allowed text-gray-500'
+                      : 'bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-500 hover:to-orange-400 hover:shadow-lg'
+                    }`}
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-3">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Creating Listing...
+                    </span>
+                  ) : (
+                    'Create Listing'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </form>

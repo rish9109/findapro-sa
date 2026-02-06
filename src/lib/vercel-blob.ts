@@ -14,19 +14,16 @@ export interface UploadLogoResponse {
 
 export async function uploadLogo({ userId, file }: UploadLogoOptions): Promise<UploadLogoResponse> {
   try {
-    // Check for the public environment variable
     if (!process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN) {
       throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
     }
 
-    // Generate filename: logos/{user_id}/logo.{extension}
     const timestamp = Date.now()
-    const extension = file.name.split('.').pop() || 'png'
-    const filename = `logos/${userId}/logo.${extension}`
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'png'
+    const filename = `logos/${userId}/logo-${timestamp}.${extension}`
     
     console.log('Uploading logo to:', filename)
     
-    // Upload to Vercel Blob
     const { url } = await put(filename, file, {
       access: 'public',
       token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN
@@ -45,20 +42,35 @@ export async function uploadLogo({ userId, file }: UploadLogoOptions): Promise<U
 
 export async function deleteLogo(url: string): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log('Delete logo called for URL:', url)
+    
     if (!process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN) {
-      throw new Error('BLOB_READ_WRITE_TOKEN is not configured')
+      return { success: false, error: 'BLOB_READ_WRITE_TOKEN not configured' }
     }
 
-    console.log('Deleting logo:', url)
-    await del(url, { token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN })
+    // Try to delete - if it fails with 404, that's OK
+    await del(url, { 
+      token: process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN 
+    })
     
-    console.log('Logo deleted successfully')
+    console.log('Delete successful')
     return { success: true }
+    
   } catch (error: any) {
-    console.error('Error deleting logo:', error)
+    console.log('Delete attempt result (may be expected):', error.message)
+    
+    // If the blob doesn't exist, that's fine - it's already deleted
+    if (error.message?.includes('BlobNotFound') || 
+        error.message?.includes('not found') ||
+        error.message?.includes('404')) {
+      console.log('Logo already deleted - treating as success')
+      return { success: true }
+    }
+    
+    // For any other error, return failure
     return { 
       success: false, 
-      error: error.message || 'Failed to delete logo' 
+      error: error.message || 'Delete failed' 
     }
   }
 }

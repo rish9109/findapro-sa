@@ -1,4 +1,4 @@
-// File: src/app/providers/page.tsx - WITH YOUR EXACT ENHANCED FUNCTION
+// File: src/app/providers/page.tsx - WITH LOGO COMPONENT IMPLEMENTATION
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -9,8 +9,9 @@ import { motion } from 'framer-motion'
 import { 
   Heart, MapPin, Star, Briefcase,
   Shield, Zap, Award, ChevronRight,
-  CheckCircle, Calendar
+  Calendar
 } from 'lucide-react'
+import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 
 export default function ProvidersPage() {
   const router = useRouter()
@@ -377,24 +378,6 @@ export default function ProvidersPage() {
     return null
   }
 
-  // Get business initials for logo
-  const getBusinessInitials = (businessName: string) => {
-    if (!businessName) return 'P'
-    return businessName.charAt(0).toUpperCase()
-  }
-
-  // Get business color
-  const getBusinessColor = (businessName: string) => {
-    const colors = [
-      '#3B82F6', '#10B981', '#6366F1', '#EF4444',
-      '#F59E0B', '#06B6D4', '#84CC16', '#EC4899',
-    ]
-    
-    if (!businessName) return colors[0]
-    const charCode = businessName.charCodeAt(0)
-    return colors[charCode % colors.length]
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
       <main className="relative container mx-auto px-4 py-8">
@@ -421,8 +404,6 @@ export default function ProvidersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProviders.map((provider, index) => {
-              const businessColor = getBusinessColor(provider.business_name)
-              const businessInitials = getBusinessInitials(provider.business_name)
               const accreditationsDisplay = getAccreditationsDisplay(provider)
               
               return (
@@ -442,25 +423,15 @@ export default function ProvidersPage() {
                     <div className="p-6 border-b border-gray-700/50">
                       <div className="flex items-center gap-4">
                         <div className="relative flex-shrink-0">
-                          <div 
-                            className="w-20 h-20 rounded-2xl border-2 border-gray-600 flex items-center justify-center shadow-lg overflow-hidden"
-                            style={{ backgroundColor: businessColor + '10' }}
-                          >
-                            <div 
-                              className="w-full h-full flex items-center justify-center"
-                              style={{ backgroundColor: businessColor }}
-                            >
-                              <span className="text-2xl font-bold text-white">
-                                {businessInitials}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {provider.verified && (
-                            <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-full border-2 border-gray-800 flex items-center justify-center shadow-lg">
-                              <CheckCircle className="w-4 h-4 text-white" />
-                            </div>
-                          )}
+                          <ProviderLogoDisplay
+                            providerId={provider.id}
+                            businessName={provider.business_name}
+                            size="md"
+                            showBorder={true}
+                            showVerified={true}
+                            verified={provider.verified}
+                            className="flex-shrink-0"
+                          />
                         </div>
                         
                         <div className="flex-1 min-w-0">

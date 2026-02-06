@@ -12,6 +12,7 @@ import {
   CheckCircle, Calendar, ArrowLeft,
   Sparkles
 } from 'lucide-react'
+import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 
 export default function FavoritesPage() {
   const router = useRouter()
@@ -252,30 +253,6 @@ export default function FavoritesPage() {
     return null
   }
 
-  // Get business initials
-  const getBusinessInitials = (businessName: string) => {
-    if (!businessName) return 'P'
-    return businessName.charAt(0).toUpperCase()
-  }
-
-  // Get business color
-  const getBusinessColor = (businessName: string) => {
-    const colors = [
-      '#3B82F6', // Blue
-      '#10B981', // Emerald
-      '#6366F1', // Indigo
-      '#EF4444', // Red
-      '#F59E0B', // Amber
-      '#06B6D4', // Cyan
-      '#84CC16', // Lime
-      '#8B5CF6', // Purple
-    ]
-    
-    if (!businessName) return colors[0]
-    const charCode = businessName.charCodeAt(0)
-    return colors[charCode % colors.length]
-  }
-
   // Handle back to providers
   const handleBack = () => {
     router.push('/')
@@ -346,8 +323,6 @@ export default function FavoritesPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {favoriteProviders.map((provider, index) => {
-              const businessColor = getBusinessColor(provider.business_name)
-              const businessInitials = getBusinessInitials(provider.business_name)
               const accreditationsDisplay = getAccreditationsDisplay(provider)
               
               return (
@@ -367,28 +342,18 @@ export default function FavoritesPage() {
                     {/* Card Header - Mobile optimized */}
                     <div className="p-4 sm:p-6 border-b border-gray-700/50">
                       <div className="flex items-center gap-3 sm:gap-4">
-                        {/* Business Logo - Smaller on mobile */}
+                        {/* Business Logo - UPDATED: Using ProviderLogoDisplay component */}
                         <div className="relative flex-shrink-0">
-                          <div 
-                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl border-2 border-purple-500/30 flex items-center justify-center shadow-lg overflow-hidden"
-                            style={{ 
-                              backgroundColor: businessColor + '10',
-                            }}
-                          >
-                            <div 
-                              className="w-full h-full flex items-center justify-center"
-                              style={{ backgroundColor: businessColor }}
-                            >
-                              <span className="text-xl sm:text-2xl font-bold text-white">
-                                {businessInitials}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {/* Favorite Badge - Smaller on mobile */}
-                          <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-purple-600 to-purple-500 rounded-full border-2 border-gray-800 flex items-center justify-center shadow-lg">
-                            <Heart className="w-3 h-3 sm:w-4 sm:h-4 text-white fill-white" />
-                          </div>
+                          <ProviderLogoDisplay
+                            providerId={provider.id}
+                            businessName={provider.business_name}
+                            size="md"
+                            showBorder={true}
+                            showVerified={true}
+                            verified={provider.verified}
+                            clickToZoom={true}
+                            className="flex-shrink-0"
+                          />
                         </div>
                         
                         {/* Business Name and Service Category - Mobile optimized */}

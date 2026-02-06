@@ -1,24 +1,21 @@
-// File: src/app/providers/dashboard/page.tsx - FIXED VERSION
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, Provider, getUserListings } from '@/lib/supabase'
-import { uploadLogo, deleteLogo } from '@/lib/vercel-blob'
 import { useAuth } from '@/contexts/AuthContext'
+import ProviderLogo from '@/components/ProviderLogo' // UPDATED IMPORT
 import { 
   Building, 
   Edit, 
   Trash2, 
-  Upload, 
   CheckCircle, 
   Clock, 
   XCircle, 
   AlertCircle,
   Shield,
   Plus,
-  Image as ImageIcon,
   Eye,
   EyeOff,
   Loader2,
@@ -63,7 +60,6 @@ const statusConfig = {
     label: 'Paused',
     action: 'edit'
   }
-  // Note: 'suspended' and 'deleted' are NOT in database constraint, so they won't appear
 }
 
 // Interface for service area data
@@ -81,11 +77,6 @@ export default function ProviderDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  
-  // Logo upload state
-  const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
-  const [logoError, setLogoError] = useState('')
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -125,19 +116,13 @@ export default function ProviderDashboard() {
             const primaryServiceArea = listing.main_service || 'Not specified'
 
             areasData[listing.id] = {
-              primaryArea: primaryServiceArea, // ✅ FIXED: Using correct property name
+              primaryArea: primaryServiceArea,
               additionalAreas: []
             }
           }
         }
         
         setServiceAreas(areasData)
-        
-        // Load logo URL from user metadata
-        const userLogo = (user.user_metadata as any)?.logo_url
-        if (userLogo) {
-          setLogoUrl(userLogo)
-        }
         
       } catch (err: any) {
         console.error('Error loading dashboard:', err)
@@ -152,74 +137,12 @@ export default function ProviderDashboard() {
     }
   }, [user, isLoading])
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !user) return
-    
-    // Validate file
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
-    if (!validTypes.includes(file.type)) {
-      setLogoError('Please upload a valid image file (JPEG, PNG, WEBP, SVG)')
-      return
-    }
-    
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      setLogoError('Image size must be less than 5MB')
-      return
-    }
-    
-    setUploadingLogo(true)
-    setLogoError('')
-    
-    try {
-      // Delete old logo if exists
-      if (logoUrl) {
-        await deleteLogo(logoUrl)
-      }
-      
-      // Upload new logo
-      const result = await uploadLogo({
-        userId: user.id,
-        file
-      })
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Upload failed')
-      }
-      
-      // Update user metadata with new logo URL
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: {
-          ...user.user_metadata,
-          logo_url: result.url,
-          logo_updated_at: new Date().toISOString()
-        }
-      })
-      
-      if (updateError) throw updateError
-      
-      setLogoUrl(result.url || null)
-      setSuccess('Logo updated successfully!')
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000)
-      
-    } catch (err: any) {
-      console.error('Error uploading logo:', err)
-      setLogoError(err.message || 'Failed to upload logo')
-    } finally {
-      setUploadingLogo(false)
-      event.target.value = '' // Reset file input
-    }
-  }
-
   const handleDeleteListing = async (listingId: string, listingName: string) => {
     if (!confirm(`Are you sure you want to delete "${listingName}"? This action cannot be undone.`)) {
       return
     }
     
     try {
-      // Since 'deleted' is not in database constraint, we should actually delete the record
       const { error } = await supabase
         .from('providers')
         .delete()
@@ -228,7 +151,6 @@ export default function ProviderDashboard() {
 
       if (error) throw error
       
-      // Remove from local state
       setListings(prev => prev.filter(l => l.id !== listingId))
       
       setSuccess('Listing deleted successfully!')
@@ -246,12 +168,11 @@ export default function ProviderDashboard() {
 
   const handleResubmitListing = async (listingId: string) => {
     try {
-      // Update listing status back to pending
       const { error } = await supabase
         .from('providers')
         .update({ 
           status: 'pending',
-          rejection_reason: null, // Keep as null for database
+          rejection_reason: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', listingId)
@@ -259,7 +180,6 @@ export default function ProviderDashboard() {
   
       if (error) throw error
       
-      // Update local state - use undefined instead of null
       setListings(prev => 
         prev.map(listing => 
           listing.id === listingId 
@@ -276,11 +196,12 @@ export default function ProviderDashboard() {
       setError(err.message || 'Failed to resubmit listing')
     }
   }
+
   const handleTogglePauseListing = async (listingId: string, currentStatus: string) => {
     console.log('Toggling pause status:', listingId, 'current:', currentStatus)
     
     try {
-      const newStatus = currentStatus === 'pause' ? 'approved' : 'pause' // <-- FIXED: 'pause' not 'paused'
+      const newStatus = currentStatus === 'pause' ? 'approved' : 'pause'
       console.log('Setting new status:', newStatus)
       
       const { error } = await supabase
@@ -297,7 +218,6 @@ export default function ProviderDashboard() {
         throw error
       }
       
-      // Update local state
       setListings(prev => 
         prev.map(listing => 
           listing.id === listingId 
@@ -317,20 +237,15 @@ export default function ProviderDashboard() {
   }
 
   const handleViewListing = (listingId: string) => {
-    // This would link to the public listing page
     router.push(`/providers/${listingId}`)
   }
 
-  // Count listings by status for quick overview - UPDATED to match database values
+  // Count listings by status for quick overview
   const liveCount = listings.filter(l => l.status === 'approved').length
   const pendingCount = listings.filter(l => l.status === 'pending').length
   const rejectedCount = listings.filter(l => l.status === 'rejected').length
-  const pausedCount = listings.filter(l => l.status === 'pause').length // <-- FIXED: 'pause' not 'paused'
+  const pausedCount = listings.filter(l => l.status === 'pause').length
   
-  // Remove suspended and deleted counts since they're not in database constraint
-  // const suspendedCount = listings.filter(l => l.status === 'suspended').length
-  // const deletedCount = listings.filter(l => l.status === 'deleted').length
-
   // Get primary service area for a listing
   const getPrimaryServiceArea = (listingId: string) => {
     const areaData = serviceAreas[listingId]
@@ -399,7 +314,7 @@ export default function ProviderDashboard() {
                 <p className="text-sm text-blue-300">
                   When you edit a <span className="font-semibold">Live</span> listing and save changes, 
                   it will need to be <span className="font-semibold">re-approved</span> by our team 
-                  before going live again. This ensures all information remains accurate and up-to-date.
+                  before going live again.
                 </p>
               </div>
             </div>
@@ -409,74 +324,16 @@ export default function ProviderDashboard() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column: Logo & Actions */}
           <div className="lg:col-span-1">
-            {/* Logo Upload Card */}
-            <div className="bg-gradient-to-b from-gray-800/30 to-gray-900/30 rounded-2xl border border-gray-700/50 p-6 mb-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Business Logo</h2>
-              
-              <div className="space-y-4">
-                {/* Current Logo Display */}
-                <div className="relative w-32 h-32 mx-auto bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border-2 border-dashed border-gray-700 overflow-hidden flex items-center justify-center">
-                  {logoUrl ? (
-                    <img 
-                      src={logoUrl} 
-                      alt="Business Logo" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-center p-4">
-                      <ImageIcon className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                      <p className="text-gray-500 text-xs">No logo uploaded</p>
-                    </div>
-                  )}
-                  
-                  {uploadingLogo && (
-                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Upload Button */}
-                <div>
-                  <input
-                    type="file"
-                    id="logo-upload"
-                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                    disabled={uploadingLogo}
-                  />
-                  <label
-                    htmlFor="logo-upload"
-                    className={`block w-full py-2.5 rounded-lg font-medium text-center cursor-pointer transition-all duration-300 text-sm ${
-                      uploadingLogo
-                        ? 'bg-gray-700 cursor-not-allowed text-gray-400'
-                        : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-600'
-                    }`}
-                  >
-                    {uploadingLogo ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Uploading...
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <Upload className="w-4 h-4" />
-                        {logoUrl ? 'Change Logo' : 'Upload Logo'}
-                      </span>
-                    )}
-                  </label>
-                  
-                  {logoError && (
-                    <p className="mt-2 text-xs text-red-400 text-center">{logoError}</p>
-                  )}
-                  
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    PNG, JPG, max 5MB
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Logo Upload Card - UPDATED TO USE PROVIDERLOGO COMPONENT */}
+            
+            <ProviderLogo
+  size="md"
+  onSuccess={(message) => {
+    setSuccess(message)
+    setTimeout(() => setSuccess(''), 3000)
+  }}
+  onError={(message) => setError(message)}
+/>
 
             {/* Quick Stats */}
             <div className="bg-gradient-to-b from-gray-800/30 to-gray-900/30 rounded-2xl border border-gray-700/50 p-6 mb-6">
@@ -512,7 +369,6 @@ export default function ProviderDashboard() {
                   <span className="text-white font-semibold">{rejectedCount}</span>
                 </div>
                 
-                {/* Always show Paused count */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-orange-500"></div>
@@ -523,7 +379,7 @@ export default function ProviderDashboard() {
               </div>
             </div>
 
-            {/* Add Listing Button - Dynamic */}
+            {/* Add Listing Button */}
             <Link
               href={listings.length < 3 ? "/providers/provider-listings" : "#"}
               className={`block w-full py-3 text-center rounded-xl font-semibold transition-all duration-300 ${
@@ -571,7 +427,7 @@ export default function ProviderDashboard() {
                   No Listings Yet
                 </h3>
                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  You haven't created any service listings yet. Create your first listing to start getting customers.
+                  Create your first listing to start getting customers.
                 </p>
                 <Link
                   href="/providers/provider-listings"
@@ -583,15 +439,15 @@ export default function ProviderDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-     {listings.map((listing) => {
-  const statusInfo = listing.status in statusConfig 
-    ? statusConfig[listing.status as keyof typeof statusConfig] 
-    : statusConfig.pending;
-  const StatusIcon = statusInfo.icon
-  const isLive = listing.status === 'approved'
-  const isPaused = listing.status === 'pause'
-  const isRejected = listing.status === 'rejected'
-  const primaryServiceArea = getPrimaryServiceArea(listing.id)
+                {listings.map((listing) => {
+                  const statusInfo = listing.status in statusConfig 
+                    ? statusConfig[listing.status as keyof typeof statusConfig] 
+                    : statusConfig.pending;
+                  const StatusIcon = statusInfo.icon
+                  const isLive = listing.status === 'approved'
+                  const isPaused = listing.status === 'pause'
+                  const isRejected = listing.status === 'rejected'
+                  const primaryServiceArea = getPrimaryServiceArea(listing.id)
                   
                   return (
                     <div
@@ -652,7 +508,6 @@ export default function ProviderDashboard() {
                                 </button>
                               )}
                               
-                              {/* Pause/Resume Toggle for Live/Paused listings */}
                               {(isLive || isPaused) && (
                                 <button
                                   onClick={() => handleTogglePauseListing(listing.id, listing.status)}
@@ -685,7 +540,6 @@ export default function ProviderDashboard() {
                                 <p className="text-white text-sm">{listing.main_service}</p>
                               </div>
                               
-                              {/* Primary Service Area */}
                               <div className="space-y-1">
                                 <p className="text-xs text-gray-400">Primary Service Area</p>
                                 <div className="flex items-center gap-1.5">
@@ -706,7 +560,7 @@ export default function ProviderDashboard() {
                                 <div className="flex items-start gap-2">
                                   <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   <div>
-                                    <span className="font-medium">Under Review:</span> Your listing is being reviewed by our team. We'll contact you soon.
+                                    <span className="font-medium">Under Review:</span> Your listing is being reviewed by our team.
                                   </div>
                                 </div>
                               </div>
@@ -718,9 +572,6 @@ export default function ProviderDashboard() {
                                   <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   <div>
                                     <span className="font-medium">Rejection reason:</span> {listing.rejection_reason}
-                                    <p className="mt-1 text-red-300">
-                                      Edit your listing to address the issues above, then click "Resubmit" to send for review.
-                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -732,26 +583,18 @@ export default function ProviderDashboard() {
                                   <Pause className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   <div>
                                     <span className="font-medium">Listing Paused:</span> Your listing is not visible to customers.
-                                    {listing.pause_reason && (
-                                      <>
-                                        <br />
-                                        <span className="font-medium">Reason:</span> {listing.pause_reason}
-                                      </>
-                                    )}
                                     <p className="mt-1 text-orange-300">Click "Resume" to make your listing live again.</p>
                                   </div>
                                 </div>
                               </div>
                             )}
                             
-                            {/* Live listing edit warning */}
                             {isLive && (
                               <div className="text-xs text-blue-400 bg-blue-500/10 p-3 rounded-lg">
                                 <div className="flex items-start gap-2">
                                   <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   <div>
-                                    <span className="font-medium">Note:</span> Editing this live listing will require re-approval by our team.
-                                    Your listing will remain live until changes are reviewed.
+                                    <span className="font-medium">Note:</span> Editing this live listing will require re-approval.
                                   </div>
                                 </div>
                               </div>
@@ -761,7 +604,6 @@ export default function ProviderDashboard() {
                         
                         {/* Desktop Actions */}
                         <div className="hidden sm:flex flex-col gap-2">
-                          {/* View button - ONLY for Live listings */}
                           {isLive && (
                             <button
                               onClick={() => handleViewListing(listing.id)}
@@ -772,7 +614,6 @@ export default function ProviderDashboard() {
                             </button>
                           )}
                           
-                          {/* Edit button */}
                           <button
                             onClick={() => handleEditListing(listing.id)}
                             className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
@@ -781,7 +622,6 @@ export default function ProviderDashboard() {
                             Edit
                           </button>
                           
-                          {/* Resubmit Button for rejected listings */}
                           {isRejected && (
                             <button
                               onClick={() => handleResubmitListing(listing.id)}
@@ -792,7 +632,6 @@ export default function ProviderDashboard() {
                             </button>
                           )}
                           
-                          {/* Pause/Resume Toggle for Live/Paused listings */}
                           {(isLive || isPaused) && (
                             <button
                               onClick={() => handleTogglePauseListing(listing.id, listing.status)}
@@ -816,7 +655,6 @@ export default function ProviderDashboard() {
                             </button>
                           )}
                           
-                          {/* Delete button */}
                           <button
                             onClick={() => handleDeleteListing(listing.id, listing.business_name)}
                             className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-500/50 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
@@ -875,13 +713,11 @@ function LoadingSkeleton() {
           
           {/* Content Grid */}
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Logo Card */}
             <div className="space-y-6">
               <div className="h-64 bg-gray-800 rounded-2xl"></div>
               <div className="h-12 bg-gray-800 rounded-xl"></div>
             </div>
             
-            {/* Listings */}
             <div className="lg:col-span-2 space-y-4">
               <div className="h-32 bg-gray-800 rounded-xl"></div>
               <div className="h-32 bg-gray-800 rounded-xl"></div>

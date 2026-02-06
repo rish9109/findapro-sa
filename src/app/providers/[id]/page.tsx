@@ -13,6 +13,7 @@ import {
   ExternalLink, ShieldCheck, PhoneCall,
   Building, AlertCircle, MessageCircle
 } from 'lucide-react'
+import ProviderLogoDisplay from '@/components/ProviderLogoDisplay' // Added import
 
 export default function ProviderDetailPage() {
   const params = useParams()
@@ -269,27 +270,7 @@ export default function ProviderDetailPage() {
     return 'Contact for rates'
   }
 
-  const getBusinessColor = (businessName: string) => {
-    const colors = [
-      '#3B82F6', // Blue
-      '#10B981', // Emerald
-      '#6366F1', // Indigo
-      '#EF4444', // Red
-      '#F59E0B', // Amber
-      '#06B6D4', // Cyan
-      '#84CC16', // Lime
-      '#EC4899', // Pink
-    ]
-    
-    if (!businessName) return colors[0]
-    const charCode = businessName.charCodeAt(0)
-    return colors[charCode % colors.length]
-  }
-
-  const getBusinessInitials = (businessName: string) => {
-    if (!businessName) return 'P'
-    return businessName.charAt(0).toUpperCase()
-  }
+  // REMOVED: getBusinessColor and getBusinessInitials functions since they're now in ProviderLogoDisplay
 
   // UPDATED: Get other services from details field
   const getOtherServices = () => {
@@ -355,8 +336,6 @@ export default function ProviderDetailPage() {
     )
   }
 
-  const businessColor = getBusinessColor(provider.business_name)
-  const businessInitials = getBusinessInitials(provider.business_name)
   const otherServices = getOtherServices()
   // FIXED: Use the already-parsed formatted_service_areas
   const serviceAreas = provider.formatted_service_areas || [];
@@ -398,31 +377,18 @@ export default function ProviderDetailPage() {
           <div className="p-6 border-b border-gray-700/50">
             {/* Mobile Layout */}
             <div className="flex items-start justify-between mb-6 md:mb-0 md:hidden">
-              {/* Logo */}
-              <div className="relative">
-                <div 
-                  className="w-20 h-20 rounded-xl border border-gray-600 flex items-center justify-center"
-                  style={{ 
-                    backgroundColor: businessColor + '20',
-                  }}
-                >
-                  <div 
-                    className="w-16 h-16 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: businessColor }}
-                  >
-                    <span className="text-2xl font-bold text-white">
-                      {businessInitials}
-                    </span>
-                  </div>
-                </div>
-                
-                {provider.verified && (
-                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  </div>
-                )}
-              </div>
-
+              {/* Logo - UPDATED: Using ProviderLogoDisplay component */}
+              <ProviderLogoDisplay
+                providerId={provider.id}
+                businessName={provider.business_name}
+                size="md"
+                showBorder={true}
+                showVerified={true}
+                verified={provider.verified}
+                shape="square"
+                clickToZoom={false}
+              />
+              
               {/* CTA buttons */}
               <div className="flex gap-2">
                 <button
@@ -452,30 +418,17 @@ export default function ProviderDetailPage() {
             <div className="hidden md:flex md:flex-row md:items-start gap-6">
               {/* Left side: Logo and Business Info */}
               <div className="flex items-start gap-4 flex-1 min-w-0">
-                {/* Business Logo */}
-                <div className="relative">
-                  <div 
-                    className="w-28 h-28 rounded-xl border border-gray-600 flex items-center justify-center"
-                    style={{ 
-                      backgroundColor: businessColor + '20',
-                    }}
-                  >
-                    <div 
-                      className="w-24 h-24 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: businessColor }}
-                    >
-                      <span className="text-3xl font-bold text-white">
-                        {businessInitials}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {provider.verified && (
-                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-500 rounded-full border-2 border-gray-800 flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 text-white" />
-                    </div>
-                  )}
-                </div>
+                {/* Business Logo - UPDATED: Using ProviderLogoDisplay component */}
+                <ProviderLogoDisplay
+                  providerId={provider.id}
+                  businessName={provider.business_name}
+                  size="lg"
+                  showBorder={true}
+                  showVerified={true}
+                  verified={provider.verified}
+                  shape="square"
+                  clickToZoom={false}
+                />
 
                 {/* Business Info */}
                 <div className="flex-1 min-w-0">

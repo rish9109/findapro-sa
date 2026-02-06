@@ -386,7 +386,7 @@ export default function ProviderDetailPage() {
                 showVerified={true}
                 verified={provider.verified}
                 shape="square"
-                clickToZoom={true}
+                clickToZoom={false}
               />
               
               {/* CTA buttons */}
@@ -427,7 +427,7 @@ export default function ProviderDetailPage() {
                   showVerified={true}
                   verified={provider.verified}
                   shape="square"
-                  clickToZoom={true}
+                  clickToZoom={false}
                 />
 
                 {/* Business Info */}

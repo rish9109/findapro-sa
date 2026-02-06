@@ -326,21 +326,14 @@ export default function ProviderDashboard() {
           <div className="lg:col-span-1">
             {/* Logo Upload Card - UPDATED TO USE PROVIDERLOGO COMPONENT */}
             <ProviderLogo
-  mode="full"
-  size="md"
-  showDeleteButton={true}
-  requireListing={true}
-  hasListings={listings.length > 0} // Pass this prop
-  onUploadSuccess={() => {
+  userId={user?.id}
+  allowDelete={true}
+  requireActiveListing={true}
+  onSuccess={() => {
     setSuccess('Logo updated successfully!')
     setTimeout(() => setSuccess(''), 3000)
   }}
-  onUploadError={(errorMsg) => setError(errorMsg)}
-  onDeleteSuccess={() => {
-    setSuccess('Logo deleted successfully!')
-    setTimeout(() => setSuccess(''), 3000)
-  }}
-  onDeleteError={(errorMsg) => setError(errorMsg)}
+  onError={(errorMsg) => setError(errorMsg)}
 />
 
             {/* Quick Stats */}

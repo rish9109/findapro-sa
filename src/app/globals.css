@@ -866,3 +866,26 @@ input[style*="color:"] {
     animation: none !important;
   }
 }
+/* Add this to the end of your globals.css */
+.drawer-footer {
+  position: sticky !important;
+  bottom: 0 !important;
+  background: #1f2937 !important;
+  z-index: 50 !important;
+}
+
+.drawer-cancel-btn {
+  position: relative !important;
+  z-index: 100 !important;
+}
+
+/* Ensure drawer content area scrolls properly */
+.BaseDrawer > div > div > div {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.BaseDrawer .min-h-0 {
+  min-height: 0 !important;
+}

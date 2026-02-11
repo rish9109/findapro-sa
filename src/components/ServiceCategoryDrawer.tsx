@@ -1,9 +1,9 @@
-// File: src/components/ServiceCategoryDrawer.tsx - FINAL FIXED VERSION
+// File: src/components/ServiceCategoryDrawer.tsx - CONSISTENT DESKTOP & MOBILE
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Check } from 'lucide-react';
-import BaseDrawer from './BaseDrawer';
+import { X, Check } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface ServiceCategory {
   id: string;
@@ -19,90 +19,253 @@ interface ServiceCategoryDrawerProps {
   selectedCategoryId?: string;
   onSelect: (category: ServiceCategory) => void;
   title?: string;
+  position?: 'left' | 'right'; // Removed 'bottom' option for consistency
 }
 
 export default function ServiceCategoryDrawer({
   isOpen,
   onClose,
-  serviceCategories = [],
+  serviceCategories,
   selectedCategoryId,
   onSelect,
-  title = "Select Service Category"
+  title = "Select Service Category",
+  position = 'right' // Always side drawer
 }: ServiceCategoryDrawerProps) {
-  const [search, setSearch] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Filter categories based on search
-  const filteredCategories = (serviceCategories || []).filter(category =>
-    category.name.toLowerCase().includes(search.toLowerCase()) ||
-    category.description?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Handle mounting for portal
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // Handle escape key and body scroll
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, onClose]);
 
   const handleSelect = (category: ServiceCategory) => {
     onSelect(category);
     onClose();
   };
 
-  // Focus search input when drawer opens
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 300);
-    }
-  }, [isOpen]);
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <BaseDrawer
-      isOpen={isOpen}
-      onClose={onClose}
-      title={title}
-      position="right"
-      size="lg"
-      showCloseButton={false}
-    >
-      {/* CHANGED: Added min-h-0 to ensure proper flexbox behavior */}
-      <div className="h-full flex flex-col min-h-0">
-        {/* Content Area with Scroll - CHANGED: Added min-h-0 */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {/* Search Section */}
-          <div className="px-4 pt-4">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search categories..."
-                className="w-full pl-10 pr-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-              />
+  // Consistent drawer styles - SAME for mobile and desktop
+  const isLeft = position === 'left';
+
+  return createPortal(
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 999999,
+    }}>
+      {/* Backdrop */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          zIndex: 999999,
+          cursor: 'pointer',
+        }}
+        onClick={onClose}
+      />
+      
+      {/* Drawer Container */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          bottom: 0,
+          ...(isLeft ? { left: 0 } : { right: 0 }),
+          zIndex: 1000000,
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%', // Full width on mobile
+          maxWidth: '420px', // Same max width for all devices
+        }}
+      >
+        {/* Drawer Content */}
+        <div
+          style={{
+            backgroundColor: '#1f2937',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            height: '100vh', // Full height always
+            animation: isLeft 
+              ? 'slideRight 0.3s ease-out'
+              : 'slideLeft 0.3s ease-out',
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #374151',
+              backgroundColor: '#1f2937',
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <h2 style={{ 
+                fontSize: '1.25rem', 
+                fontWeight: 'bold', 
+                color: 'white', 
+                margin: 0 
+              }}>
+                {title}
+              </h2>
+              <button
+                onClick={onClose}
+                style={{
+                  color: '#9ca3af',
+                  padding: '0.5rem',
+                  borderRadius: '0.5rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#374151';
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
+                }}
+              >
+                <X style={{ width: '1.25rem', height: '1.25rem' }} />
+              </button>
             </div>
-            <p className="text-xs text-gray-400 mt-2 px-1">
-              {filteredCategories.length} of {(serviceCategories || []).length} categories
-            </p>
           </div>
-
-          {/* Categories List */}
-          <div className="px-4 py-4">
-            {filteredCategories.length > 0 ? (
-              <div className="space-y-3">
-                {filteredCategories.map((category) => (
+          
+          {/* Content Area - Scrollable */}
+          <div
+            style={{
+              flex: '1 1 auto',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              padding: '1.5rem',
+              backgroundColor: '#1f2937',
+            }}
+          >
+            {serviceCategories.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(1, minmax(0, 1fr))',
+                  gap: '0.75rem',
+                }}
+              >
+                {serviceCategories.map((category) => (
                   <button
                     key={category.id}
-                    type="button"
                     onClick={() => handleSelect(category)}
-                    className={`w-full p-4 rounded-xl border text-left transition-all duration-200 ${selectedCategoryId === category.id
-                        ? 'bg-gradient-to-r from-orange-500/20 to-orange-600/20 border-orange-500/50 ring-1 ring-orange-500/30'
-                        : 'bg-gray-900/30 border-gray-700 hover:bg-gray-800/50 hover:border-gray-600'
-                      }`}
+                    style={{
+                      padding: '1rem',
+                      borderRadius: '0.75rem',
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      textAlign: 'left',
+                      transition: 'all 0.2s',
+                      width: '100%',
+                      cursor: 'pointer',
+                      background: selectedCategoryId === category.id
+                        ? 'linear-gradient(to right, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.2))'
+                        : 'rgba(17, 24, 39, 0.3)',
+                      borderColor: selectedCategoryId === category.id
+                        ? 'rgba(249, 115, 22, 0.5)'
+                        : '#374151',
+                      ...(selectedCategoryId === category.id && {
+                        boxShadow: '0 0 0 1px rgba(249, 115, 22, 0.3)',
+                      }),
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedCategoryId !== category.id) {
+                        e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.5)';
+                        e.currentTarget.style.borderColor = '#4b5563';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedCategoryId !== category.id) {
+                        e.currentTarget.style.backgroundColor = 'rgba(17, 24, 39, 0.3)';
+                        e.currentTarget.style.borderColor = '#374151';
+                      }
+                    }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={`flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center ${selectedCategoryId === category.id ? 'bg-orange-500 border-orange-500' : 'bg-gray-800 border-gray-600'}`}>
-                        {selectedCategoryId === category.id && <Check className="w-3 h-3 text-white" />}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <div
+                        style={{
+                          flexShrink: 0,
+                          width: '1.25rem',
+                          height: '1.25rem',
+                          borderRadius: '9999px',
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: selectedCategoryId === category.id ? '#f97316' : '#1f2937',
+                          borderColor: selectedCategoryId === category.id ? '#f97316' : '#4b5563',
+                        }}
+                      >
+                        {selectedCategoryId === category.id && (
+                          <Check style={{ width: '0.75rem', height: '0.75rem', color: 'white' }} />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white text-sm mb-1.5">{category.name}</h3>
+                      <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                        <h3 style={{ 
+                          fontWeight: '600', 
+                          color: 'white', 
+                          fontSize: '0.875rem', 
+                          marginBottom: '0.375rem',
+                          marginTop: 0,
+                        }}>
+                          {category.name}
+                        </h3>
                         {category.description && (
-                          <p className="text-xs text-gray-400 line-clamp-2">{category.description}</p>
+                          <p style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#9ca3af', 
+                            overflow: 'hidden', 
+                            display: '-webkit-box', 
+                            WebkitLineClamp: 2, 
+                            WebkitBoxOrient: 'vertical',
+                            margin: 0,
+                          }}>
+                            {category.description}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -110,29 +273,91 @@ export default function ServiceCategoryDrawer({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-7 h-7 text-gray-500" />
+              <div style={{ textAlign: 'center', padding: '3rem 0' }}>
+                <div
+                  style={{
+                    width: '4rem',
+                    height: '4rem',
+                    backgroundColor: '#1f2937',
+                    borderRadius: '9999px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 1rem',
+                  }}
+                >
+                  <Check style={{ width: '1.75rem', height: '1.75rem', color: '#6b7280' }} />
                 </div>
-                <h3 className="text-gray-300 font-medium mb-2">No categories found</h3>
-                <p className="text-sm text-gray-500">Try a different search term</p>
+                <h3 style={{ color: '#d1d5db', fontWeight: '500', marginBottom: '0.5rem' }}>No categories found</h3>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>No service categories available</p>
               </div>
             )}
           </div>
-        </div>
-
-        {/* Footer with Cancel Button - CHANGED: Added specific classes */}
-        <div className="flex-shrink-0 px-4 py-4 border-t border-gray-700 bg-gray-800 drawer-footer">
-          <div className="flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium text-sm transition-colors drawer-cancel-btn"
-            >
-              Cancel Selection
-            </button>
+          
+          {/* Footer */}
+          <div
+            style={{
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid #374151',
+              backgroundColor: '#1f2937',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '0.625rem 1.5rem',
+                  backgroundColor: '#374151',
+                  color: 'white',
+                  borderRadius: '0.5rem',
+                  fontWeight: '500',
+                  fontSize: '0.875rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#4b5563';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#374151';
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </BaseDrawer>
+
+      <style>{`
+        @keyframes slideRight {
+          from {
+            transform: translateX(-100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes slideLeft {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+          div[style*="max-width: 420px"] {
+            max-width: 100% !important;
+          }
+        }
+      `}</style>
+    </div>,
+    document.body
   );
 }

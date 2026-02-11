@@ -1,12 +1,12 @@
-// File: src/components/ServiceAreaModal.tsx - FIXED
+// File: src/components/ServiceAreaDrawer.tsx
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Plus, MapPin, Check, List, Search } from 'lucide-react';
+import { X, Plus, MapPin, Check, List } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import BaseDrawer from './BaseDrawer';
+import { createPortal } from 'react-dom';
 
-interface ServiceAreaModalProps {
+interface ServiceAreaDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   initialAreas: string[];
@@ -14,14 +14,15 @@ interface ServiceAreaModalProps {
   maxAreas?: number;
 }
 
-export default function ServiceAreaModal({
+export default function ServiceAreaDrawer({
   isOpen,
   onClose,
   initialAreas = [],
   onSave,
   maxAreas = 7,
-}: ServiceAreaModalProps) {
+}: ServiceAreaDrawerProps) {
   // State
+  const [mounted, setMounted] = useState(false);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [newArea, setNewArea] = useState('');
   const [error, setError] = useState<string>('');
@@ -36,7 +37,36 @@ export default function ServiceAreaModal({
   const browseSearchRef = useRef<HTMLInputElement>(null);
   const isInitialized = useRef(false);
 
-  // Fetch provinces when modal opens
+  // Handle mounting for portal
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // Handle escape key and body scroll
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        if (showBrowseDrawer) {
+          setShowBrowseDrawer(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, showBrowseDrawer, onClose]);
+
+  // Initialize state when drawer opens
   useEffect(() => {
     if (isOpen && !isInitialized.current) {
       setSelectedAreas([...initialAreas]);
@@ -51,13 +81,20 @@ export default function ServiceAreaModal({
       // Focus custom input with a slight delay
       const timer = setTimeout(() => {
         customInputRef.current?.focus();
-      }, 300);
+      }, 150);
       
       return () => clearTimeout(timer);
     } else if (!isOpen) {
       isInitialized.current = false;
     }
   }, [isOpen, initialAreas]);
+
+  // Focus browse search when browse drawer opens
+  useEffect(() => {
+    if (showBrowseDrawer) {
+      setTimeout(() => browseSearchRef.current?.focus(), 100);
+    }
+  }, [showBrowseDrawer]);
 
   // Fetch provinces function
   const fetchProvinces = async () => {
@@ -80,13 +117,6 @@ export default function ServiceAreaModal({
       setIsLoadingProvinces(false);
     }
   };
-  
-  // Focus browse search when browse drawer opens
-  useEffect(() => {
-    if (showBrowseDrawer) {
-      setTimeout(() => browseSearchRef.current?.focus(), 300);
-    }
-  }, [showBrowseDrawer]);
   
   // Memoize filtered provinces for browse drawer
   const filteredProvinces = useMemo(() => {
@@ -182,76 +212,231 @@ export default function ServiceAreaModal({
     customInputRef.current?.focus();
   }, []);
 
-  return (
-    <>
-      {/* Main Drawer */}
-      <BaseDrawer
-        isOpen={isOpen}
-        onClose={onClose}
-        title="Service Areas"
-        icon={<MapPin className="w-5 h-5 text-orange-400" />}
-        position="right"
-        size="lg"
-        showCloseButton={false}
+  // Don't render if not open or not mounted
+  if (!isOpen || !mounted) return null;
+
+  // Main Drawer Portal
+  return createPortal(
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 999999,
+    }}>
+      {/* Backdrop */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          zIndex: 999999,
+          cursor: 'pointer',
+        }}
+        onClick={onClose}
+      />
+      
+      {/* Drawer Container - Always slides from right */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          bottom: 0,
+          right: 0,
+          zIndex: 1000000,
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          maxWidth: '560px',
+        }}
       >
-        <div className="flex flex-col h-full">
-          {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Error message */}
-            {error && (
-              <div className="mx-4 mt-4 p-3 bg-red-900/20 border border-red-700 rounded-lg">
-                <p className="text-red-300 text-sm">{error}</p>
+        {/* Drawer Content */}
+        <div
+          style={{
+            backgroundColor: '#1f2937',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            height: '100vh',
+            animation: 'slideLeft 0.3s ease-out',
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #374151',
+              backgroundColor: '#1f2937',
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MapPin style={{ width: '1.25rem', height: '1.25rem', color: '#f97316' }} />
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                  Service Areas
+                </h3>
               </div>
-            )}
-            
-            {/* Selection Info */}
-            <div className="px-4 pt-4">
-              <p className="text-sm text-gray-400">
-                {selectedAreas.length > 0 
-                  ? `${selectedAreas.length} area${selectedAreas.length !== 1 ? 's' : ''} selected (max ${maxAreas})` 
-                  : 'Add your service areas'
-                }
-              </p>
+              <button
+                onClick={onClose}
+                style={{
+                  color: '#9ca3af',
+                  padding: '0.375rem',
+                  borderRadius: '0.375rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#374151';
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
+                }}
+              >
+                <X style={{ width: '1.25rem', height: '1.25rem' }} />
+              </button>
             </div>
             
+            <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
+              {selectedAreas.length > 0 
+                ? `${selectedAreas.length} area${selectedAreas.length !== 1 ? 's' : ''} selected` 
+                : 'Add your service areas'
+              }
+            </p>
+          </div>
+          
+          {/* Error message */}
+          {error && (
+            <div style={{
+              margin: '1rem 1.5rem 0',
+              padding: '0.75rem 1rem',
+              backgroundColor: 'rgba(185, 28, 28, 0.2)',
+              border: '1px solid rgba(185, 28, 28, 0.5)',
+              borderRadius: '0.5rem',
+              flexShrink: 0,
+            }}>
+              <p style={{ color: '#fca5a5', fontSize: '0.875rem', margin: 0 }}>
+                {error}
+              </p>
+            </div>
+          )}
+          
+          {/* Content Area - Scrollable */}
+          <div
+            style={{
+              flex: '1 1 auto',
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              padding: '1.5rem',
+              backgroundColor: '#1f2937',
+            }}
+          >
             {/* Browse Areas Button */}
-            <div className="px-4 pt-6">
-              <h4 className="text-sm font-medium text-white mb-3">
-                <span className="text-orange-400">Preconfigured Areas</span>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                color: 'white', 
+                marginBottom: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <span style={{ color: '#f97316' }}>Preconfigured Areas</span>
                 {isLoadingProvinces && (
-                  <span className="ml-2 text-xs text-gray-400">Loading...</span>
+                  <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Loading...</span>
                 )}
               </h4>
               
               <button
                 onClick={() => setShowBrowseDrawer(true)}
                 disabled={isLoadingProvinces}
-                className="w-full px-4 py-3 bg-gray-900 hover:bg-gray-800 border border-gray-700 rounded-lg text-white flex items-center justify-between transition-colors mb-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  color: 'white',
+                  fontSize: '0.9375rem',
+                  cursor: isLoadingProvinces ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: isLoadingProvinces ? 0.5 : 1,
+                  marginBottom: '0.5rem',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoadingProvinces) {
+                    e.currentTarget.style.backgroundColor = '#1f2937';
+                    e.currentTarget.style.borderColor = '#4b5563';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isLoadingProvinces) {
+                    e.currentTarget.style.backgroundColor = '#111827';
+                    e.currentTarget.style.borderColor = '#374151';
+                  }
+                }}
               >
-                <div className="flex items-center gap-2">
-                  <List className="w-4 h-4" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <List style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
                   <span>Browse Provinces ({provinces.length})</span>
                 </div>
-                <span className="text-sm text-gray-400">
+                <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
                   {selectedAreas.length}/{maxAreas}
                 </span>
               </button>
               
-              <p className="text-xs text-gray-500">
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>
                 Select from our list of provinces
               </p>
             </div>
             
             {/* Add custom area */}
-            <div className="px-4 pt-6">
-              <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                <span className="text-orange-400">Add Custom Area</span>
-                <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full">
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h4 style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                color: 'white', 
+                marginBottom: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <span style={{ color: '#f97316' }}>Add Custom Area</span>
+                <span style={{ 
+                  fontSize: '0.75rem',
+                  padding: '0.125rem 0.5rem',
+                  backgroundColor: '#374151',
+                  color: '#d1d5db',
+                  borderRadius: '9999px',
+                }}>
                   Optional
                 </span>
               </h4>
               
-              <div className="flex gap-2">
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input
                   ref={customInputRef}
                   type="text"
@@ -262,36 +447,100 @@ export default function ServiceAreaModal({
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="Type a custom area name..."
-                  className="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem 1rem',
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '0.75rem',
+                    color: 'white',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    transition: 'all 0.2s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#f97316';
+                    e.currentTarget.style.boxShadow = '0 0 0 1px #f97316';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#374151';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
                 <button
                   onClick={addCustomArea}
                   disabled={!newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())}
-                  className="px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium text-sm hover:from-orange-500 hover:to-orange-400 transition-all disabled:cursor-not-allowed"
+                  style={{
+                    padding: '0.75rem 1rem',
+                    background: !newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())
+                      ? '#374151'
+                      : 'linear-gradient(to right, #ea580c, #f97316)',
+                    border: 'none',
+                    borderRadius: '0.75rem',
+                    color: !newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())
+                      ? '#6b7280'
+                      : 'white',
+                    fontWeight: '500',
+                    fontSize: '0.875rem',
+                    cursor: !newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())
+                      ? 'not-allowed'
+                      : 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                   aria-label="Add custom area"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus style={{ width: '1rem', height: '1rem' }} />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem', marginBottom: 0 }}>
                 Press Enter to add custom area
               </p>
             </div>
             
             {/* Selected Areas */}
-            <div className="px-4 pt-6 pb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-white flex items-center gap-2">
-                  <span className="text-orange-400">Selected Areas</span>
+            <div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                marginBottom: '0.75rem' 
+              }}>
+                <h4 style={{ 
+                  fontSize: '0.875rem', 
+                  fontWeight: '500', 
+                  color: 'white', 
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}>
+                  <span style={{ color: '#f97316' }}>Selected Areas</span>
                 </h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-orange-300 font-medium">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#fdba74', fontWeight: '500' }}>
                     {selectedAreas.length}/{maxAreas}
                   </span>
                   {selectedAreas.length > 0 && (
                     <button
                       onClick={clearAllAreas}
-                      className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#9ca3af',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '2px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#ef4444';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = '#9ca3af';
+                      }}
                     >
                       Clear all
                     </button>
@@ -301,39 +550,87 @@ export default function ServiceAreaModal({
               
               {/* Areas list */}
               {selectedAreas.length > 0 ? (
-                <div className="space-y-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {selectedAreas.map((area, index) => {
                     const isPreconfigured = provinces.some(province => province.name === area);
                     return (
                       <div
                         key={index}
-                        className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-900/50 to-gray-800/30 rounded-lg border border-gray-700 hover:border-orange-500/30 transition-colors"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.75rem 1rem',
+                          background: 'linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(31, 41, 55, 0.3))',
+                          border: '1px solid #374151',
+                          borderRadius: '0.75rem',
+                          transition: 'all 0.2s',
+                        }}
                       >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`w-4 h-4 ${isPreconfigured ? 'text-orange-400' : 'text-blue-400'}`} />
-                          <span className="text-gray-300 text-sm font-medium">{area}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <MapPin style={{ 
+                            width: '1rem', 
+                            height: '1rem', 
+                            color: isPreconfigured ? '#f97316' : '#60a5fa' 
+                          }} />
+                          <span style={{ color: '#d1d5db', fontSize: '0.875rem', fontWeight: '500' }}>
+                            {area}
+                          </span>
                           {!isPreconfigured && (
-                            <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded">
+                            <span style={{ 
+                              fontSize: '0.75rem',
+                              padding: '0.125rem 0.5rem',
+                              backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                              color: '#93c5fd',
+                              borderRadius: '9999px',
+                            }}>
                               Custom
                             </span>
                           )}
                         </div>
                         <button
                           onClick={() => removeArea(area)}
-                          className="text-gray-400 hover:text-orange-400 transition-colors p-1"
+                          style={{
+                            color: '#9ca3af',
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '0.25rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '0.375rem',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#f97316';
+                            e.currentTarget.style.backgroundColor = 'rgba(249, 115, 22, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '#9ca3af';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
                           aria-label={`Remove ${area}`}
                         >
-                          <X className="w-4 h-4" />
+                          <X style={{ width: '1rem', height: '1rem' }} />
                         </button>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="text-center py-6 border-2 border-dashed border-gray-700 rounded-lg bg-gradient-to-r from-gray-900/20 to-gray-800/10">
-                  <MapPin className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No areas selected yet</p>
-                  <p className="text-xs text-gray-600 mt-1">
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '2rem 1rem',
+                  border: '2px dashed #374151',
+                  borderRadius: '0.75rem',
+                  background: 'linear-gradient(to right, rgba(17, 24, 39, 0.2), rgba(31, 41, 55, 0.1))',
+                }}>
+                  <MapPin style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
+                  <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                    No areas selected yet
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: '#4b5563', margin: 0 }}>
                     Browse provinces or add custom areas
                   </p>
                 </div>
@@ -341,24 +638,82 @@ export default function ServiceAreaModal({
             </div>
           </div>
           
-          {/* Footer with Cancel and Save */}
-          <div className="sticky bottom-0 bg-gray-800 px-4 py-4 border-t border-gray-700 flex-shrink-0">
-            <div className="flex flex-col sm:flex-row gap-2">
+          {/* Footer */}
+          <div
+            style={{
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid #374151',
+              backgroundColor: '#1f2937',
+              flexShrink: 0,
+              boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium text-sm transition-colors"
-                disabled={isLoading}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  backgroundColor: '#374151',
+                  border: 'none',
+                  borderRadius: '0.75rem',
+                  color: 'white',
+                  fontWeight: '500',
+                  fontSize: '0.9375rem',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#4b5563';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#374151';
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={selectedAreas.length === 0 || isLoading}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-orange-500 disabled:from-gray-700 disabled:to-gray-700 disabled:text-gray-500 text-white rounded-lg font-medium hover:from-orange-500 hover:to-orange-400 text-sm transition-all disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: selectedAreas.length === 0 || isLoading
+                    ? '#374151'
+                    : 'linear-gradient(to right, #ea580c, #f97316)',
+                  border: 'none',
+                  borderRadius: '0.75rem',
+                  color: selectedAreas.length === 0 || isLoading ? '#6b7280' : 'white',
+                  fontWeight: '600',
+                  fontSize: '0.9375rem',
+                  cursor: selectedAreas.length === 0 || isLoading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedAreas.length > 0 && !isLoading) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedAreas.length > 0 && !isLoading) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
+                  }
+                }}
               >
                 {isLoading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                    <div style={{
+                      width: '1rem',
+                      height: '1rem',
+                      border: '2px solid white',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                    }} />
                     Saving...
                   </>
                 ) : selectedAreas.length > 0 ? (
@@ -370,101 +725,366 @@ export default function ServiceAreaModal({
             </div>
           </div>
         </div>
-      </BaseDrawer>
+      </div>
+
+      <style>{`
+        @keyframes slideLeft {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+          div[style*="max-width: 560px"] {
+            max-width: 100% !important;
+          }
+          
+          button {
+            min-height: 44px;
+          }
+          
+          input, button {
+            font-size: 16px !important;
+          }
+        }
+
+        /* Tablet optimizations */
+        @media (min-width: 641px) and (max-width: 1024px) {
+          div[style*="max-width: 560px"] {
+            max-width: 480px !important;
+          }
+        }
+
+        /* Custom scrollbar */
+        div[style*="overflow-y: auto"]::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+          background: #1f2937;
+        }
+        
+        div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+          background: #4b5563;
+          border-radius: 3px;
+        }
+        
+        div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
+          background: #6b7280;
+        }
+      `}</style>
 
       {/* Browse Provinces Drawer */}
-      <BaseDrawer
-        isOpen={showBrowseDrawer}
-        onClose={() => setShowBrowseDrawer(false)}
-        title="Browse Provinces"
-        icon={<List className="w-5 h-5 text-orange-400" />}
-        position="right"
-        size="lg"
-        showCloseButton={false}
-      >
-        <div className="flex flex-col h-full">
-          {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Header Area */}
-            <div className="px-4 pt-4">
-              <div className="flex items-center justify-between text-sm text-gray-400 mb-3">
-                <p>{provinces.length} provinces available</p>
-                <p>{selectedAreas.length}/{maxAreas} selected</p>
-              </div>
-              
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+      {showBrowseDrawer && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1000001,
+        }}>
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 1000001,
+              cursor: 'pointer',
+            }}
+            onClick={() => setShowBrowseDrawer(false)}
+          />
+          
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              bottom: 0,
+              right: 0,
+              zIndex: 1000002,
+              display: 'flex',
+              flexDirection: 'column',
+              width: '100%',
+              maxWidth: '560px',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#1f2937',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                height: '100vh',
+                animation: 'slideLeft 0.3s ease-out',
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  padding: '1.25rem 1.5rem',
+                  borderBottom: '1px solid #374151',
+                  backgroundColor: '#1f2937',
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <List style={{ width: '1.25rem', height: '1.25rem', color: '#f97316' }} />
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                      Browse Provinces
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowBrowseDrawer(false)}
+                    style={{
+                      color: '#9ca3af',
+                      padding: '0.375rem',
+                      borderRadius: '0.375rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#374151';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = '#9ca3af';
+                    }}
+                  >
+                    <X style={{ width: '1.25rem', height: '1.25rem' }} />
+                  </button>
+                </div>
+                
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  marginBottom: '0.75rem',
+                }}>
+                  <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
+                    {provinces.length} provinces available
+                  </p>
+                  <p style={{ fontSize: '0.875rem', color: '#fdba74', margin: 0 }}>
+                    {selectedAreas.length}/{maxAreas} selected
+                  </p>
+                </div>
+                
+                {/* Search in browse drawer */}
                 <input
                   ref={browseSearchRef}
                   type="text"
                   value={browseSearch}
                   onChange={(e) => setBrowseSearch(e.target.value)}
                   placeholder="Search provinces..."
-                  className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '0.75rem',
+                    color: 'white',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    transition: 'all 0.2s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#f97316';
+                    e.currentTarget.style.boxShadow = '0 0 0 1px #f97316';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#374151';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 />
               </div>
-            </div>
-            
-            {/* Provinces List */}
-            <div className="px-4 pb-4">
-              {isLoadingProvinces ? (
-                <div className="text-center py-8">
-                  <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                  <p className="text-gray-500 text-sm">Loading provinces...</p>
-                </div>
-              ) : filteredProvinces.length === 0 ? (
-                <div className="text-center py-8">
-                  <List className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No provinces found</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Try a different search term
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredProvinces.map((province) => {
-                    const isSelected = selectedAreas.includes(province.name);
-                    const isDisabled = selectedAreas.length >= maxAreas && !isSelected;
-                    
-                    return (
-                      <button
-                        key={province.id}
-                        onClick={() => toggleAreaFromBrowse(province.name)}
-                        disabled={isDisabled}
-                        className={`w-full px-4 py-3 text-left rounded-lg border flex items-center justify-between transition-colors
-                          ${isSelected 
-                            ? 'bg-orange-500/20 border-orange-500/50 text-orange-300' 
-                            : isDisabled
-                              ? 'bg-gray-900/30 border-gray-800 text-gray-500 cursor-not-allowed'
-                              : 'bg-gray-900/50 border-gray-700 text-gray-300 hover:bg-gray-800'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MapPin className={`w-4 h-4 ${isSelected ? 'text-orange-400' : 'text-gray-500'}`} />
-                          <span className="text-sm">{province.name}</span>
-                          <span className="text-xs text-gray-500">({province.code})</span>
-                        </div>
-                        {isSelected && <Check className="w-4 h-4 text-orange-400" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              
+              {/* Provinces List - Scrollable */}
+              <div
+                style={{
+                  flex: '1 1 auto',
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  padding: '1.5rem',
+                  backgroundColor: '#1f2937',
+                }}
+              >
+                {isLoadingProvinces ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                    <div style={{
+                      width: '2rem',
+                      height: '2rem',
+                      border: '2px solid #f97316',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      margin: '0 auto 0.5rem',
+                    }} />
+                    <p style={{ color: '#9ca3af', fontSize: '0.875rem', margin: 0 }}>
+                      Loading provinces...
+                    </p>
+                  </div>
+                ) : filteredProvinces.length === 0 ? (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '2rem 1rem',
+                    backgroundColor: 'rgba(17, 24, 39, 0.3)',
+                    borderRadius: '0.75rem',
+                  }}>
+                    <List style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
+                    <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                      No provinces found
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>
+                      Try a different search term
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {filteredProvinces.map((province) => {
+                      const isSelected = selectedAreas.includes(province.name);
+                      const isDisabled = selectedAreas.length >= maxAreas && !isSelected;
+                      
+                      return (
+                        <button
+                          key={province.id}
+                          onClick={() => !isDisabled && toggleAreaFromBrowse(province.name)}
+                          disabled={isDisabled}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            backgroundColor: isSelected
+                              ? 'rgba(249, 115, 22, 0.2)'
+                              : isDisabled
+                              ? 'rgba(17, 24, 39, 0.2)'
+                              : '#111827',
+                            border: '1px solid',
+                            borderColor: isSelected
+                              ? 'rgba(249, 115, 22, 0.5)'
+                              : isDisabled
+                              ? '#374151'
+                              : '#374151',
+                            borderRadius: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            color: isSelected
+                              ? '#fdba74'
+                              : isDisabled
+                              ? '#6b7280'
+                              : 'white',
+                            fontSize: '0.875rem',
+                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s',
+                            opacity: isDisabled ? 0.5 : 1,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected && !isDisabled) {
+                              e.currentTarget.style.backgroundColor = '#1f2937';
+                              e.currentTarget.style.borderColor = '#4b5563';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected && !isDisabled) {
+                              e.currentTarget.style.backgroundColor = '#111827';
+                              e.currentTarget.style.borderColor = '#374151';
+                            }
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <MapPin style={{ 
+                              width: '1rem', 
+                              height: '1rem', 
+                              color: isSelected ? '#f97316' : '#6b7280' 
+                            }} />
+                            <span style={{ fontWeight: isSelected ? '500' : '400' }}>
+                              {province.name}
+                            </span>
+                            <span style={{ 
+                              fontSize: '0.75rem', 
+                              color: isSelected ? '#fdba74' : '#6b7280' 
+                            }}>
+                              ({province.code})
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <Check style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div
+                style={{
+                  padding: '1rem 1.5rem',
+                  borderTop: '1px solid #374151',
+                  backgroundColor: '#1f2937',
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  onClick={() => setShowBrowseDrawer(false)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'linear-gradient(to right, #ea580c, #f97316)',
+                    border: 'none',
+                    borderRadius: '0.75rem',
+                    color: 'white',
+                    fontWeight: '600',
+                    fontSize: '0.9375rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
+                  }}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
-          
-          {/* Footer with Done Button */}
-          <div className="sticky bottom-0 bg-gray-800 px-4 py-4 border-t border-gray-700 flex-shrink-0">
-            <button
-              onClick={() => setShowBrowseDrawer(false)}
-              className="w-full px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium text-sm transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </BaseDrawer>
-    </>
+        </div>,
+        document.body
+      )}
+    </div>,
+    document.body
   );
 }

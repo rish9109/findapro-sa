@@ -1,4 +1,4 @@
-// File: src/components/AccreditationDrawer.tsx - CLEANED VERSION (NO SECTOR BADGES)
+// File: src/components/AccreditationDrawer.tsx - MOBILE STYLING FIXES
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -33,7 +33,7 @@ export default function AccreditationDrawer({
 }: AccreditationDrawerProps) {
   const [mounted, setMounted] = useState(false);
   const [accreditations, setAccreditations] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any[]>(initialSelection);
+  const [selected, setSelected] = useState<any[]>([]);
   const [customName, setCustomName] = useState('');
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,22 +62,47 @@ export default function AccreditationDrawer({
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
-      setSelected(initialSelection);
-      fetchServiceCategories();
     }
     
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [isOpen, initialSelection]);
+  }, [isOpen]);
 
-  // Fetch accreditations when categories are loaded or industry changes
+  // Load all data when drawer opens
   useEffect(() => {
-    if (isOpen && serviceCategories.length > 0) {
-      fetchAccreditations();
+    if (isOpen) {
+      const loadAllData = async () => {
+        setLoading(true);
+        try {
+          // Fetch service categories
+          await fetchServiceCategories();
+          
+          // Fetch ALL global accreditations
+          await fetchAllAccreditations();
+          
+          // Fetch provider's existing accreditations if this is an edit (not temp)
+          if (providerId && providerId !== 'temp') {
+            await fetchProviderAccreditations();
+          }
+        } catch (error) {
+          console.error('Error loading data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadAllData();
     }
-  }, [isOpen, serviceCategories, serviceCategoryId]);
+  }, [isOpen, providerId]);
+
+  // Initialize selected from initialSelection when drawer opens (for new listings)
+  useEffect(() => {
+    if (isOpen && providerId === 'temp') {
+      setSelected(initialSelection);
+    }
+  }, [isOpen, providerId, initialSelection]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -112,7 +137,7 @@ export default function AccreditationDrawer({
           industryList.push({
             id: cat.id,
             name: cat.name,
-            count: 0 // Will be updated when accreditations are fetched
+            count: 0
           });
         });
         
@@ -123,70 +148,122 @@ export default function AccreditationDrawer({
     }
   };
   
-  const fetchAccreditations = async () => {
-    setLoading(true);
+  const fetchAllAccreditations = async () => {
     try {
-      let query = supabase
+      // Fetch ALL global accreditations - NO FILTERING
+      const { data, error } = await supabase
         .from('accreditations')
         .select('*')
-        .eq('is_global', true);
-      
-      // If we have a service category, try to filter by it
-      if (serviceCategoryId && serviceCategories.length > 0) {
-        const category = serviceCategories.find(cat => cat.id === serviceCategoryId);
-        if (category) {
-          query = query.ilike('sector', `%${category.name}%`);
-        }
-      }
-      
-      const { data, error } = await query.order('name');
+        .eq('is_global', true)
+        .order('name');
         
       if (error) throw error;
-      setAccreditations(data || []);
       
-      // Calculate counts per industry
-      if (data && serviceCategories.length > 0) {
-        const industryCounts: Record<string, number> = {};
-        
-        // Initialize counts for all industries
-        serviceCategories.forEach(cat => {
-          industryCounts[cat.name] = 0;
-        });
-        
-        // Count accreditations per industry
-        data.forEach((acc: any) => {
-          if (acc.sector) {
-            // Handle cases where sector might contain multiple industries
-            serviceCategories.forEach(cat => {
-              if (acc.sector.toLowerCase().includes(cat.name.toLowerCase())) {
-                industryCounts[cat.name] = (industryCounts[cat.name] || 0) + 1;
-              }
-            });
-          }
-        });
-        
-        // Update industries with counts
-        setIndustries(prev => {
-          const updated = [...prev];
-          updated.forEach((industry, index) => {
-            if (industry.id !== 'all' && industry.name) {
-              updated[index] = {
-                ...industry,
-                count: industryCounts[industry.name] || 0
-              };
-            }
-          });
-          return updated;
-        });
-      }
+      console.log('Fetched all accreditations:', data?.length);
+      setAccreditations(data || []);
       
     } catch (error) {
       console.error('Error fetching accreditations:', error);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  // Separate useEffect to calculate counts AFTER both accreditations AND serviceCategories are loaded
+  useEffect(() => {
+    if (accreditations.length > 0 && serviceCategories.length > 0) {
+      const industryCounts: Record<string, number> = {};
+      
+      // Initialize counts for all industries
+      serviceCategories.forEach(cat => {
+        industryCounts[cat.name] = 0;
+      });
+      
+      // Count accreditations per industry
+      accreditations.forEach((acc: any) => {
+        if (acc.sector) {
+          serviceCategories.forEach(cat => {
+            if (acc.sector.toLowerCase().includes(cat.name.toLowerCase())) {
+              industryCounts[cat.name] = (industryCounts[cat.name] || 0) + 1;
+            }
+          });
+        }
+      });
+      
+      setIndustries(prev => {
+        const updated = [...prev];
+        updated.forEach((industry, index) => {
+          if (industry.id !== 'all' && industry.name) {
+            updated[index] = {
+              ...industry,
+              count: industryCounts[industry.name] || 0
+            };
+          }
+        });
+        return updated;
+      });
+    }
+  }, [accreditations, serviceCategories]);
+
+  const fetchProviderAccreditations = async () => {
+    try {
+      // Fetch provider's existing accreditations
+      const { data, error } = await supabase
+        .from('provider_accreditations')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('position');
+        
+      if (error) throw error;
+      
+      console.log('Fetched provider accreditations:', data?.length);
+      
+      if (data && data.length > 0) {
+        // Get all accreditation IDs to fetch their details
+        const accreditationIds = data
+          .filter(acc => !acc.is_custom && acc.accreditation_id)
+          .map(acc => acc.accreditation_id);
+        
+        // Fetch full accreditation details for standard accreditations
+        let accreditationDetails: any[] = [];
+        if (accreditationIds.length > 0) {
+          const { data: accData, error: accError } = await supabase
+            .from('accreditations')
+            .select('*')
+            .in('id', accreditationIds);
+            
+          if (!accError && accData) {
+            accreditationDetails = accData;
+          }
+        }
+        
+        // Format the selected accreditations
+        const formattedSelected = data.map((acc: any) => {
+          if (acc.is_custom) {
+            return {
+              id: acc.id || `custom-${Date.now()}-${acc.position}`,
+              custom_name: acc.custom_name,
+              is_custom: true,
+              position: acc.position
+            };
+          } else {
+            const accreditation = accreditationDetails.find(a => a.id === acc.accreditation_id);
+            return {
+              id: acc.id || `temp-${Date.now()}-${acc.position}`,
+              accreditation_id: acc.accreditation_id,
+              accreditation: accreditation,
+              is_custom: false,
+              position: acc.position
+            };
+          }
+        });
+        
+        setSelected(formattedSelected);
+      }
+    } catch (error) {
+      console.error('Error fetching provider accreditations:', error);
     }
   };
   
+  // Filter accreditations based on SELECTED INDUSTRY only
   const filteredAccreditations = accreditations.filter(acc => {
     if (selectedIndustry === 'all') return true;
     
@@ -278,7 +355,7 @@ export default function AccreditationDrawer({
         onClick={onClose}
       />
       
-      {/* Drawer Container - Always slides from right */}
+      {/* Drawer Container */}
       <div
         style={{
           position: 'fixed',
@@ -304,10 +381,10 @@ export default function AccreditationDrawer({
             animation: 'slideLeft 0.3s ease-out',
           }}
         >
-          {/* Header */}
+          {/* Header - FIXED: Better mobile spacing */}
           <div
             style={{
-              padding: '1.25rem 1.5rem',
+              padding: '1rem 1.25rem',
               borderBottom: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
@@ -331,8 +408,8 @@ export default function AccreditationDrawer({
                 onClick={onClose}
                 style={{
                   color: '#9ca3af',
-                  padding: '0.375rem',
-                  borderRadius: '0.375rem',
+                  padding: '0.5rem',
+                  borderRadius: '0.5rem',
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
@@ -359,7 +436,7 @@ export default function AccreditationDrawer({
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'space-between', 
-              marginBottom: '0.5rem' 
+              marginBottom: '0.75rem' 
             }}>
               <span style={{ fontSize: '0.875rem', color: '#d1d5db' }}>
                 Selected: <span style={{ fontWeight: '600', color: '#f97316' }}>
@@ -374,14 +451,15 @@ export default function AccreditationDrawer({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.25rem',
-                    padding: '0.375rem 0.75rem',
-                    fontSize: '0.875rem',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.8125rem',
                     backgroundColor: showCustomForm ? '#4b5563' : '#374151',
                     border: 'none',
                     borderRadius: '0.5rem',
                     color: 'white',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
+                    whiteSpace: 'nowrap',
                   }}
                   onMouseEnter={(e) => {
                     if (!showCustomForm) {
@@ -400,18 +478,22 @@ export default function AccreditationDrawer({
               )}
             </div>
             
-            {/* Selected badges */}
+            {/* Selected badges - FIXED: Better mobile scrolling and spacing */}
             {selected.length > 0 && (
               <div
                 style={{
                   display: 'flex',
-                  flexWrap: 'wrap',
+                  flexWrap: 'nowrap',
                   gap: '0.5rem',
                   marginTop: '0.5rem',
-                  maxHeight: '4rem',
-                  overflowY: 'auto',
-                  paddingBottom: '0.25rem',
+                  paddingBottom: '0.5rem',
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
                 }}
+                className="selected-badges-scroll"
               >
                 {selected.map(acc => (
                   <div
@@ -420,16 +502,17 @@ export default function AccreditationDrawer({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
-                      padding: '0.25rem 0.5rem',
+                      padding: '0.375rem 0.75rem',
                       borderRadius: '9999px',
                       backgroundColor: 'rgba(249, 115, 22, 0.2)',
                       border: '1px solid rgba(249, 115, 22, 0.3)',
+                      flexShrink: 0,
                     }}
                   >
                     <span style={{
                       fontSize: '0.75rem',
                       color: '#fdba74',
-                      maxWidth: '120px',
+                      maxWidth: '150px',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -442,7 +525,7 @@ export default function AccreditationDrawer({
                         color: '#fdba74',
                         background: 'transparent',
                         border: 'none',
-                        padding: 0,
+                        padding: '0.125rem',
                         display: 'flex',
                         alignItems: 'center',
                         cursor: 'pointer',
@@ -467,7 +550,7 @@ export default function AccreditationDrawer({
           {showCustomForm && (
             <div
               style={{
-                padding: '1rem 1.5rem',
+                padding: '1rem 1.25rem',
                 borderBottom: '1px solid #374151',
                 backgroundColor: 'rgba(17, 24, 39, 0.5)',
               }}
@@ -480,7 +563,7 @@ export default function AccreditationDrawer({
                   placeholder="Enter custom accreditation name"
                   style={{
                     flex: 1,
-                    padding: '0.625rem 0.75rem',
+                    padding: '0.75rem 0.75rem',
                     backgroundColor: '#1f2937',
                     border: '1px solid #374151',
                     borderRadius: '0.5rem',
@@ -502,7 +585,7 @@ export default function AccreditationDrawer({
                   onClick={addCustomAccreditation}
                   disabled={!customName.trim()}
                   style={{
-                    padding: '0.625rem 1rem',
+                    padding: '0.75rem 1rem',
                     backgroundColor: !customName.trim() ? '#374151' : '#f97316',
                     border: 'none',
                     borderRadius: '0.5rem',
@@ -511,6 +594,7 @@ export default function AccreditationDrawer({
                     fontSize: '0.875rem',
                     cursor: !customName.trim() ? 'not-allowed' : 'pointer',
                     transition: 'background-color 0.2s',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Add
@@ -526,7 +610,7 @@ export default function AccreditationDrawer({
           <div
             className="industry-dropdown"
             style={{
-              padding: '1rem 1.5rem',
+              padding: '1rem 1.25rem',
               borderBottom: '1px solid #374151',
               backgroundColor: '#1f2937',
             }}
@@ -535,7 +619,7 @@ export default function AccreditationDrawer({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: '0.375rem',
+              marginBottom: '0.5rem',
             }}>
               <label style={{
                 fontSize: '0.75rem',
@@ -559,7 +643,7 @@ export default function AccreditationDrawer({
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               style={{
                 width: '100%',
-                padding: '0.75rem 1rem',
+                padding: '0.875rem 1rem',
                 backgroundColor: '#111827',
                 border: `1px solid ${isDropdownOpen ? '#f97316' : '#374151'}`,
                 borderRadius: '0.75rem',
@@ -617,7 +701,7 @@ export default function AccreditationDrawer({
                       }}
                       style={{
                         width: '100%',
-                        padding: '0.75rem 1rem',
+                        padding: '0.875rem 1rem',
                         backgroundColor: selectedIndustry === industry.id ? 'rgba(249, 115, 22, 0.2)' : 'transparent',
                         border: 'none',
                         borderRadius: '0.5rem',
@@ -648,7 +732,7 @@ export default function AccreditationDrawer({
                       </span>
                       {industry.count !== undefined && industry.id !== 'all' && (
                         <span style={{
-                          padding: '0.125rem 0.5rem',
+                          padding: '0.25rem 0.625rem',
                           backgroundColor: selectedIndustry === industry.id 
                             ? 'rgba(249, 115, 22, 0.3)' 
                             : 'rgba(75, 85, 99, 0.5)',
@@ -656,6 +740,9 @@ export default function AccreditationDrawer({
                           fontSize: '0.75rem',
                           color: selectedIndustry === industry.id ? '#fdba74' : '#9ca3af',
                           fontWeight: '500',
+                          display: 'inline-block',
+                          minWidth: '28px',
+                          textAlign: 'center',
                         }}>
                           {industry.count}
                         </span>
@@ -664,6 +751,7 @@ export default function AccreditationDrawer({
                         <span style={{
                           fontSize: '0.75rem',
                           color: '#6b7280',
+                          padding: '0.25rem 0.5rem',
                         }}>
                           {accreditations.length}
                         </span>
@@ -680,7 +768,7 @@ export default function AccreditationDrawer({
                   ))}
                 </div>
                 
-                {/* Mobile close button */}
+                {/* Mobile close button - FIXED: Better touch target */}
                 <div style={{
                   padding: '0.75rem',
                   borderTop: '1px solid #374151',
@@ -690,14 +778,15 @@ export default function AccreditationDrawer({
                     onClick={() => setIsDropdownOpen(false)}
                     style={{
                       width: '100%',
-                      padding: '0.625rem',
+                      padding: '0.875rem',
                       backgroundColor: '#374151',
                       border: 'none',
                       borderRadius: '0.5rem',
                       color: 'white',
-                      fontSize: '0.875rem',
+                      fontSize: '0.9375rem',
                       fontWeight: '500',
                       cursor: 'pointer',
+                      minHeight: '48px',
                     }}
                   >
                     Close
@@ -712,13 +801,13 @@ export default function AccreditationDrawer({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                marginTop: '0.5rem',
+                marginTop: '0.75rem',
               }}>
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.25rem',
-                  padding: '0.25rem 0.5rem',
+                  padding: '0.375rem 0.625rem',
                   backgroundColor: 'rgba(249, 115, 22, 0.1)',
                   borderRadius: '0.375rem',
                   fontSize: '0.75rem',
@@ -730,7 +819,7 @@ export default function AccreditationDrawer({
                 <button
                   onClick={() => setSelectedIndustry('all')}
                   style={{
-                    padding: '0.25rem 0.5rem',
+                    padding: '0.375rem 0.625rem',
                     backgroundColor: 'transparent',
                     border: 'none',
                     color: '#9ca3af',
@@ -738,6 +827,7 @@ export default function AccreditationDrawer({
                     textDecoration: 'underline',
                     textUnderlineOffset: '2px',
                     cursor: 'pointer',
+                    minHeight: '32px',
                   }}
                 >
                   Clear
@@ -752,7 +842,7 @@ export default function AccreditationDrawer({
               flex: '1 1 auto',
               overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
-              padding: '1.5rem',
+              padding: '1.25rem',
               backgroundColor: '#1f2937',
             }}
           >
@@ -778,7 +868,7 @@ export default function AccreditationDrawer({
                 </p>
               </div>
             ) : filteredAccreditations.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {filteredAccreditations.map(acc => {
                   const isSelected = selected.some(s => 
                     !s.is_custom && s.accreditation_id === acc.id
@@ -865,7 +955,6 @@ export default function AccreditationDrawer({
                               {acc.description}
                             </p>
                           )}
-                          {/* SECTOR BADGE REMOVED */}
                         </div>
                       </div>
                     </button>
@@ -895,28 +984,35 @@ export default function AccreditationDrawer({
                   No accreditations found
                 </p>
                 <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>
-                  Try selecting a different industry
+                  No accreditations available
                 </p>
               </div>
             )}
           </div>
           
-          {/* Footer */}
+          {/* Footer - FIXED: Better mobile sticky footer */}
           <div
             style={{
-              padding: '1rem 1.5rem',
+              padding: '1rem 1.25rem',
               borderTop: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
               boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+              position: 'sticky',
+              bottom: 0,
+              width: '100%',
             }}
           >
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '0.75rem',
+              flexDirection: 'row',
+            }}>
               <button
                 onClick={onClose}
                 style={{
                   flex: 1,
-                  padding: '0.75rem',
+                  padding: '0.875rem 0.75rem',
                   backgroundColor: '#374151',
                   border: 'none',
                   borderRadius: '0.75rem',
@@ -925,6 +1021,7 @@ export default function AccreditationDrawer({
                   fontSize: '0.9375rem',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s',
+                  minHeight: '48px',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#4b5563';
@@ -939,7 +1036,7 @@ export default function AccreditationDrawer({
                 onClick={handleSave}
                 style={{
                   flex: 1,
-                  padding: '0.75rem',
+                  padding: '0.875rem 0.75rem',
                   background: 'linear-gradient(to right, #ea580c, #f97316)',
                   border: 'none',
                   borderRadius: '0.75rem',
@@ -948,6 +1045,7 @@ export default function AccreditationDrawer({
                   fontSize: '0.9375rem',
                   cursor: 'pointer',
                   transition: 'opacity 0.2s',
+                  minHeight: '48px',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
@@ -982,47 +1080,48 @@ export default function AccreditationDrawer({
           }
         }
 
-        /* Mobile optimizations */
+        /* Hide scrollbar for selected badges */
+        .selected-badges-scroll::-webkit-scrollbar {
+          display: none;
+        }
+
         @media (max-width: 640px) {
           div[style*="max-width: 560px"] {
             max-width: 100% !important;
           }
           
-          /* Show close button in dropdown on mobile */
           .dropdown-mobile-close {
             display: block !important;
           }
           
-          /* Larger touch targets on mobile */
-          button {
-            min-height: 44px;
+          button, input, select {
+            min-height: 48px;
           }
           
-          /* Prevent text size adjustment on mobile */
           select, input, button {
             font-size: 16px !important;
           }
           
-          /* Better spacing for selected badges on mobile */
-          div[style*="max-height: 4rem"] {
-            max-height: 6rem !important;
-            padding-bottom: 0.5rem !important;
+          /* Better touch targets */
+          button[style*="border-radius: 0.5rem"] {
+            padding-top: 0.875rem;
+            padding-bottom: 0.875rem;
+          }
+          
+          /* Ensure footer is always visible */
+          div[style*="position: sticky"][style*="bottom: 0"] {
+            background-color: #1f2937;
+            border-top: 1px solid #374151;
+            z-index: 10;
           }
         }
 
-        /* Tablet optimizations */
         @media (min-width: 641px) and (max-width: 1024px) {
           div[style*="max-width: 560px"] {
             max-width: 480px !important;
           }
         }
 
-        /* Smooth scrolling for iOS */
-        .ios-scroll {
-          -webkit-overflow-scrolling: touch;
-        }
-
-        /* Custom scrollbar */
         div[style*="overflow-y: auto"]::-webkit-scrollbar {
           width: 6px;
         }

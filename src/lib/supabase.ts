@@ -39,7 +39,7 @@ if (!supabaseServiceKey) {
 // ==================== TYPE DEFINITIONS ====================
 export interface Provider {
   id: string
-  user_id: string  // ADDED from second file
+  user_id: string
   business_name: string
   contact_person: string
   contact_email: string
@@ -47,7 +47,7 @@ export interface Provider {
   alternate_phone?: string
   main_service: string
   main_service_id?: string
-  service_area?: string; 
+  service_area?: string
   other_services?: string
   experience_years?: string
   certifications?: string
@@ -55,7 +55,7 @@ export interface Provider {
   city: string
   province: string
   province_id?: string
-  service_areas?: string
+  service_areas?: string  // ✅ KEEP THIS - it's your JSON field
   hourly_rate?: string
   callout_fee?: string
   accepts_card: boolean
@@ -64,7 +64,7 @@ export interface Provider {
   emergency_service: boolean
   insurance: boolean
   insurance_details?: string
-  status: 'pending' | 'approved' | 'rejected' | 'pause' | 'deleted' | 'suspended'  // ADDED 'suspended' from second file
+  status: 'pending' | 'approved' | 'rejected' | 'pause' | 'deleted' | 'suspended'
   verified: boolean
   launch_trial: boolean
   created_at: string
@@ -97,6 +97,43 @@ export interface ServiceCategory {
 
 export interface CategoryWithCount extends ServiceCategory {
   provider_count: number
+}
+
+// ==================== SAFE PROVIDER HELPER (ADD THIS) ====================
+export type SafeProvider = {
+  id: string
+  business_name: string
+  contact_person: string
+  contact_email: string
+  contact_phone: string
+  alternate_phone?: string
+  main_service: string
+  service_areas: any
+  status: string
+  created_at: string
+  submitted_at: string
+  rejection_reason?: string
+  pause_reason?: string
+  deletion_reason?: string
+}
+
+export function extractProviderData(provider: any): SafeProvider {
+  return {
+    id: provider.id || '',
+    business_name: provider.business_name || '',
+    contact_person: provider.contact_person || '',
+    contact_email: provider.contact_email || '',
+    contact_phone: provider.contact_phone || 'Not provided',
+    alternate_phone: provider.alternate_phone || '',
+    main_service: provider.main_service || '',
+    service_areas: provider.service_areas || [],
+    status: provider.status || 'pending',
+    created_at: provider.created_at || new Date().toISOString(),
+    submitted_at: provider.submitted_at || provider.created_at || new Date().toISOString(),
+    rejection_reason: provider.rejection_reason || '',
+    pause_reason: provider.pause_reason || '',
+    deletion_reason: provider.deletion_reason || ''
+  }
 }
 
 // ==================== EMAIL TEMPLATE FUNCTIONS ====================

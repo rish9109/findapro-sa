@@ -13,13 +13,39 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 
+// SOLUTION: Define the Provider type interface
+interface Provider {
+  id: string
+  business_name: string
+  main_service: string
+  main_service_id?: string
+  service_areas: string
+  formatted_service_areas: string[]
+  fees_pricing?: string | null
+  callout_fee?: string | null
+  rating: number
+  total_reviews: number
+  other_services: string[]
+  all_other_services: string
+  experience_years: number
+  emergency_service: boolean
+  insurance: boolean
+  accepts_card: boolean
+  accepts_cash: boolean
+  verified: boolean
+  accreditations: any[]
+  display_accreditations: any[]
+  is_favorite: boolean
+}
+
 export default function ProvidersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, showAuthModal } = useAuth()
   
-  const [providers, setProviders] = useState<any[]>([])
-  const [filteredProviders, setFilteredProviders] = useState<any[]>([])
+  // SOLUTION: Add type annotations to useState
+  const [providers, setProviders] = useState<Provider[]>([])
+  const [filteredProviders, setFilteredProviders] = useState<Provider[]>([])
   const [loading, setLoading] = useState(true)
   const [favorites, setFavorites] = useState<string[]>([])
   const [syncingFavoriteId, setSyncingFavoriteId] = useState<string | null>(null)
@@ -110,18 +136,18 @@ export default function ProvidersPage() {
       if (error) throw error
       
       if (data && data.length > 0) {
-        const transformedData = data.map(provider => {
-          // Get service areas - SIMPLIFIED: Just basic formatting, NO filtering
+        // SOLUTION: Add type annotation to transformedData
+        const transformedData: Provider[] = data.map(provider => {
           let formattedServiceAreas: string[] = []
           
           if (provider.service_areas) {
             formattedServiceAreas = provider.service_areas
               .split(',')
               .map((area: string) => area.trim())
-              .map((area: string) => { // ✅ Added type annotation here
+              .map((area: string) => {
                 return area
                   .split(' ')
-                  .map((word: string) => { // ✅ Could also add type here for consistency
+                  .map((word: string) => {
                     const trimmedWord = word.trim()
                     if (trimmedWord.length === 0) return ''
                     return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()
@@ -131,8 +157,7 @@ export default function ProvidersPage() {
               .filter((area: string) => area.length > 0)
           }
           
-          // Get details for services
-          let otherServices = []
+          let otherServices: string[] = []
           if (provider.details) {
             otherServices = provider.details
               .split(/[\n,]+/)
@@ -148,43 +173,28 @@ export default function ProvidersPage() {
             business_name: provider.business_name,
             main_service: provider.main_service || 'Professional Service',
             main_service_id: provider.main_service_id,
-            
-            // Service area info - NO FILTERING HERE
             service_areas: provider.service_areas || '',
             formatted_service_areas: formattedServiceAreas,
-            
-            // Pricing
             fees_pricing: provider.fees_pricing,
             callout_fee: provider.callout_fee,
-            
-            // Ratings
             rating: provider.rating || 4.5,
             total_reviews: provider.total_reviews || 0,
-            
-            // Services
             other_services: otherServices,
             all_other_services: provider.details || '',
-            
-            // Features
             experience_years: provider.experience_years || 0,
             emergency_service: provider.emergency_service || false,
             insurance: provider.insurance || false,
             accepts_card: provider.accepts_card || false,
             accepts_cash: provider.accepts_cash || true,
             verified: provider.verified || false,
-            
-            // Accreditations
             accreditations: provider.provider_accreditations || [],
             display_accreditations: displayAccreditations,
-            
-            // Favorite status
             is_favorite: favorites.includes(provider.id)
           }
         })
         
         setProviders(transformedData)
         
-        // Apply category filter
         if (selectedCategory !== 'all') {
           const filtered = transformedData.filter(p => p.main_service_id === selectedCategory)
           setFilteredProviders(filtered)
@@ -238,23 +248,22 @@ export default function ProvidersPage() {
         newFavorites = [...favorites, providerId]
       }
       
-      // Optimistic update
       setFavorites(newFavorites)
       localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
       
-      setProviders(prev => prev.map(provider => 
+      // SOLUTION: Add type annotations to setProviders callback
+      setProviders((prev): Provider[] => prev.map(provider => 
         provider.id === providerId 
           ? { ...provider, is_favorite: !isCurrentlyFavorite }
           : provider
       ))
       
-      setFilteredProviders(prev => prev.map(provider => 
+      setFilteredProviders((prev): Provider[] => prev.map(provider => 
         provider.id === providerId 
           ? { ...provider, is_favorite: !isCurrentlyFavorite }
           : provider
       ))
       
-      // Sync with Supabase
       const success = await toggleFavoriteSupabase(user.id, providerId)
       
       if (!success) {
@@ -267,13 +276,13 @@ export default function ProvidersPage() {
         setFavorites(newFavorites)
         localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
         
-        setProviders(prev => prev.map(provider => 
+        setProviders((prev): Provider[] => prev.map(provider => 
           provider.id === providerId 
             ? { ...provider, is_favorite: isCurrentlyFavorite }
             : provider
         ))
         
-        setFilteredProviders(prev => prev.map(provider => 
+        setFilteredProviders((prev): Provider[] => prev.map(provider => 
           provider.id === providerId 
             ? { ...provider, is_favorite: isCurrentlyFavorite }
             : provider
@@ -297,8 +306,8 @@ export default function ProvidersPage() {
     router.push(`/providers/${providerId}`)
   }
 
-  // Get price display
-  const getPriceDisplay = (provider) => {
+  // SOLUTION: Add type annotation to provider parameter
+  const getPriceDisplay = (provider: Provider) => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
     }
@@ -308,22 +317,18 @@ export default function ProvidersPage() {
     return 'Contact for rates'
   }
 
-  // Get service areas display - YOUR EXACT ENHANCED FUNCTION
-  const getServiceAreasDisplay = (provider: any) => {
+  // SOLUTION: Add type annotation to provider parameter
+  const getServiceAreasDisplay = (provider: Provider) => {
     try {
-      // Use ONLY the formatted_service_areas array
       if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
-        // Filter out single letters and common typos
         const cleanedAreas = provider.formatted_service_areas
-    
           .map((area: string) => {
-            // Additional cleaning for each area
             return area
               .trim()
-              .replace(/^[^a-zA-Z]+/, '') // Remove leading non-letters
-              .replace(/[^a-zA-Z\s]+$/, '') // Remove trailing non-letters
+              .replace(/^[^a-zA-Z]+/, '')
+              .replace(/[^a-zA-Z\s]+$/, '')
           })
-          .filter((area: string) => area.length > 0); // Final filter
+          .filter((area: string) => area.length > 0);
         
         if (cleanedAreas.length === 0) {
           return 'Service area not specified';
@@ -346,8 +351,8 @@ export default function ProvidersPage() {
     }
   }
 
-  // Get accreditations display
-  const getAccreditationsDisplay = (provider: any) => {
+  // SOLUTION: Add type annotation to provider parameter
+  const getAccreditationsDisplay = (provider: Provider) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
       const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
@@ -411,7 +416,6 @@ export default function ProvidersPage() {
                     onClick={() => handleProviderClick(provider.id)}
                     className="h-full bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden hover:border-blue-500/50 transition-all duration-300 hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] flex flex-col"
                   >
-                    {/* Card Header */}
                     <div className="p-6 border-b border-gray-700/50">
                       <div className="flex items-center gap-4">
                         <div className="relative flex-shrink-0">

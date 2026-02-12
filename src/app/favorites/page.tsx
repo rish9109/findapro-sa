@@ -9,16 +9,41 @@ import { motion } from 'framer-motion'
 import { 
   Heart, MapPin, Star, Briefcase,
   Shield, Zap, Award, ChevronRight,
-  CheckCircle, Calendar, ArrowLeft,
-  Sparkles
+  Calendar, Sparkles
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
+
+// SOLUTION: Define the FavoriteProvider type interface
+interface FavoriteProvider {
+  id: string
+  business_name: string
+  main_service: string
+  main_service_id?: string
+  service_areas: string
+  formatted_service_areas: string[]
+  fees_pricing?: string | null
+  callout_fee?: string | null
+  rating: number
+  total_reviews: number
+  other_services: string[]
+  all_other_services: string
+  experience_years: number
+  emergency_service: boolean
+  insurance: boolean
+  accepts_card: boolean
+  accepts_cash: boolean
+  verified: boolean
+  accreditations: any[]
+  display_accreditations: any[]
+  is_favorite: boolean
+}
 
 export default function FavoritesPage() {
   const router = useRouter()
   const { user, showAuthModal } = useAuth()
   
-  const [favoriteProviders, setFavoriteProviders] = useState<any[]>([])
+  // SOLUTION: Add type annotation to useState
+  const [favoriteProviders, setFavoriteProviders] = useState<FavoriteProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
@@ -80,7 +105,6 @@ export default function FavoritesPage() {
         
         const providerIds = favoritesData.map(fav => fav.provider_id)
         
-        // UPDATED: Removed provider_service_areas join, using providers.service_areas text field
         const { data, error } = await supabase
           .from('providers')
           .select(`
@@ -94,18 +118,17 @@ export default function FavoritesPage() {
         if (error) throw error
         
         if (data && data.length > 0) {
-          const transformedData = data.map(provider => {
-            // UPDATED: Get service areas from providers.service_areas text field - NO FILTERING
-            let formattedServiceAreas = []
+          // SOLUTION: Add type annotation to transformedData
+          const transformedData: FavoriteProvider[] = data.map(provider => {
+            let formattedServiceAreas: string[] = []
             if (provider.service_areas) {
               formattedServiceAreas = provider.service_areas
                 .split(',')
                 .map((area: string) => area.trim())
-                .filter((area: string) => area !== ''); // Only remove empty strings
+                .filter((area: string) => area !== '');
             }
             
-            // UPDATED: Get details (other services) from providers.details text field
-            let otherServices = []
+            let otherServices: string[] = []
             if (provider.details) {
               otherServices = provider.details
                 .split(/[\n,]+/)
@@ -121,32 +144,22 @@ export default function FavoritesPage() {
               business_name: provider.business_name,
               main_service: provider.main_service || 'Professional Service',
               main_service_id: provider.main_service_id,
-              
-              // UPDATED: Service area info
               service_areas: provider.service_areas || '',
               formatted_service_areas: formattedServiceAreas,
-              
-              // UPDATED: Pricing - uses fees_pricing instead of hourly_rate
               fees_pricing: provider.fees_pricing,
               callout_fee: provider.callout_fee,
-              
               rating: provider.rating || 4.5,
               total_reviews: provider.total_reviews || 0,
-              
-              // UPDATED: Services from details field
               other_services: otherServices,
               all_other_services: provider.details || '',
-              
               experience_years: provider.experience_years || 0,
               emergency_service: provider.emergency_service || false,
               insurance: provider.insurance || false,
               accepts_card: provider.accepts_card || false,
               accepts_cash: provider.accepts_cash || true,
               verified: provider.verified || false,
-              
               accreditations: provider.provider_accreditations || [],
               display_accreditations: displayAccreditations,
-              
               is_favorite: true
             }
           })
@@ -174,8 +187,8 @@ export default function FavoritesPage() {
     router.push(`/providers/${providerId}?ref=favorites`)
   }
 
-  // UPDATED: Get price display - uses fees_pricing instead of hourly_rate
-  const getPriceDisplay = (provider) => {
+  // SOLUTION: Add type annotation to provider parameter
+  const getPriceDisplay = (provider: FavoriteProvider) => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
     }
@@ -184,22 +197,19 @@ export default function FavoritesPage() {
     }
     return 'Contact for rates'
   }
-  // Get service areas display - YOUR EXACT ENHANCED FUNCTION
-  const getServiceAreasDisplay = (provider: any) => {
+  
+  // SOLUTION: Add type annotation to provider parameter
+  const getServiceAreasDisplay = (provider: FavoriteProvider) => {
     try {
-      // Use ONLY the formatted_service_areas array
       if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
-        // Filter out single letters and common typos
         const cleanedAreas = provider.formatted_service_areas
-    
           .map((area: string) => {
-            // Additional cleaning for each area
             return area
               .trim()
-              .replace(/^[^a-zA-Z]+/, '') // Remove leading non-letters
-              .replace(/[^a-zA-Z\s]+$/, '') // Remove trailing non-letters
+              .replace(/^[^a-zA-Z]+/, '')
+              .replace(/[^a-zA-Z\s]+$/, '')
           })
-          .filter((area: string) => area.length > 0); // Final filter
+          .filter((area: string) => area.length > 0);
         
         if (cleanedAreas.length === 0) {
           return 'Service area not specified';
@@ -221,8 +231,9 @@ export default function FavoritesPage() {
       return 'Service area not specified'
     }
   }
-  // Get accreditations display
-  const getAccreditationsDisplay = (provider: any) => {
+  
+  // SOLUTION: Add type annotation to provider parameter
+  const getAccreditationsDisplay = (provider: FavoriteProvider) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
       const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
@@ -263,10 +274,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
-      {/* Main Content - Mobile optimized */}
       <main className="relative container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        
-        {/* Header - Mobile optimized */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-6">
             <div className="flex-1 min-w-0">
@@ -288,7 +296,6 @@ export default function FavoritesPage() {
           </div>
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="text-center py-12 sm:py-20">
             <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500"></div>
@@ -326,15 +333,12 @@ export default function FavoritesPage() {
                   whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   className="group cursor-pointer"
                 >
-                  {/* PROVIDER CARD - Mobile optimized */}
                   <div 
                     onClick={() => handleProviderClick(provider.id)}
                     className="h-full bg-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-purple-500/30 overflow-hidden hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(139,92,246,0.15)] sm:hover:shadow-[0_20px_40px_rgba(139,92,246,0.15)] flex flex-col"
                   >
-                    {/* Card Header - Mobile optimized */}
                     <div className="p-4 sm:p-6 border-b border-gray-700/50">
                       <div className="flex items-center gap-3 sm:gap-4">
-                        {/* Business Logo - UPDATED: Using ProviderLogoDisplay component */}
                         <div className="relative flex-shrink-0">
                           <ProviderLogoDisplay
                             providerId={provider.id}
@@ -348,22 +352,18 @@ export default function FavoritesPage() {
                           />
                         </div>
                         
-                        {/* Business Name and Service Category - Mobile optimized */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between">
                             <div className="min-w-0">
-                              {/* Business Name - Truncated on mobile */}
                               <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-purple-300 transition-colors truncate">
                                 {provider.business_name}
                               </h3>
-                              {/* Service Category */}
                               <p className="text-xs sm:text-sm text-purple-400 mt-0.5 sm:mt-1 truncate">
                                 {provider.main_service}
                               </p>
                             </div>
                           </div>
                           
-                          {/* Rating and Price - Mobile optimized */}
                           <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-3">
                             <div className="flex items-center gap-1 sm:gap-1.5">
                               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
@@ -387,9 +387,7 @@ export default function FavoritesPage() {
                       </div>
                     </div>
                     
-                    {/* Card Body - Mobile optimized spacing */}
                     <div className="p-4 sm:p-6 flex-1 flex flex-col">
-                      {/* Service Areas */}
                       <div className="mb-4 sm:mb-6">
                         <div className="flex items-center gap-2 mb-1 sm:mb-2">
                           <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" />
@@ -402,7 +400,6 @@ export default function FavoritesPage() {
                         </div>
                       </div>
                       
-                      {/* Years of Experience */}
                       <div className="mb-4 sm:mb-6">
                         <div className="flex items-center gap-2 mb-1 sm:mb-2">
                           <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
@@ -418,7 +415,6 @@ export default function FavoritesPage() {
                         </div>
                       </div>
                       
-                      {/* Other Services Offered */}
                       <div className="mb-4 sm:mb-6">
                         <div className="flex items-center gap-2 mb-1 sm:mb-2">
                           <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 flex-shrink-0" />
@@ -446,7 +442,7 @@ export default function FavoritesPage() {
                               );
                             }
                             
-                            const displayItems = items.slice(0, 2); // Show only 2 on mobile
+                            const displayItems = items.slice(0, 2);
                             
                             return (
                               <ul className="space-y-0.5 sm:space-y-1">
@@ -467,7 +463,6 @@ export default function FavoritesPage() {
                         </div>
                       </div>
                       
-                      {/* Accreditations */}
                       <div className="mb-4 sm:mb-6">
                         <div className="flex items-center gap-2 mb-1 sm:mb-2">
                           <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 flex-shrink-0" />
@@ -484,12 +479,10 @@ export default function FavoritesPage() {
                         </div>
                       </div>
                       
-                      {/* Features/Badges Row - Mobile optimized */}
                       <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-700/50">
                         <div className="flex gap-1.5 sm:gap-2 min-h-[32px] sm:min-h-[40px] items-center overflow-x-auto pb-1 sm:pb-0">
                           {provider.emergency_service || provider.insurance || provider.accepts_card || provider.accepts_cash ? (
                             <div className="flex gap-1.5 sm:gap-2 flex-nowrap">
-                              {/* Emergency Service */}
                               {provider.emergency_service && (
                                 <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 min-w-[60px] sm:min-w-[70px] justify-center flex-shrink-0">
                                   <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
@@ -497,7 +490,6 @@ export default function FavoritesPage() {
                                 </div>
                               )}
                               
-                              {/* Insurance */}
                               {provider.insurance && (
                                 <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 min-w-[60px] sm:min-w-[70px] justify-center flex-shrink-0">
                                   <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
@@ -505,7 +497,6 @@ export default function FavoritesPage() {
                                 </div>
                               )}
                               
-                              {/* Payment Methods */}
                               {provider.accepts_card && (
                                 <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[50px] sm:min-w-[60px] flex items-center justify-center flex-shrink-0">
                                   <span className="text-xs font-medium text-emerald-400">Card</span>
@@ -526,7 +517,6 @@ export default function FavoritesPage() {
                         </div>
                       </div>
                       
-                      {/* View Details CTA - Mobile optimized */}
                       <div className="pt-3 sm:pt-4 border-t border-gray-700/50 flex items-center justify-between mt-3 sm:mt-4">
                         <span className="text-gray-400 text-xs sm:text-sm">
                           Click for full details
@@ -544,7 +534,6 @@ export default function FavoritesPage() {
           </div>
         )}
 
-        {/* Empty state help - Mobile optimized */}
         {!loading && favoriteProviders.length === 0 && (
           <div className="mt-6 sm:mt-8 bg-gray-800/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-700 mx-2 sm:mx-0">
             <h3 className="text-base sm:text-lg font-semibold text-white mb-3">How to save favorites</h3>

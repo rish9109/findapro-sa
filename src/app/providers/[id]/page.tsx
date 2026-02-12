@@ -254,17 +254,9 @@ export default function ProviderDetailPage() {
   // UPDATED: Get price display using fees_pricing instead of hourly_rate
   const getPriceDisplay = () => {
     if (provider?.fees_pricing) {
-      const price = provider.fees_pricing.toString().replace(/[^0-9]/g, '')
-      if (price) {
-        return `R${price}/hr`
-      }
       return provider.fees_pricing
     }
     if (provider?.callout_fee) {
-      const callout = provider.callout_fee.toString().replace(/[^0-9]/g, '')
-      if (callout) {
-        return `R${callout} callout fee`
-      }
       return provider.callout_fee
     }
     return 'Contact for rates'

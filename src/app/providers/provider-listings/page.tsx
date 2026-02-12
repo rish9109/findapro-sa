@@ -948,7 +948,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                     value={formData.hourlyRate}
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-                    placeholder="e.g., 450 per hour, Free consultation"
+                    placeholder="e.g: R 450 P/Hr , blank = Contact for price"
                   />
                 </div>
               </div>

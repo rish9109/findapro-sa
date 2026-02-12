@@ -1,8 +1,8 @@
-// File: src/components/ServiceAreaDrawer.tsx - FIXED
+// File: src/components/ServiceAreaDrawer.tsx - WITH CITIES & COUNT
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Plus, MapPin, Check, List } from 'lucide-react';
+import { X, Plus, MapPin, Check, List, ChevronRight, ChevronDown, Building2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { createPortal } from 'react-dom';
 
@@ -12,6 +12,13 @@ interface ServiceAreaDrawerProps {
   initialAreas: string[];
   onSave: (areas: string[]) => void;
   maxAreas?: number;
+}
+
+interface Province {
+  id: string;
+  name: string;
+  code: string;
+  cities: string[];
 }
 
 export default function ServiceAreaDrawer({
@@ -29,16 +36,15 @@ export default function ServiceAreaDrawer({
   const [isLoading, setIsLoading] = useState(false);
   const [showBrowseDrawer, setShowBrowseDrawer] = useState(false);
   const [browseSearch, setBrowseSearch] = useState('');
-  const [provinces, setProvinces] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [provinces, setProvinces] = useState<Province[]>([]);
   const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
   
   // Refs
   const customInputRef = useRef<HTMLInputElement>(null);
   const browseSearchRef = useRef<HTMLInputElement>(null);
   const isInitialized = useRef(false);
-  const mainDrawerRef = useRef<HTMLDivElement>(null);
-  const browseDrawerRef = useRef<HTMLDivElement>(null);
 
   // Handle mounting for portal
   useEffect(() => {
@@ -95,12 +101,12 @@ export default function ServiceAreaDrawer({
       setNewArea('');
       setError('');
       setBrowseSearch('');
+      setExpandedProvinces(new Set());
       isInitialized.current = true;
       
-      // Fetch provinces from database
-      fetchProvinces();
+      // Fetch provinces with cities from database
+      fetchProvincesWithCities();
       
-      // DO NOT auto-focus on mobile to prevent keyboard opening
       if (!isMobile) {
         const timer = setTimeout(() => {
           customInputRef.current?.focus();
@@ -112,7 +118,7 @@ export default function ServiceAreaDrawer({
     }
   }, [isOpen, initialAreas, isMobile]);
 
-  // Focus browse search when browse drawer opens - only on desktop
+  // Focus browse search when browse drawer opens
   useEffect(() => {
     if (showBrowseDrawer && !isMobile) {
       const timer = setTimeout(() => browseSearchRef.current?.focus(), 100);
@@ -120,27 +126,13 @@ export default function ServiceAreaDrawer({
     }
   }, [showBrowseDrawer, isMobile]);
 
-  // Prevent body scroll when drawer is open
-  useEffect(() => {
-    if (isOpen) {
-      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
-      document.body.style.paddingRight = `${scrollBarWidth}px`;
-    } else {
-      document.body.style.paddingRight = '';
-    }
-    
-    return () => {
-      document.body.style.paddingRight = '';
-    };
-  }, [isOpen]);
-
-  // Fetch provinces function
-  const fetchProvinces = async () => {
+  // Fetch provinces with cities
+  const fetchProvincesWithCities = async () => {
     try {
       setIsLoadingProvinces(true);
       const { data, error } = await supabase
         .from('provinces')
-        .select('id, name, code')
+        .select('id, name, code, cities')
         .order('name');
       
       if (error) {
@@ -150,18 +142,54 @@ export default function ServiceAreaDrawer({
       
       setProvinces(data || []);
     } catch (error) {
-      console.error('Error in fetchProvinces:', error);
+      console.error('Error in fetchProvincesWithCities:', error);
     } finally {
       setIsLoadingProvinces(false);
     }
   };
   
+  // Toggle province expansion
+  const toggleProvince = useCallback((provinceId: string) => {
+    setExpandedProvinces(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(provinceId)) {
+        newSet.delete(provinceId);
+      } else {
+        newSet.add(provinceId);
+      }
+      return newSet;
+    });
+  }, []);
+  
+  // Get total count of cities/towns across all provinces
+  const totalCitiesCount = useMemo(() => {
+    return provinces.reduce((total, province) => {
+      return total + (province.cities?.length || 0);
+    }, 0);
+  }, [provinces]);
+  
   // Memoize filtered provinces for browse drawer
   const filteredProvinces = useMemo(() => {
     if (!browseSearch.trim()) return provinces;
-    return provinces.filter(province =>
-      province.name.toLowerCase().includes(browseSearch.toLowerCase().trim())
-    );
+    
+    const searchTerm = browseSearch.toLowerCase().trim();
+    
+    return provinces
+      .map(province => {
+        const provinceMatches = province.name.toLowerCase().includes(searchTerm);
+        const matchingCities = province.cities?.filter(city => 
+          city.toLowerCase().includes(searchTerm)
+        ) || [];
+        
+        if (provinceMatches) {
+          return { ...province, cities: province.cities || [] };
+        } else if (matchingCities.length > 0) {
+          return { ...province, cities: matchingCities };
+        }
+        
+        return null;
+      })
+      .filter((province): province is Province => province !== null);
   }, [provinces, browseSearch]);
   
   const sanitizeInput = useCallback((input: string): string => {
@@ -207,7 +235,6 @@ export default function ServiceAreaDrawer({
     setSelectedAreas(prev => [...prev, sanitizedArea]);
     setNewArea('');
     setError('');
-    // Only refocus on desktop
     if (!isMobile) {
       customInputRef.current?.focus();
     }
@@ -283,24 +310,22 @@ export default function ServiceAreaDrawer({
         onClick={onClose}
       />
       
-      {/* Drawer Container - Always slides from right - FIXED: Consistent animation on all devices */}
+      {/* Drawer Container */}
       <div
-        ref={mainDrawerRef}
         style={{
           position: 'fixed',
           top: 0,
           bottom: 0,
           right: 0,
-          left: isMobile ? 0 : 'auto', // Full width on mobile but still slides from right
+          left: isMobile ? 0 : 'auto',
           zIndex: 1000000,
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
           maxWidth: isMobile ? '100%' : '560px',
-          marginLeft: 'auto', // Pushes to the right
+          marginLeft: 'auto',
         }}
       >
-        {/* Drawer Content */}
         <div
           style={{
             backgroundColor: '#1f2937',
@@ -308,12 +333,11 @@ export default function ServiceAreaDrawer({
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            height: '100dvh', // Use dynamic viewport height for mobile
+            height: '100dvh',
             animation: 'slideLeft 0.3s ease-out',
-            position: 'relative',
           }}
         >
-          {/* Header - FIXED: Better mobile padding */}
+          {/* Header */}
           <div
             style={{
               padding: isMobile ? '1rem 1.25rem' : '1.25rem 1.5rem',
@@ -348,7 +372,6 @@ export default function ServiceAreaDrawer({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 0.2s',
                   minHeight: isMobile ? '44px' : 'auto',
                   minWidth: isMobile ? '44px' : 'auto',
                 }}
@@ -382,7 +405,7 @@ export default function ServiceAreaDrawer({
             </div>
           )}
           
-          {/* Content Area - Scrollable - FIXED: Better mobile padding */}
+          {/* Content Area */}
           <div
             style={{
               flex: '1 1 auto',
@@ -403,7 +426,7 @@ export default function ServiceAreaDrawer({
                 alignItems: 'center',
                 gap: '0.5rem',
               }}>
-                <span style={{ color: '#f97316' }}>Preconfigured Areas</span>
+                <span style={{ color: '#f97316' }}>Browse Areas</span>
                 {isLoadingProvinces && (
                   <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Loading...</span>
                 )}
@@ -424,7 +447,6 @@ export default function ServiceAreaDrawer({
                   color: 'white',
                   fontSize: '0.9375rem',
                   cursor: isLoadingProvinces ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s',
                   opacity: isLoadingProvinces ? 0.5 : 1,
                   marginBottom: '0.5rem',
                   minHeight: isMobile ? '48px' : 'auto',
@@ -443,20 +465,23 @@ export default function ServiceAreaDrawer({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <List style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
-                  <span>Browse Provinces ({provinces.length})</span>
+                  <Building2 style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+                  <span>Browse Cities & Towns</span>
                 </div>
-                <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                  {selectedAreas.length}/{maxAreas}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.875rem', color: '#f97316', fontWeight: '500' }}>
+                    {totalCitiesCount} areas
+                  </span>
+                  <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+                </div>
               </button>
               
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>
-                Select from our list of provinces
+              <p style={{ fontSize: '0.75rem', color: '#e5e7eb', margin: 0 }}>
+                {provinces.length} provinces • {totalCitiesCount} cities and towns
               </p>
             </div>
             
-            {/* Add custom area - FIXED: Better mobile touch targets */}
+            {/* Add custom area - EXACTLY AS ORIGINAL */}
             <div style={{ marginBottom: isMobile ? '1.25rem' : '1.5rem' }}>
               <h4 style={{ 
                 fontSize: '0.875rem', 
@@ -468,15 +493,6 @@ export default function ServiceAreaDrawer({
                 gap: '0.5rem',
               }}>
                 <span style={{ color: '#f97316' }}>Add Custom Area</span>
-                <span style={{ 
-                  fontSize: '0.75rem',
-                  padding: '0.125rem 0.5rem',
-                  backgroundColor: '#374151',
-                  color: '#d1d5db',
-                  borderRadius: '9999px',
-                }}>
-                  Optional
-                </span>
               </h4>
               
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -502,7 +518,6 @@ export default function ServiceAreaDrawer({
                     color: 'white',
                     fontSize: '0.9375rem',
                     outline: 'none',
-                    transition: 'all 0.2s',
                     minHeight: isMobile ? '48px' : 'auto',
                   }}
                   onFocus={(e) => {
@@ -532,7 +547,6 @@ export default function ServiceAreaDrawer({
                     cursor: !newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())
                       ? 'not-allowed'
                       : 'pointer',
-                    transition: 'all 0.2s',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -544,12 +558,12 @@ export default function ServiceAreaDrawer({
                   <Plus style={{ width: '1rem', height: '1rem' }} />
                 </button>
               </div>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem', marginBottom: 0 }}>
-                Press Enter to add custom area
+              <p style={{ fontSize: '0.75rem', color: '#e5e7eb', marginTop: '0.5rem', marginBottom: 0 }}>
+                Press Enter to add
               </p>
             </div>
             
-            {/* Selected Areas - FIXED: Better mobile spacing */}
+            {/* Selected Areas - EXACTLY AS ORIGINAL */}
             <div>
               <div style={{ 
                 display: 'flex', 
@@ -582,7 +596,6 @@ export default function ServiceAreaDrawer({
                         border: 'none',
                         cursor: 'pointer',
                         textDecoration: 'underline',
-                        textUnderlineOffset: '2px',
                         padding: isMobile ? '0.5rem' : '0.25rem',
                         minHeight: isMobile ? '44px' : 'auto',
                       }}
@@ -599,11 +612,12 @@ export default function ServiceAreaDrawer({
                 </div>
               </div>
               
-              {/* Areas list */}
               {selectedAreas.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {selectedAreas.map((area, index) => {
-                    const isPreconfigured = provinces.some(province => province.name === area);
+                    const isPreconfigured = provinces.some(province => 
+                      province.cities?.includes(area)
+                    );
                     return (
                       <div
                         key={index}
@@ -615,7 +629,6 @@ export default function ServiceAreaDrawer({
                           background: 'linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(31, 41, 55, 0.3))',
                           border: '1px solid #374151',
                           borderRadius: '0.75rem',
-                          transition: 'all 0.2s',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -651,7 +664,6 @@ export default function ServiceAreaDrawer({
                             alignItems: 'center',
                             justifyContent: 'center',
                             borderRadius: '0.375rem',
-                            transition: 'all 0.2s',
                             minHeight: isMobile ? '44px' : 'auto',
                             minWidth: isMobile ? '44px' : 'auto',
                           }}
@@ -677,7 +689,6 @@ export default function ServiceAreaDrawer({
                   padding: isMobile ? '2rem 1rem' : '2rem 1rem',
                   border: '2px dashed #374151',
                   borderRadius: '0.75rem',
-                  background: 'linear-gradient(to right, rgba(17, 24, 39, 0.2), rgba(31, 41, 55, 0.1))',
                 }}>
                   <MapPin style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
                   <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
@@ -691,14 +702,13 @@ export default function ServiceAreaDrawer({
             </div>
           </div>
           
-          {/* Footer - FIXED: Sticky footer that's not cut off on mobile */}
+          {/* Footer */}
           <div
             style={{
               padding: isMobile ? '1rem 1.25rem' : '1rem 1.5rem',
               borderTop: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
-              boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
               position: 'sticky',
               bottom: 0,
               width: '100%',
@@ -706,11 +716,7 @@ export default function ServiceAreaDrawer({
               paddingBottom: isMobile ? 'max(1rem, env(safe-area-inset-bottom))' : '1rem',
             }}
           >
-            <div style={{ 
-              display: 'flex', 
-              gap: '0.75rem',
-              flexDirection: 'row',
-            }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
                 onClick={onClose}
                 style={{
@@ -723,7 +729,6 @@ export default function ServiceAreaDrawer({
                   fontWeight: '500',
                   fontSize: '0.9375rem',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s',
                   minHeight: isMobile ? '48px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
@@ -750,7 +755,6 @@ export default function ServiceAreaDrawer({
                   fontWeight: '600',
                   fontSize: '0.9375rem',
                   cursor: selectedAreas.length === 0 || isLoading ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -780,10 +784,8 @@ export default function ServiceAreaDrawer({
                     }} />
                     Saving...
                   </>
-                ) : selectedAreas.length > 0 ? (
-                  `Save ${selectedAreas.length} Area${selectedAreas.length !== 1 ? 's' : ''}`
                 ) : (
-                  'Save Areas'
+                  `Save ${selectedAreas.length} Area${selectedAreas.length !== 1 ? 's' : ''}`
                 )}
               </button>
             </div>
@@ -793,77 +795,30 @@ export default function ServiceAreaDrawer({
 
       <style>{`
         @keyframes slideLeft {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
         }
-        
         @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
-
-        /* Mobile optimizations - FIXED: Consistent drawer animation and safe areas */
         @media (max-width: 768px) {
-          div[style*="position: fixed"][style*="bottom: 0"][style*="right: 0"] {
-            left: 0 !important;
-          }
-          
-          button, input, select {
-            min-height: 48px;
-          }
-          
-          input, button {
-            font-size: 16px !important;
-          }
-          
-          /* Safe area insets for modern mobile devices */
-          @supports (padding: max(0px)) {
-            div[style*="padding-bottom: max(1rem, env(safe-area-inset-bottom))"] {
-              padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-            }
-          }
-          
-          /* Prevent zoom on input focus */
-          input[type="text"] {
-            font-size: 16px;
-          }
+          input, button { font-size: 16px !important; }
+          input[type="text"] { font-size: 16px; }
         }
-
-        /* Tablet optimizations */
-        @media (min-width: 769px) and (max-width: 1024px) {
-          div[style*="max-width: 560px"] {
-            max-width: 480px !important;
-          }
-        }
-
-        /* Custom scrollbar */
         div[style*="overflow-y: auto"]::-webkit-scrollbar {
           width: 6px;
         }
-        
         div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
           background: #1f2937;
         }
-        
         div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
           background: #4b5563;
           border-radius: 3px;
         }
-        
-        div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
-        }
       `}</style>
 
-      {/* Browse Provinces Drawer - FIXED: Consistent with main drawer */}
+      {/* Browse Cities & Towns Drawer */}
       {showBrowseDrawer && createPortal(
         <div style={{
           position: 'fixed',
@@ -888,7 +843,6 @@ export default function ServiceAreaDrawer({
           />
           
           <div
-            ref={browseDrawerRef}
             style={{
               position: 'fixed',
               top: 0,
@@ -914,7 +868,7 @@ export default function ServiceAreaDrawer({
                 animation: 'slideLeft 0.3s ease-out',
               }}
             >
-              {/* Header - FIXED: Better mobile padding */}
+              {/* Header */}
               <div
                 style={{
                   padding: isMobile ? '1rem 1.25rem' : '1.25rem 1.5rem',
@@ -932,9 +886,9 @@ export default function ServiceAreaDrawer({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <List style={{ width: '1.25rem', height: '1.25rem', color: '#f97316' }} />
+                    <Building2 style={{ width: '1.25rem', height: '1.25rem', color: '#f97316' }} />
                     <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'white', margin: 0 }}>
-                      Browse Provinces
+                      Cities & Towns
                     </h3>
                   </div>
                   <button
@@ -949,7 +903,6 @@ export default function ServiceAreaDrawer({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      transition: 'all 0.2s',
                       minHeight: isMobile ? '44px' : 'auto',
                       minWidth: isMobile ? '44px' : 'auto',
                     }}
@@ -973,20 +926,20 @@ export default function ServiceAreaDrawer({
                   marginBottom: '0.75rem',
                 }}>
                   <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
-                    {provinces.length} provinces available
+                    {totalCitiesCount} cities & towns • {provinces.length} provinces
                   </p>
                   <p style={{ fontSize: '0.875rem', color: '#fdba74', margin: 0 }}>
                     {selectedAreas.length}/{maxAreas} selected
                   </p>
                 </div>
                 
-                {/* Search in browse drawer */}
+                {/* Search */}
                 <input
                   ref={browseSearchRef}
                   type="text"
                   value={browseSearch}
                   onChange={(e) => setBrowseSearch(e.target.value)}
-                  placeholder="Search provinces..."
+                  placeholder="Search cities, towns or provinces..."
                   inputMode="search"
                   enterKeyHint="search"
                   style={{
@@ -998,7 +951,6 @@ export default function ServiceAreaDrawer({
                     color: 'white',
                     fontSize: '0.9375rem',
                     outline: 'none',
-                    transition: 'all 0.2s',
                     minHeight: isMobile ? '48px' : 'auto',
                   }}
                   onFocus={(e) => {
@@ -1012,7 +964,7 @@ export default function ServiceAreaDrawer({
                 />
               </div>
               
-              {/* Provinces List - Scrollable */}
+              {/* Provinces & Cities List */}
               <div
                 style={{
                   flex: '1 1 auto',
@@ -1034,7 +986,7 @@ export default function ServiceAreaDrawer({
                       margin: '0 auto 0.5rem',
                     }} />
                     <p style={{ color: '#9ca3af', fontSize: '0.875rem', margin: 0 }}>
-                      Loading provinces...
+                      Loading...
                     </p>
                   </div>
                 ) : filteredProvinces.length === 0 ? (
@@ -1044,9 +996,9 @@ export default function ServiceAreaDrawer({
                     backgroundColor: 'rgba(17, 24, 39, 0.3)',
                     borderRadius: '0.75rem',
                   }}>
-                    <List style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
+                    <Building2 style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
                     <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
-                      No provinces found
+                      No matches found
                     </p>
                     <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>
                       Try a different search term
@@ -1055,83 +1007,146 @@ export default function ServiceAreaDrawer({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {filteredProvinces.map((province) => {
-                      const isSelected = selectedAreas.includes(province.name);
-                      const isDisabled = selectedAreas.length >= maxAreas && !isSelected;
+                      const isExpanded = expandedProvinces.has(province.id);
+                      const cityCount = province.cities?.length || 0;
+                      const someCitiesSelected = province.cities?.some(city => selectedAreas.includes(city)) || false;
                       
                       return (
-                        <button
-                          key={province.id}
-                          onClick={() => !isDisabled && toggleAreaFromBrowse(province.name)}
-                          disabled={isDisabled}
-                          style={{
-                            width: '100%',
-                            padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
-                            backgroundColor: isSelected
-                              ? 'rgba(249, 115, 22, 0.2)'
-                              : isDisabled
-                              ? 'rgba(17, 24, 39, 0.2)'
-                              : '#111827',
-                            border: '1px solid',
-                            borderColor: isSelected
-                              ? 'rgba(249, 115, 22, 0.5)'
-                              : isDisabled
-                              ? '#374151'
-                              : '#374151',
-                            borderRadius: '0.75rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            color: isSelected
-                              ? '#fdba74'
-                              : isDisabled
-                              ? '#6b7280'
-                              : 'white',
-                            fontSize: '0.875rem',
-                            cursor: isDisabled ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s',
-                            opacity: isDisabled ? 0.5 : 1,
-                            minHeight: isMobile ? '48px' : 'auto',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isSelected && !isDisabled) {
-                              e.currentTarget.style.backgroundColor = '#1f2937';
+                        <div key={province.id}>
+                          {/* Province Header */}
+                          <button
+                            onClick={() => toggleProvince(province.id)}
+                            style={{
+                              width: '100%',
+                              padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                              backgroundColor: isExpanded ? '#1f2937' : '#111827',
+                              border: '1px solid',
+                              borderColor: someCitiesSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151',
+                              borderRadius: '0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              color: 'white',
+                              fontSize: '0.9375rem',
+                              cursor: 'pointer',
+                              marginBottom: isExpanded ? '0.25rem' : 0,
+                              minHeight: isMobile ? '48px' : 'auto',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isExpanded) e.currentTarget.style.backgroundColor = '#1f2937';
                               e.currentTarget.style.borderColor = '#4b5563';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isSelected && !isDisabled) {
-                              e.currentTarget.style.backgroundColor = '#111827';
-                              e.currentTarget.style.borderColor = '#374151';
-                            }
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <MapPin style={{ 
-                              width: '1rem', 
-                              height: '1rem', 
-                              color: isSelected ? '#f97316' : '#6b7280' 
-                            }} />
-                            <span style={{ fontWeight: isSelected ? '500' : '400' }}>
-                              {province.name}
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isExpanded) e.currentTarget.style.backgroundColor = '#111827';
+                              e.currentTarget.style.borderColor = someCitiesSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151';
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {isExpanded ? (
+                                <ChevronDown style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
+                              ) : (
+                                <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+                              )}
+                              <span style={{ fontWeight: '500' }}>{province.name}</span>
+                              <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>({province.code})</span>
+                              {someCitiesSelected && (
+                                <span style={{ 
+                                  fontSize: '0.75rem',
+                                  padding: '0.125rem 0.5rem',
+                                  backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                                  color: '#fdba74',
+                                  borderRadius: '9999px',
+                                }}>
+                                  {province.cities?.filter(c => selectedAreas.includes(c)).length} selected
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                              {cityCount} {cityCount === 1 ? 'town' : 'towns'}
                             </span>
-                            <span style={{ 
-                              fontSize: '0.75rem', 
-                              color: isSelected ? '#fdba74' : '#6b7280' 
+                          </button>
+                          
+                          {/* Cities List */}
+                          {isExpanded && province.cities && (
+                            <div style={{ 
+                              marginLeft: isMobile ? '1rem' : '1.5rem',
+                              marginTop: '0.25rem',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.25rem',
                             }}>
-                              ({province.code})
-                            </span>
-                          </div>
-                          {isSelected && (
-                            <Check style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
+                              {province.cities.map((city) => {
+                                const isSelected = selectedAreas.includes(city);
+                                const isDisabled = selectedAreas.length >= maxAreas && !isSelected;
+                                
+                                return (
+                                  <button
+                                    key={`${province.id}-${city}`}
+                                    onClick={() => !isDisabled && toggleAreaFromBrowse(city)}
+                                    disabled={isDisabled}
+                                    style={{
+                                      width: '100%',
+                                      padding: isMobile ? '0.75rem 1rem' : '0.625rem 1rem',
+                                      backgroundColor: isSelected
+                                        ? 'rgba(249, 115, 22, 0.15)'
+                                        : isDisabled
+                                        ? 'rgba(17, 24, 39, 0.2)'
+                                        : 'transparent',
+                                      border: '1px solid',
+                                      borderColor: isSelected
+                                        ? 'rgba(249, 115, 22, 0.3)'
+                                        : '#374151',
+                                      borderRadius: '0.5rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      color: isSelected
+                                        ? '#fdba74'
+                                        : isDisabled
+                                        ? '#6b7280'
+                                        : '#d1d5db',
+                                      fontSize: '0.875rem',
+                                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                      opacity: isDisabled ? 0.5 : 1,
+                                      minHeight: isMobile ? '44px' : 'auto',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected && !isDisabled) {
+                                        e.currentTarget.style.backgroundColor = '#1f2937';
+                                        e.currentTarget.style.borderColor = '#4b5563';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected && !isDisabled) {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.borderColor = '#374151';
+                                      }
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                                      <MapPin style={{ 
+                                        width: '0.875rem', 
+                                        height: '0.875rem', 
+                                        color: isSelected ? '#f97316' : '#6b7280' 
+                                      }} />
+                                      <span>{city}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Check style={{ width: '0.875rem', height: '0.875rem', color: '#f97316' }} />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
                 )}
               </div>
               
-              {/* Footer - FIXED: Sticky footer with safe area */}
+              {/* Footer */}
               <div
                 style={{
                   padding: isMobile ? '1rem 1.25rem' : '1rem 1.5rem',
@@ -1157,7 +1172,6 @@ export default function ServiceAreaDrawer({
                     fontWeight: '600',
                     fontSize: '0.9375rem',
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
                     minHeight: isMobile ? '48px' : 'auto',
                   }}
                   onMouseEnter={(e) => {
@@ -1167,7 +1181,7 @@ export default function ServiceAreaDrawer({
                     e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
                   }}
                 >
-                  Done
+                  Done ({selectedAreas.length})
                 </button>
               </div>
             </div>

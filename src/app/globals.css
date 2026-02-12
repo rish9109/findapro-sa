@@ -1,11 +1,11 @@
-/* File: src/app/globals.css - BROWSER CONSISTENT VERSION */
+/* File: src/app/globals.css - CORRECTED VERSION */
 @import "tailwindcss";
 
 @theme {
   --color-background: #0a0b0f;
   --color-foreground: #ffffff;
-  --font-sans: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;
@@ -26,68 +26,46 @@
   --gradient-premium: linear-gradient(135deg, #8b5cf6, #3b82f6, #06b6d4);
 }
 
-/* Base styles with fallbacks */
+/* Base styles */
 :root {
   --background: #0a0b0f;
   --foreground: #ffffff;
 }
 
 body {
-  background: #0a0b0f; /* Fallback */
-  background: var(--background, #0a0b0f);
-  color: #ffffff; /* Fallback */
-  color: var(--foreground, #ffffff);
-  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
   margin: 0;
   padding: 0;
   overflow-x: hidden;
   min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Cross-browser scrollbar */
-* {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #8b5cf6 #101323; /* Firefox */
-}
-
-/* WebKit scrollbar (Chrome, Safari, Edge) */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 12px;
-  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #101323; /* Fallback */
-  background: var(--color-luxury-navy, #101323);
+  background: var(--color-luxury-navy);
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #8b5cf6, #06b6d4); /* Fallback */
-  background: var(--gradient-luxury, linear-gradient(135deg, #8b5cf6, #06b6d4));
+  background: var(--gradient-luxury);
   border-radius: 6px;
-  border: 2px solid #101323; /* Fallback */
-  border: 2px solid var(--color-luxury-navy, #101323);
+  border: 2px solid var(--color-luxury-navy);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #fbbf24, #f97316); /* Fallback */
-  background: var(--gradient-gold, linear-gradient(135deg, #fbbf24, #f97316));
+  background: var(--gradient-gold);
 }
 
-/* Selection color - Cross-browser */
+/* Selection color - REMOVED white text forcing */
 ::selection {
   background: rgba(139, 92, 246, 0.3);
-  color: #ffffff;
-  text-shadow: none;
-}
-
-::-moz-selection {
-  background: rgba(139, 92, 246, 0.3);
-  color: #ffffff;
-  text-shadow: none;
+  /* color: white; REMOVED THIS LINE */
 }
 
 /* Smooth page transitions */
@@ -100,7 +78,6 @@ body {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 300ms, transform 300ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .page-transition-exit {
@@ -112,32 +89,20 @@ body {
   opacity: 0;
   transform: translateY(-20px);
   transition: opacity 300ms, transform 300ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Luxury glass effect - Cross-browser */
+/* Luxury glass effect */
 .glass-luxury {
   background: rgba(26, 27, 46, 0.7);
-  /* Fallback for browsers without backdrop-filter */
-  background: rgba(26, 27, 46, 0.85);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
-@supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
-  .glass-luxury {
-    background: rgba(26, 27, 46, 0.7);
-  }
-}
 
 @layer utilities {
-  /* Modern glass effect - Cross-browser */
+  /* Modern glass effect */
   .modern-glass {
-    /* Fallback */
-    background: rgba(16, 19, 35, 0.9);
-    /* Modern browsers */
     background: rgba(16, 19, 35, 0.8);
     backdrop-filter: blur(20px) saturate(200%);
     -webkit-backdrop-filter: blur(20px) saturate(200%);
@@ -146,33 +111,18 @@ body {
       0 8px 32px rgba(0, 0, 0, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
-
-  @supports not ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
-    .modern-glass {
-      background: rgba(16, 19, 35, 0.95);
-      box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    }
-  }
   
   /* Floating animation for cards */
   @keyframes subtle-float {
-    0%, 100% { 
-      transform: translateY(0px); 
-    }
-    50% { 
-      transform: translateY(-4px); 
-    }
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-4px); }
   }
   
   .animate-subtle-float {
     animation: subtle-float 6s ease-in-out infinite;
-    animation-name: subtle-float;
-    -webkit-animation: subtle-float 6s ease-in-out infinite;
   }
   
-  /* Shimmer border effect - Cross-browser */
+  /* Shimmer border effect */
   .shimmer-border {
     position: relative;
     overflow: hidden;
@@ -193,19 +143,14 @@ body {
     );
     transform: rotate(30deg);
     animation: shimmer-border 3s infinite linear;
-    -webkit-animation: shimmer-border 3s infinite linear;
   }
   
   @keyframes shimmer-border {
-    0% { 
-      transform: translateX(-100%) rotate(30deg); 
-    }
-    100% { 
-      transform: translateX(100%) rotate(30deg); 
-    }
+    0% { transform: translateX(-100%) rotate(30deg); }
+    100% { transform: translateX(100%) rotate(30deg); }
   }
   
-  /* Pulse ring effect - Cross-browser */
+  /* Pulse ring effect */
   .pulse-ring {
     position: relative;
   }
@@ -216,33 +161,24 @@ body {
     inset: -2px;
     border-radius: inherit;
     border: 2px solid transparent;
-    background: linear-gradient(45deg, var(--tw-gradient-from, #8b5cf6), var(--tw-gradient-to, #06b6d4)) border-box;
-    /* WebKit/Safari */
+    background: linear-gradient(45deg, var(--tw-gradient-from), var(--tw-gradient-to)) border-box;
     -webkit-mask: 
       linear-gradient(#fff 0 0) padding-box, 
       linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    /* Standard */
     mask: 
       linear-gradient(#fff 0 0) padding-box, 
       linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
     mask-composite: exclude;
     animation: pulse-ring 2s ease-in-out infinite;
-    -webkit-animation: pulse-ring 2s ease-in-out infinite;
   }
   
   @keyframes pulse-ring {
-    0%, 100% { 
-      opacity: 0.5; 
-      transform: scale(1); 
-    }
-    50% { 
-      opacity: 1; 
-      transform: scale(1.05); 
-    }
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
   }
   
-  /* Glowing text effect - Cross-browser */
+  /* Glowing text effect - KEEP but won't affect search */
   .glowing-text {
     text-shadow: 
       0 0 10px currentColor,
@@ -250,37 +186,23 @@ body {
       0 0 40px currentColor;
   }
   
-  /* Gradient text with shadow - Cross-browser */
+  /* Gradient text with shadow */
   .gradient-text-shadow {
     background: linear-gradient(45deg, #a855f7, #3b82f6, #06b6d4);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    -webkit-text-fill-color: transparent;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-    -webkit-filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-  }
-  
-  /* For browsers that don't support background-clip: text */
-  @supports not (background-clip: text) {
-    .gradient-text-shadow {
-      color: #a855f7; /* Fallback color */
-      background: none;
-      filter: none;
-    }
   }
   
   /* 3D Card effect */
   .card-3d {
     transform-style: preserve-3d;
     perspective: 1000px;
-    -webkit-transform-style: preserve-3d;
-    -webkit-perspective: 1000px;
   }
   
   .card-3d:hover {
     transform: rotateX(5deg) rotateY(5deg);
-    -webkit-transform: rotateX(5deg) rotateY(5deg);
   }
   
   /* Neon glow */
@@ -290,27 +212,6 @@ body {
       0 0 40px currentColor,
       0 0 60px currentColor,
       0 0 80px currentColor;
-  }
-  
-  /* Backdrop blur utilities with cross-browser support */
-  .backdrop-blur-xl {
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-  }
-  
-  .backdrop-blur-lg {
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-  
-  .backdrop-blur-md {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-  
-  .backdrop-blur-sm {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
   }
 }
 
@@ -357,30 +258,22 @@ body {
     break-inside: avoid;
     border: 1px solid #ccc;
     box-shadow: none;
-    background: white !important;
-    color: black !important;
-  }
-  
-  * {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
   }
 }
-
 @keyframes pulse-subtle {
-  0%, 100% { 
-    opacity: 1; 
-  }
-  50% { 
-    opacity: 0.7; 
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .animate-pulse {
   animation: pulse-subtle 1.5s ease-in-out infinite;
-  -webkit-animation: pulse-subtle 1.5s ease-in-out infinite;
 }
 
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, 
+              border-color 0.2s ease;
+}
 /* Corporate Luxury Geometric Patterns */
 .grid-lines {
   background-size: 50px 50px;
@@ -400,31 +293,21 @@ body {
 
 /* Geometric animations for floating elements */
 @keyframes subtle-float {
-  0%, 100% { 
-    transform: translateY(0px); 
-  }
-  50% { 
-    transform: translateY(-8px); 
-  }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 .animate-subtle-float {
   animation: subtle-float 6s ease-in-out infinite;
-  -webkit-animation: subtle-float 6s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { 
-    opacity: 0.3; 
-  }
-  50% { 
-    opacity: 0.8; 
-  }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
 }
 
 .animate-pulse {
   animation: pulse 3s ease-in-out infinite;
-  -webkit-animation: pulse 3s ease-in-out infinite;
 }
 
 /* For the shimmer overlay effect */
@@ -438,16 +321,11 @@ body {
     transparent 100%
   );
   animation: shimmer-shift 15s ease-in-out infinite;
-  -webkit-animation: shimmer-shift 15s ease-in-out infinite;
 }
 
 @keyframes shimmer-shift {
-  0%, 100% { 
-    background-position: -200% 0; 
-  }
-  50% { 
-    background-position: 200% 0; 
-  }
+  0%, 100% { background-position: -200% 0; }
+  50% { background-position: 200% 0; }
 }
 
 /* Text glow effect */
@@ -455,20 +333,12 @@ body {
   text-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
 }
 
-/* Gradient border utility - Cross-browser */
+/* Gradient border utility */
 .gradient-border {
   position: relative;
   border: 1px solid transparent;
-  background: 
-    linear-gradient(var(--color-luxury-navy, #101323), var(--color-luxury-navy, #101323)) padding-box,
-    linear-gradient(45deg, #f59e0b, #3b82f6, #8b5cf6) border-box;
-}
-
-/* Fallback for browsers that don't support multiple backgrounds */
-@supports not (background: linear-gradient(white, white) padding-box) {
-  .gradient-border {
-    border: 1px solid #3b82f6; /* Single color fallback */
-  }
+  background: linear-gradient(var(--color-luxury-navy), var(--color-luxury-navy)) padding-box,
+              linear-gradient(45deg, #f59e0b, #3b82f6, #8b5cf6) border-box;
 }
 
 /* Corner accent animations */
@@ -485,38 +355,14 @@ body {
   height: 4px;
   background: linear-gradient(135deg, #fbbf24, #3b82f6);
   animation: corner-pulse 3s ease-in-out infinite;
-  -webkit-animation: corner-pulse 3s ease-in-out infinite;
 }
 
 @keyframes corner-pulse {
-  0%, 100% { 
-    opacity: 0.3; 
-  }
-  50% { 
-    opacity: 1; 
-  }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 
-/* Smooth backdrop blur support detection */
-@supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
-  .backdrop-blur-supported {
-    /* Class to indicate backdrop-filter support */
-  }
-}
-
-/* Enhanced transparency effects - Cross-browser */
-.glass-effect {
-  /* Fallback */
-  background: rgba(15, 23, 42, 0.9);
-  /* Modern with backdrop-filter */
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
+/* Search Bar Transparency and Animation Effects */
 
 /* Shimmer animation for search bar background */
 @keyframes shimmer {
@@ -533,6 +379,40 @@ body {
   }
 }
 
+/* Smooth backdrop blur support */
+@supports (backdrop-filter: blur(12px)) {
+  .backdrop-blur-xl {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  
+  .backdrop-blur-lg {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  
+  .backdrop-blur-md {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  .backdrop-blur-sm {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* Enhanced transparency effects */
+.glass-effect {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
 /* Subtle pulse for search states */
 @keyframes subtle-pulse {
   0%, 100% {
@@ -545,7 +425,6 @@ body {
 
 .animate-subtle-pulse {
   animation: subtle-pulse 2s ease-in-out infinite;
-  -webkit-animation: subtle-pulse 2s ease-in-out infinite;
 }
 
 /* Enhanced spinner animation */
@@ -560,7 +439,6 @@ body {
 
 .animate-enhanced-spin {
   animation: enhanced-spin 0.8s linear infinite;
-  -webkit-animation: enhanced-spin 0.8s linear infinite;
 }
 
 /* Gradient border animation */
@@ -577,7 +455,6 @@ body {
 
 .animate-border-glow {
   animation: border-glow 3s ease-in-out infinite;
-  -webkit-animation: border-glow 3s ease-in-out infinite;
 }
 
 /* Search overlay animation */
@@ -594,17 +471,12 @@ body {
 
 .search-overlay-enter {
   animation: slide-up 0.3s ease-out forwards;
-  -webkit-animation: slide-up 0.3s ease-out forwards;
 }
 
 /* Input focus effects - UPDATED to be subtle */
 .search-input:focus {
   outline: none;
-  text-shadow: 0 0 5px rgba(156, 163, 175, 0.3);
-}
-
-.search-input:-moz-focusring {
-  outline: none;
+  text-shadow: 0 0 5px rgba(156, 163, 175, 0.3); /* MUCH more subtle - gray instead of gold */
 }
 
 .search-input::placeholder {
@@ -654,7 +526,7 @@ body {
   transition: opacity 0.3s ease-in-out;
 }
 
-/* ================== SEARCH BAR SPECIFIC OVERRIDES ================== */
+/* ================== NEW: SEARCH BAR SPECIFIC OVERRIDES ================== */
 
 /* Search bar text overrides - prevents bright white text */
 [class*="search"] input,
@@ -663,7 +535,7 @@ body {
 .SearchBar input,
 input[type="search"],
 input.search-input {
-  color: rgba(209, 213, 219, 0.9) !important;
+  color: rgba(209, 213, 219, 0.9) !important; /* gray-300 with opacity */
 }
 
 [class*="search"] input::placeholder,
@@ -672,7 +544,7 @@ input.search-input {
 .SearchBar input::placeholder,
 input[type="search"]::placeholder,
 input.search-input::placeholder {
-  color: rgba(156, 163, 175, 0.7) !important;
+  color: rgba(156, 163, 175, 0.7) !important; /* gray-400 with opacity */
 }
 
 /* Remove glow effects specifically from search elements */
@@ -682,30 +554,20 @@ input.search-input::placeholder {
 .SearchBar input:focus,
 input[type="search"]:focus,
 input.search-input:focus {
-  text-shadow: 0 0 3px rgba(156, 163, 175, 0.2) !important;
+  text-shadow: 0 0 3px rgba(156, 163, 175, 0.2) !important; /* Very subtle */
   outline: none !important;
   box-shadow: none !important;
 }
 
-/* Override selection color for search inputs - Cross-browser */
+/* Override selection color for search inputs */
 [class*="search"] input::selection,
 [class*="Search"] input::selection,
 .search-bar input::selection,
 .SearchBar input::selection,
 input[type="search"]::selection,
 input.search-input::selection {
-  background: rgba(75, 85, 99, 0.3) !important;
-  color: rgba(229, 231, 235, 0.9) !important;
-}
-
-[class*="search"] input::-moz-selection,
-[class*="Search"] input::-moz-selection,
-.search-bar input::-moz-selection,
-.SearchBar input::-moz-selection,
-input[type="search"]::-moz-selection,
-input.search-input::-moz-selection {
-  background: rgba(75, 85, 99, 0.3) !important;
-  color: rgba(229, 231, 235, 0.9) !important;
+  background: rgba(75, 85, 99, 0.3) !important; /* gray-600 with opacity */
+  color: rgba(229, 231, 235, 0.9) !important; /* gray-200 with opacity */
 }
 
 /* Search button specific styles */
@@ -713,14 +575,14 @@ input.search-input::-moz-selection {
 [class*="Search"] button,
 .search-bar button,
 .SearchBar button {
-  color: rgba(209, 213, 219, 0.9) !important;
+  color: rgba(209, 213, 219, 0.9) !important; /* gray-300 */
 }
 
 [class*="search"] button:hover,
 [class*="Search"] button:hover,
 .search-bar button:hover,
 .SearchBar button:hover {
-  color: rgba(229, 231, 235, 0.95) !important;
+  color: rgba(229, 231, 235, 0.95) !important; /* slightly brighter on hover */
 }
 
 /* Search bar container overrides */
@@ -736,7 +598,7 @@ input.search-input::-moz-selection {
 [class*="Search"] input:disabled,
 .search-bar input:disabled,
 .SearchBar input:disabled {
-  color: rgba(156, 163, 175, 0.5) !important;
+  color: rgba(156, 163, 175, 0.5) !important; /* gray-400 with lower opacity */
 }
 
 /* Ensure search bar elements don't get the glowing-text effect */
@@ -757,22 +619,18 @@ input.search-input::-moz-selection {
 
 /* Additional base overrides for form elements */
 input, textarea, select {
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
+  color: inherit; /* Allow Tailwind classes to control color */
 }
 
 /* Ensure form elements don't force white text */
 input:not([class*="bg-"]):not([class*="text-"]) {
-  color: var(--foreground, #ffffff);
+  color: var(--foreground); /* This can stay, Tailwind will override */
 }
 
 /* Last resort: direct style attribute simulation */
 input[style*="color:"] {
   /* Let inline styles win */
 }
-
 /* Fix for iOS modal scrolling */
 @supports (-webkit-touch-callout: none) {
   .modal-ios-fix {
@@ -785,84 +643,4 @@ input[style*="color:"] {
   overflow: hidden;
   position: fixed;
   width: 100%;
-}
-
-/* ================== ADDITIONAL CROSS-BROWSER FIXES ================== */
-
-/* Fix for Firefox gradient rendering */
-@-moz-document url-prefix() {
-  .gradient-border {
-    border-image: linear-gradient(45deg, #f59e0b, #3b82f6, #8b5cf6) 1;
-  }
-  
-  .glass-luxury, .modern-glass, .glass-effect {
-    background: rgba(26, 27, 46, 0.85);
-  }
-}
-
-/* Fix for Safari text rendering */
-@media not all and (min-resolution:.001dpcm) { 
-  @supports (-webkit-appearance:none) {
-    .gradient-text-shadow {
-      -webkit-text-fill-color: transparent;
-    }
-    
-    body {
-      -webkit-font-smoothing: antialiased;
-    }
-  }
-}
-
-/* Edge specific fixes */
-@supports (-ms-ime-align: auto) {
-  .glass-luxury, .modern-glass {
-    background: rgba(26, 27, 46, 0.9);
-  }
-  
-  .gradient-text-shadow {
-    color: #a855f7;
-    background: none;
-  }
-}
-
-/* Chrome/Edge text rendering optimization */
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  .gradient-text-shadow {
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  :root {
-    --color-luxury-gold: #ffd700;
-    --color-luxury-purple: #9400d3;
-    --color-luxury-teal: #008b8b;
-  }
-  
-  .glass-luxury, .modern-glass, .glass-effect {
-    background: rgba(26, 27, 46, 0.95);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  
-  .animate-subtle-float,
-  .animate-pulse,
-  .animate-subtle-pulse,
-  .animate-enhanced-spin,
-  .animate-border-glow {
-    animation: none !important;
-  }
 }

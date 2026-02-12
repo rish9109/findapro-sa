@@ -6,9 +6,9 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, Provider } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
-import AccreditationModal from '@/components/AccreditationModal'
-import ServiceAreaModal from '@/components/ServiceAreaModal'
-import ServiceCategoryModal from '@/components/ServiceCategoryModal'
+import AccreditationDrawer from '@/components/AccreditationDrawer'
+import ServiceAreaDrawer from '@/components/ServiceAreaDrawer'
+import ServiceCategoryDrawer from '@/components/ServiceCategoryDrawer'
 import { 
   ArrowLeft, 
   Save, 
@@ -101,10 +101,10 @@ function EditListingContent() {
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   
-  // Modal states
-  const [showServiceModal, setShowServiceModal] = useState(false)
-  const [showServiceAreaModal, setShowServiceAreaModal] = useState(false)
-  const [showAccreditationModal, setShowAccreditationModal] = useState(false)
+  // Drawer states
+  const [showServiceDrawer, setShowServiceDrawer] = useState(false)
+  const [showServiceAreaDrawer, setShowServiceAreaDrawer] = useState(false)
+  const [showAccreditationDrawer, setShowAccreditationDrawer] = useState(false)
   
   // Form errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -869,7 +869,7 @@ function EditListingContent() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => setShowServiceModal(true)}
+                  onClick={() => setShowServiceDrawer(true)}
                   className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.main_service ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
                 >
                   <span className={formData.main_service ? "text-white" : "text-gray-500"}>
@@ -949,7 +949,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAccreditationModal(true)}
+                  onClick={() => setShowAccreditationDrawer(true)}
                   className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors"
                 >
                   <div className="flex-1">
@@ -999,7 +999,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
                 </label>
                 <button
                   type="button"
-                  onClick={() => setShowServiceAreaModal(true)}
+                  onClick={() => setShowServiceAreaDrawer(true)}
                   className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.primaryArea ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors`}
                 >
                   <div className="flex-1">
@@ -1228,20 +1228,20 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
         </form>
       </div>
 
-      {/* Service Category Modal */}
-      <ServiceCategoryModal
-        isOpen={showServiceModal}
-        onClose={() => setShowServiceModal(false)}
+      {/* Service Category Drawer */}
+      <ServiceCategoryDrawer
+        isOpen={showServiceDrawer}
+        onClose={() => setShowServiceDrawer(false)}
         serviceCategories={serviceCategories}
         selectedCategoryId={formData.main_service_id}
         onSelect={handleServiceSelect}
         title="Select Service Category"
       />
 
-      {/* Accreditation Modal */}
-      <AccreditationModal
-        isOpen={showAccreditationModal}
-        onClose={() => setShowAccreditationModal(false)}
+      {/* Accreditation Drawer */}
+      <AccreditationDrawer
+        isOpen={showAccreditationDrawer}
+        onClose={() => setShowAccreditationDrawer(false)}
         providerId={listing?.id || "temp"}
         initialSelection={selectedAccreditations}
         onSave={handleAccreditationsSave}
@@ -1249,11 +1249,11 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
         serviceCategoryId={formData.main_service_id}
       />
 
-      {/* Service Area Modal */}
-      <ServiceAreaModal
-        isOpen={showServiceAreaModal}
-        onClose={() => setShowServiceAreaModal(false)}
-        // Convert existing structure to flat array for the modal
+      {/* Service Area Drawer */}
+      <ServiceAreaDrawer
+        isOpen={showServiceAreaDrawer}
+        onClose={() => setShowServiceAreaDrawer(false)}
+        // Convert existing structure to flat array for the Drawer
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : 
           []}

@@ -1,4 +1,4 @@
-// File: src/app/favorites/page.tsx - UPDATED WITH NO SERVICE AREA FILTERING
+// File: src/app/favorites/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -14,11 +14,36 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 
+// SOLUTION: Define the Provider type interface
+interface FavoriteProvider {
+  id: string
+  business_name: string
+  main_service: string
+  main_service_id?: string
+  service_areas: string
+  formatted_service_areas: string[]
+  fees_pricing?: string | null
+  callout_fee?: string | null
+  rating: number
+  total_reviews: number
+  other_services: string[]
+  all_other_services: string
+  experience_years: number
+  emergency_service: boolean
+  insurance: boolean
+  accepts_card: boolean
+  accepts_cash: boolean
+  verified: boolean
+  accreditations: any[]
+  display_accreditations: any[]
+  is_favorite: boolean
+}
+
 export default function FavoritesPage() {
   const router = useRouter()
   const { user, showAuthModal } = useAuth()
   
-  const [favoriteProviders, setFavoriteProviders] = useState<any[]>([])
+  const [favoriteProviders, setFavoriteProviders] = useState<FavoriteProvider[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
@@ -94,18 +119,18 @@ export default function FavoritesPage() {
         if (error) throw error
         
         if (data && data.length > 0) {
-          const transformedData = data.map(provider => {
+          const transformedData: FavoriteProvider[] = data.map(provider => {
             // UPDATED: Get service areas from providers.service_areas text field - NO FILTERING
-            let formattedServiceAreas = []
+            let formattedServiceAreas: string[] = []
             if (provider.service_areas) {
               formattedServiceAreas = provider.service_areas
                 .split(',')
                 .map((area: string) => area.trim())
-                .filter((area: string) => area !== ''); // Only remove empty strings
+                .filter((area: string) => area !== '');
             }
             
             // UPDATED: Get details (other services) from providers.details text field
-            let otherServices = []
+            let otherServices: string[] = []
             if (provider.details) {
               otherServices = provider.details
                 .split(/[\n,]+/)
@@ -174,8 +199,8 @@ export default function FavoritesPage() {
     router.push(`/providers/${providerId}?ref=favorites`)
   }
 
-  // UPDATED: Get price display - uses fees_pricing instead of hourly_rate
-  const getPriceDisplay = (provider) => {
+  // SOLUTION: Add type annotation to provider parameter
+  const getPriceDisplay = (provider: FavoriteProvider) => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
     }
@@ -184,14 +209,14 @@ export default function FavoritesPage() {
     }
     return 'Contact for rates'
   }
-  // Get service areas display - YOUR EXACT ENHANCED FUNCTION
-  const getServiceAreasDisplay = (provider: any) => {
+  
+  // SOLUTION: Add type annotation to provider parameter
+  const getServiceAreasDisplay = (provider: FavoriteProvider) => {
     try {
       // Use ONLY the formatted_service_areas array
       if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
         // Filter out single letters and common typos
         const cleanedAreas = provider.formatted_service_areas
-    
           .map((area: string) => {
             // Additional cleaning for each area
             return area
@@ -199,7 +224,7 @@ export default function FavoritesPage() {
               .replace(/^[^a-zA-Z]+/, '') // Remove leading non-letters
               .replace(/[^a-zA-Z\s]+$/, '') // Remove trailing non-letters
           })
-          .filter((area: string) => area.length > 0); // Final filter
+          .filter((area: string) => area.length > 0);
         
         if (cleanedAreas.length === 0) {
           return 'Service area not specified';
@@ -221,8 +246,9 @@ export default function FavoritesPage() {
       return 'Service area not specified'
     }
   }
-  // Get accreditations display
-  const getAccreditationsDisplay = (provider: any) => {
+  
+  // SOLUTION: Add type annotation to provider parameter
+  const getAccreditationsDisplay = (provider: FavoriteProvider) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
       const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
@@ -446,7 +472,7 @@ export default function FavoritesPage() {
                               );
                             }
                             
-                            const displayItems = items.slice(0, 2); // Show only 2 on mobile
+                            const displayItems = items.slice(0, 2);
                             
                             return (
                               <ul className="space-y-0.5 sm:space-y-1">

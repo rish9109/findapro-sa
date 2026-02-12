@@ -1055,7 +1055,7 @@ I provide comprehensive plumbing services including repairs, maintenance, and in
             <div className="space-y-6">
               {/* Fees & Pricing */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
                   Fees & Pricing
                 </label>
                 <div className="relative">

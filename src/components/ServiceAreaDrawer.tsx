@@ -1,4 +1,4 @@
-// File: src/components/ServiceAreaDrawer.tsx
+// File: src/components/ServiceAreaDrawer.tsx - FIXED
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -31,16 +31,30 @@ export default function ServiceAreaDrawer({
   const [browseSearch, setBrowseSearch] = useState('');
   const [provinces, setProvinces] = useState<{ id: string; name: string; code: string }[]>([]);
   const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Refs
   const customInputRef = useRef<HTMLInputElement>(null);
   const browseSearchRef = useRef<HTMLInputElement>(null);
   const isInitialized = useRef(false);
+  const mainDrawerRef = useRef<HTMLDivElement>(null);
+  const browseDrawerRef = useRef<HTMLDivElement>(null);
 
   // Handle mounting for portal
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
+  }, []);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Handle escape key and body scroll
@@ -58,11 +72,19 @@ export default function ServiceAreaDrawer({
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${window.scrollY}px`;
     }
     
     return () => {
       document.removeEventListener('keydown', handleEscape);
+      const scrollY = document.body.style.top;
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
     };
   }, [isOpen, showBrowseDrawer, onClose]);
 
@@ -78,23 +100,39 @@ export default function ServiceAreaDrawer({
       // Fetch provinces from database
       fetchProvinces();
       
-      // Focus custom input with a slight delay
-      const timer = setTimeout(() => {
-        customInputRef.current?.focus();
-      }, 150);
-      
-      return () => clearTimeout(timer);
+      // DO NOT auto-focus on mobile to prevent keyboard opening
+      if (!isMobile) {
+        const timer = setTimeout(() => {
+          customInputRef.current?.focus();
+        }, 150);
+        return () => clearTimeout(timer);
+      }
     } else if (!isOpen) {
       isInitialized.current = false;
     }
-  }, [isOpen, initialAreas]);
+  }, [isOpen, initialAreas, isMobile]);
 
-  // Focus browse search when browse drawer opens
+  // Focus browse search when browse drawer opens - only on desktop
   useEffect(() => {
-    if (showBrowseDrawer) {
-      setTimeout(() => browseSearchRef.current?.focus(), 100);
+    if (showBrowseDrawer && !isMobile) {
+      const timer = setTimeout(() => browseSearchRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
     }
-  }, [showBrowseDrawer]);
+  }, [showBrowseDrawer, isMobile]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    } else {
+      document.body.style.paddingRight = '';
+    }
+    
+    return () => {
+      document.body.style.paddingRight = '';
+    };
+  }, [isOpen]);
 
   // Fetch provinces function
   const fetchProvinces = async () => {
@@ -169,8 +207,11 @@ export default function ServiceAreaDrawer({
     setSelectedAreas(prev => [...prev, sanitizedArea]);
     setNewArea('');
     setError('');
-    customInputRef.current?.focus();
-  }, [newArea, selectedAreas, maxAreas, sanitizeInput]);
+    // Only refocus on desktop
+    if (!isMobile) {
+      customInputRef.current?.focus();
+    }
+  }, [newArea, selectedAreas, maxAreas, sanitizeInput, isMobile]);
   
   const removeArea = useCallback((areaToRemove: string) => {
     setSelectedAreas(prev => prev.filter(area => area !== areaToRemove));
@@ -209,8 +250,10 @@ export default function ServiceAreaDrawer({
   const clearAllAreas = useCallback(() => {
     setSelectedAreas([]);
     setError('');
-    customInputRef.current?.focus();
-  }, []);
+    if (!isMobile) {
+      customInputRef.current?.focus();
+    }
+  }, [isMobile]);
 
   // Don't render if not open or not mounted
   if (!isOpen || !mounted) return null;
@@ -240,18 +283,21 @@ export default function ServiceAreaDrawer({
         onClick={onClose}
       />
       
-      {/* Drawer Container - Always slides from right */}
+      {/* Drawer Container - Always slides from right - FIXED: Consistent animation on all devices */}
       <div
+        ref={mainDrawerRef}
         style={{
           position: 'fixed',
           top: 0,
           bottom: 0,
           right: 0,
+          left: isMobile ? 0 : 'auto', // Full width on mobile but still slides from right
           zIndex: 1000000,
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
-          maxWidth: '560px',
+          maxWidth: isMobile ? '100%' : '560px',
+          marginLeft: 'auto', // Pushes to the right
         }}
       >
         {/* Drawer Content */}
@@ -262,14 +308,15 @@ export default function ServiceAreaDrawer({
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            height: '100vh',
+            height: '100dvh', // Use dynamic viewport height for mobile
             animation: 'slideLeft 0.3s ease-out',
+            position: 'relative',
           }}
         >
-          {/* Header */}
+          {/* Header - FIXED: Better mobile padding */}
           <div
             style={{
-              padding: '1.25rem 1.5rem',
+              padding: isMobile ? '1rem 1.25rem' : '1.25rem 1.5rem',
               borderBottom: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
@@ -293,8 +340,8 @@ export default function ServiceAreaDrawer({
                 onClick={onClose}
                 style={{
                   color: '#9ca3af',
-                  padding: '0.375rem',
-                  borderRadius: '0.375rem',
+                  padding: isMobile ? '0.5rem' : '0.375rem',
+                  borderRadius: '0.5rem',
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
@@ -302,6 +349,8 @@ export default function ServiceAreaDrawer({
                   alignItems: 'center',
                   justifyContent: 'center',
                   transition: 'all 0.2s',
+                  minHeight: isMobile ? '44px' : 'auto',
+                  minWidth: isMobile ? '44px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#374151';
@@ -315,20 +364,13 @@ export default function ServiceAreaDrawer({
                 <X style={{ width: '1.25rem', height: '1.25rem' }} />
               </button>
             </div>
-            
-            <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
-              {selectedAreas.length > 0 
-                ? `${selectedAreas.length} area${selectedAreas.length !== 1 ? 's' : ''} selected` 
-                : 'Add your service areas'
-              }
-            </p>
           </div>
           
           {/* Error message */}
           {error && (
             <div style={{
-              margin: '1rem 1.5rem 0',
-              padding: '0.75rem 1rem',
+              margin: isMobile ? '0.75rem 1.25rem 0' : '1rem 1.5rem 0',
+              padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
               backgroundColor: 'rgba(185, 28, 28, 0.2)',
               border: '1px solid rgba(185, 28, 28, 0.5)',
               borderRadius: '0.5rem',
@@ -340,18 +382,18 @@ export default function ServiceAreaDrawer({
             </div>
           )}
           
-          {/* Content Area - Scrollable */}
+          {/* Content Area - Scrollable - FIXED: Better mobile padding */}
           <div
             style={{
               flex: '1 1 auto',
               overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
-              padding: '1.5rem',
+              padding: isMobile ? '1.25rem' : '1.5rem',
               backgroundColor: '#1f2937',
             }}
           >
             {/* Browse Areas Button */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: isMobile ? '1.25rem' : '1.5rem' }}>
               <h4 style={{ 
                 fontSize: '0.875rem', 
                 fontWeight: '500', 
@@ -372,7 +414,7 @@ export default function ServiceAreaDrawer({
                 disabled={isLoadingProvinces}
                 style={{
                   width: '100%',
-                  padding: '0.75rem 1rem',
+                  padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                   backgroundColor: '#111827',
                   border: '1px solid #374151',
                   borderRadius: '0.75rem',
@@ -385,6 +427,7 @@ export default function ServiceAreaDrawer({
                   transition: 'all 0.2s',
                   opacity: isLoadingProvinces ? 0.5 : 1,
                   marginBottom: '0.5rem',
+                  minHeight: isMobile ? '48px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
                   if (!isLoadingProvinces) {
@@ -413,8 +456,8 @@ export default function ServiceAreaDrawer({
               </p>
             </div>
             
-            {/* Add custom area */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            {/* Add custom area - FIXED: Better mobile touch targets */}
+            <div style={{ marginBottom: isMobile ? '1.25rem' : '1.5rem' }}>
               <h4 style={{ 
                 fontSize: '0.875rem', 
                 fontWeight: '500', 
@@ -447,16 +490,20 @@ export default function ServiceAreaDrawer({
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="Type a custom area name..."
+                  inputMode="text"
+                  autoCapitalize="words"
+                  enterKeyHint="done"
                   style={{
                     flex: 1,
-                    padding: '0.75rem 1rem',
+                    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                     backgroundColor: '#111827',
                     border: '1px solid #374151',
                     borderRadius: '0.75rem',
                     color: 'white',
-                    fontSize: '0.875rem',
+                    fontSize: '0.9375rem',
                     outline: 'none',
                     transition: 'all 0.2s',
+                    minHeight: isMobile ? '48px' : 'auto',
                   }}
                   onFocus={(e) => {
                     e.currentTarget.style.borderColor = '#f97316';
@@ -471,7 +518,7 @@ export default function ServiceAreaDrawer({
                   onClick={addCustomArea}
                   disabled={!newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())}
                   style={{
-                    padding: '0.75rem 1rem',
+                    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                     background: !newArea.trim() || selectedAreas.length >= maxAreas || selectedAreas.includes(newArea.trim())
                       ? '#374151'
                       : 'linear-gradient(to right, #ea580c, #f97316)',
@@ -489,6 +536,8 @@ export default function ServiceAreaDrawer({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    minWidth: isMobile ? '48px' : 'auto',
+                    minHeight: isMobile ? '48px' : 'auto',
                   }}
                   aria-label="Add custom area"
                 >
@@ -500,7 +549,7 @@ export default function ServiceAreaDrawer({
               </p>
             </div>
             
-            {/* Selected Areas */}
+            {/* Selected Areas - FIXED: Better mobile spacing */}
             <div>
               <div style={{ 
                 display: 'flex', 
@@ -534,6 +583,8 @@ export default function ServiceAreaDrawer({
                         cursor: 'pointer',
                         textDecoration: 'underline',
                         textUnderlineOffset: '2px',
+                        padding: isMobile ? '0.5rem' : '0.25rem',
+                        minHeight: isMobile ? '44px' : 'auto',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.color = '#ef4444';
@@ -560,7 +611,7 @@ export default function ServiceAreaDrawer({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '0.75rem 1rem',
+                          padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                           background: 'linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(31, 41, 55, 0.3))',
                           border: '1px solid #374151',
                           borderRadius: '0.75rem',
@@ -594,13 +645,15 @@ export default function ServiceAreaDrawer({
                             color: '#9ca3af',
                             background: 'transparent',
                             border: 'none',
-                            padding: '0.25rem',
+                            padding: isMobile ? '0.5rem' : '0.25rem',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             borderRadius: '0.375rem',
                             transition: 'all 0.2s',
+                            minHeight: isMobile ? '44px' : 'auto',
+                            minWidth: isMobile ? '44px' : 'auto',
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = '#f97316';
@@ -621,7 +674,7 @@ export default function ServiceAreaDrawer({
               ) : (
                 <div style={{ 
                   textAlign: 'center', 
-                  padding: '2rem 1rem',
+                  padding: isMobile ? '2rem 1rem' : '2rem 1rem',
                   border: '2px dashed #374151',
                   borderRadius: '0.75rem',
                   background: 'linear-gradient(to right, rgba(17, 24, 39, 0.2), rgba(31, 41, 55, 0.1))',
@@ -638,22 +691,31 @@ export default function ServiceAreaDrawer({
             </div>
           </div>
           
-          {/* Footer */}
+          {/* Footer - FIXED: Sticky footer that's not cut off on mobile */}
           <div
             style={{
-              padding: '1rem 1.5rem',
+              padding: isMobile ? '1rem 1.25rem' : '1rem 1.5rem',
               borderTop: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
               boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
+              position: 'sticky',
+              bottom: 0,
+              width: '100%',
+              zIndex: 10,
+              paddingBottom: isMobile ? 'max(1rem, env(safe-area-inset-bottom))' : '1rem',
             }}
           >
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '0.75rem',
+              flexDirection: 'row',
+            }}>
               <button
                 onClick={onClose}
                 style={{
                   flex: 1,
-                  padding: '0.75rem',
+                  padding: isMobile ? '0.875rem 0.75rem' : '0.75rem',
                   backgroundColor: '#374151',
                   border: 'none',
                   borderRadius: '0.75rem',
@@ -662,6 +724,7 @@ export default function ServiceAreaDrawer({
                   fontSize: '0.9375rem',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s',
+                  minHeight: isMobile ? '48px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#4b5563';
@@ -677,7 +740,7 @@ export default function ServiceAreaDrawer({
                 disabled={selectedAreas.length === 0 || isLoading}
                 style={{
                   flex: 1,
-                  padding: '0.75rem',
+                  padding: isMobile ? '0.875rem 0.75rem' : '0.75rem',
                   background: selectedAreas.length === 0 || isLoading
                     ? '#374151'
                     : 'linear-gradient(to right, #ea580c, #f97316)',
@@ -692,6 +755,7 @@ export default function ServiceAreaDrawer({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
+                  minHeight: isMobile ? '48px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
                   if (selectedAreas.length > 0 && !isLoading) {
@@ -746,23 +810,35 @@ export default function ServiceAreaDrawer({
           }
         }
 
-        /* Mobile optimizations */
-        @media (max-width: 640px) {
-          div[style*="max-width: 560px"] {
-            max-width: 100% !important;
+        /* Mobile optimizations - FIXED: Consistent drawer animation and safe areas */
+        @media (max-width: 768px) {
+          div[style*="position: fixed"][style*="bottom: 0"][style*="right: 0"] {
+            left: 0 !important;
           }
           
-          button {
-            min-height: 44px;
+          button, input, select {
+            min-height: 48px;
           }
           
           input, button {
             font-size: 16px !important;
           }
+          
+          /* Safe area insets for modern mobile devices */
+          @supports (padding: max(0px)) {
+            div[style*="padding-bottom: max(1rem, env(safe-area-inset-bottom))"] {
+              padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+            }
+          }
+          
+          /* Prevent zoom on input focus */
+          input[type="text"] {
+            font-size: 16px;
+          }
         }
 
         /* Tablet optimizations */
-        @media (min-width: 641px) and (max-width: 1024px) {
+        @media (min-width: 769px) and (max-width: 1024px) {
           div[style*="max-width: 560px"] {
             max-width: 480px !important;
           }
@@ -787,7 +863,7 @@ export default function ServiceAreaDrawer({
         }
       `}</style>
 
-      {/* Browse Provinces Drawer */}
+      {/* Browse Provinces Drawer - FIXED: Consistent with main drawer */}
       {showBrowseDrawer && createPortal(
         <div style={{
           position: 'fixed',
@@ -812,16 +888,19 @@ export default function ServiceAreaDrawer({
           />
           
           <div
+            ref={browseDrawerRef}
             style={{
               position: 'fixed',
               top: 0,
               bottom: 0,
               right: 0,
+              left: isMobile ? 0 : 'auto',
               zIndex: 1000002,
               display: 'flex',
               flexDirection: 'column',
               width: '100%',
-              maxWidth: '560px',
+              maxWidth: isMobile ? '100%' : '560px',
+              marginLeft: 'auto',
             }}
           >
             <div
@@ -831,14 +910,14 @@ export default function ServiceAreaDrawer({
                 display: 'flex',
                 flexDirection: 'column',
                 width: '100%',
-                height: '100vh',
+                height: '100dvh',
                 animation: 'slideLeft 0.3s ease-out',
               }}
             >
-              {/* Header */}
+              {/* Header - FIXED: Better mobile padding */}
               <div
                 style={{
-                  padding: '1.25rem 1.5rem',
+                  padding: isMobile ? '1rem 1.25rem' : '1.25rem 1.5rem',
                   borderBottom: '1px solid #374151',
                   backgroundColor: '#1f2937',
                   flexShrink: 0,
@@ -862,8 +941,8 @@ export default function ServiceAreaDrawer({
                     onClick={() => setShowBrowseDrawer(false)}
                     style={{
                       color: '#9ca3af',
-                      padding: '0.375rem',
-                      borderRadius: '0.375rem',
+                      padding: isMobile ? '0.5rem' : '0.375rem',
+                      borderRadius: '0.5rem',
                       background: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
@@ -871,6 +950,8 @@ export default function ServiceAreaDrawer({
                       alignItems: 'center',
                       justifyContent: 'center',
                       transition: 'all 0.2s',
+                      minHeight: isMobile ? '44px' : 'auto',
+                      minWidth: isMobile ? '44px' : 'auto',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = '#374151';
@@ -906,16 +987,19 @@ export default function ServiceAreaDrawer({
                   value={browseSearch}
                   onChange={(e) => setBrowseSearch(e.target.value)}
                   placeholder="Search provinces..."
+                  inputMode="search"
+                  enterKeyHint="search"
                   style={{
                     width: '100%',
-                    padding: '0.75rem 1rem',
+                    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                     backgroundColor: '#111827',
                     border: '1px solid #374151',
                     borderRadius: '0.75rem',
                     color: 'white',
-                    fontSize: '0.875rem',
+                    fontSize: '0.9375rem',
                     outline: 'none',
                     transition: 'all 0.2s',
+                    minHeight: isMobile ? '48px' : 'auto',
                   }}
                   onFocus={(e) => {
                     e.currentTarget.style.borderColor = '#f97316';
@@ -934,7 +1018,7 @@ export default function ServiceAreaDrawer({
                   flex: '1 1 auto',
                   overflowY: 'auto',
                   WebkitOverflowScrolling: 'touch',
-                  padding: '1.5rem',
+                  padding: isMobile ? '1.25rem' : '1.5rem',
                   backgroundColor: '#1f2937',
                 }}
               >
@@ -981,7 +1065,7 @@ export default function ServiceAreaDrawer({
                           disabled={isDisabled}
                           style={{
                             width: '100%',
-                            padding: '0.75rem 1rem',
+                            padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                             backgroundColor: isSelected
                               ? 'rgba(249, 115, 22, 0.2)'
                               : isDisabled
@@ -1006,6 +1090,7 @@ export default function ServiceAreaDrawer({
                             cursor: isDisabled ? 'not-allowed' : 'pointer',
                             transition: 'all 0.2s',
                             opacity: isDisabled ? 0.5 : 1,
+                            minHeight: isMobile ? '48px' : 'auto',
                           }}
                           onMouseEnter={(e) => {
                             if (!isSelected && !isDisabled) {
@@ -1046,20 +1131,25 @@ export default function ServiceAreaDrawer({
                 )}
               </div>
               
-              {/* Footer */}
+              {/* Footer - FIXED: Sticky footer with safe area */}
               <div
                 style={{
-                  padding: '1rem 1.5rem',
+                  padding: isMobile ? '1rem 1.25rem' : '1rem 1.5rem',
                   borderTop: '1px solid #374151',
                   backgroundColor: '#1f2937',
                   flexShrink: 0,
+                  position: 'sticky',
+                  bottom: 0,
+                  width: '100%',
+                  zIndex: 10,
+                  paddingBottom: isMobile ? 'max(1rem, env(safe-area-inset-bottom))' : '1rem',
                 }}
               >
                 <button
                   onClick={() => setShowBrowseDrawer(false)}
                   style={{
                     width: '100%',
-                    padding: '0.75rem',
+                    padding: isMobile ? '0.875rem' : '0.75rem',
                     background: 'linear-gradient(to right, #ea580c, #f97316)',
                     border: 'none',
                     borderRadius: '0.75rem',
@@ -1068,6 +1158,7 @@ export default function ServiceAreaDrawer({
                     fontSize: '0.9375rem',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
+                    minHeight: isMobile ? '48px' : 'auto',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';

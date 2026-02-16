@@ -176,10 +176,21 @@ function ProviderListingsContent() {
       setFormErrors(prev => ({ ...prev, main_service: '' }))
     }
   }, [formErrors])
+
   const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
     setSelectedAccreditations(accreditations)
   }, [])
-  
+
+  // Handler for ServiceAreaDrawer (expects string array)
+  const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
+    setServiceAreas({
+      primaryArea: areas[0] || '',
+      additionalAreas: areas.slice(1) || []
+    })
+    if (formErrors.primaryArea) {
+      setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+    }
+  }, [formErrors])
 
   // Handler for ProviderForm (expects object with primaryArea/additionalAreas)
   const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
@@ -188,6 +199,7 @@ function ProviderListingsContent() {
       setFormErrors(prev => ({ ...prev, primaryArea: '' }))
     }
   }, [formErrors])
+
   const handleCancel = useCallback(() => {
     if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
       router.back()
@@ -503,7 +515,8 @@ function ProviderListingsContent() {
         onClose={() => setShowServiceAreaDrawer(false)}
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : []}
-          onSave={handleServiceAreaDrawerSave}
+        onSave={handleServiceAreaDrawerSave}
+        maxAreas={7}
       />
 
       <FormSubmissionDrawer

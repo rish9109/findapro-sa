@@ -459,18 +459,6 @@ export default function ProvidersPage() {
                           
                           <div className="flex items-center gap-4 mt-3">
                             <div className="flex items-center gap-1.5">
-                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                              <span className="font-semibold text-white">
-                                {provider.rating || 'New'}
-                              </span>
-                              {provider.total_reviews > 0 && (
-                                <span className="text-sm text-gray-400">
-                                  ({provider.total_reviews})
-                                </span>
-                              )}
-                            </div>
-                            
-                            <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-emerald-400">
                                 {getPriceDisplay(provider)}
                               </span>

@@ -296,11 +296,8 @@ function EditListingContent() {
     setSelectedAccreditations(accreditations)
   }, [])
 
-  const handleServiceAreasSave = useCallback((areas: string[]) => {
-    setServiceAreas({
-      primaryArea: areas[0] || '',
-      additionalAreas: areas.slice(1) || []
-    })
+  const handleServiceAreasSave = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
+    setServiceAreas(areas)
     if (formErrors.primaryArea) {
       setFormErrors(prev => ({ ...prev, primaryArea: '' }))
     }

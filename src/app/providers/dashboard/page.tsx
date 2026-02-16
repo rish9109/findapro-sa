@@ -136,24 +136,65 @@ export default function ProviderDashboard() {
       loadDashboard()
     }
   }, [user, isLoading])
-
   const handleDeleteListing = async (listingId: string, listingName: string) => {
     if (!confirm(`Are you sure you want to delete "${listingName}"? This action cannot be undone.`)) {
       return
     }
     
     try {
+      // Find the listing being deleted to get its logo URL
+      const listingToDelete = listings.find(l => l.id === listingId)
+      const logoUrl = listingToDelete?.logo_url
+      
+      // Check how many listings the user will have after deletion
+      const remainingCount = listings.filter(l => l.id !== listingId).length
+      const isLastListing = remainingCount === 0
+      
+      // Delete the listing from database
       const { error } = await supabase
         .from('providers')
         .delete()
         .eq('id', listingId)
         .eq('user_id', user?.id)
-
+  
       if (error) throw error
       
+      // Update local state immediately
       setListings(prev => prev.filter(l => l.id !== listingId))
       
-      setSuccess('Listing deleted successfully!')
+      // If this was the last listing AND there was a logo, delete it from storage
+      if (isLastListing && logoUrl) {
+        console.log('Last listing deleted, removing logo from storage...')
+        
+        // Call the delete API through your vercel-blob function
+        const response = await fetch('/api/blob/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: logoUrl }),
+        })
+        
+        if (response.ok) {
+          console.log('Logo deleted successfully from storage')
+          
+          // Trigger a refresh of the ProviderLogo component by forcing a re-render
+          // We can do this by updating a timestamp that the ProviderLogo watches
+          setSuccess('Listing and logo deleted successfully!')
+          
+          // Small delay to ensure the logo deletion is processed
+          setTimeout(() => {
+            // Force a refresh of the page to reload all data including logo
+            window.location.reload()
+          }, 500)
+        } else {
+          console.warn('Failed to delete logo from storage')
+          setSuccess('Listing deleted, but logo cleanup failed')
+        }
+      } else {
+        setSuccess('Listing deleted successfully!')
+      }
+      
       setTimeout(() => setSuccess(''), 3000)
       
     } catch (err: any) {

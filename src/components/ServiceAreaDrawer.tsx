@@ -63,36 +63,23 @@ export default function ServiceAreaDrawer({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle escape key and body scroll
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        if (showBrowseDrawer) {
-          setShowBrowseDrawer(false);
-        } else {
-          onClose();
-        }
-      }
-    };
-    
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${window.scrollY}px`;
-    }
-    
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      window.scrollTo(0, parseInt(scrollY || '0') * -1);
-    };
-  }, [isOpen, showBrowseDrawer, onClose]);
+  // Handle escape key and body scroll - REMOVED SCROLL RESTORATION
+// Handle escape key and body scroll - REMOVED SCROLL RESTORATION
+useEffect(() => {
+  const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+  };
+  
+  if (isOpen) {
+    document.addEventListener('keydown', handleEscape);
+    document.body.style.overflow = 'hidden';
+  }
+  
+  return () => {
+    document.removeEventListener('keydown', handleEscape);
+    document.body.style.overflow = '';
+  };
+}, [isOpen, onClose]); // Remove the duplicate dependency
 
   // Initialize state when drawer opens
   useEffect(() => {

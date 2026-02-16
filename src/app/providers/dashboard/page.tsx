@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, Provider, getUserListings } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import ProviderLogo from '@/components/ProviderLogo' // UPDATED IMPORT
+import ProviderLogo from '@/components/ProviderLogo'
 import { 
   Building, 
   Edit, 
@@ -26,7 +26,7 @@ import {
   MapPin
 } from 'lucide-react'
 
-// Status badge configuration - UPDATED to match DATABASE status values ('pause' not 'paused')
+// Status badge configuration
 const statusConfig = {
   pending: {
     icon: Clock,
@@ -36,7 +36,7 @@ const statusConfig = {
     label: 'Pending Review',
     action: 'edit'
   },
-  approved: { // This is "Live" status
+  approved: {
     icon: CheckCircle,
     color: 'text-emerald-400',
     bgColor: 'bg-emerald-500/10',
@@ -52,7 +52,7 @@ const statusConfig = {
     label: 'Rejected',
     action: 'resubmit'
   },
-  pause: {  // <-- CHANGED FROM 'paused' TO 'pause' (DATABASE VALUE)
+  pause: {
     icon: Pause,
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/10',
@@ -86,17 +86,13 @@ export default function ProviderDashboard() {
       try {
         // Load user's listings
         const userListings = await getUserListings(user.id)
-        console.log('Listings loaded:', userListings) // Debug log
+        console.log('Listings loaded:', userListings)
         setListings(userListings)
-        const validListings = userListings.filter(listing => 
-          listing.status !== 'deleted' && 
-          listing.status !== 'suspended'
-          );
+        
         // Load service areas for each listing
         const areasData: Record<string, ServiceAreaData> = {}
         
         for (const listing of userListings) {
-          // Try to get service areas from new table first
           const { data: serviceAreasData } = await supabase
             .from('provider_service_areas')
             .select('area_name, is_primary')
@@ -112,11 +108,8 @@ export default function ProviderDashboard() {
               additionalAreas: additionalAreas.map(area => area.area_name)
             }
           } else {
-            // Fallback to old service_areas field
-            const primaryServiceArea = listing.main_service || 'Not specified'
-
             areasData[listing.id] = {
-              primaryArea: primaryServiceArea,
+              primaryArea: listing.main_service || 'Not specified',
               additionalAreas: []
             }
           }
@@ -136,37 +129,31 @@ export default function ProviderDashboard() {
       loadDashboard()
     }
   }, [user, isLoading])
+
   const handleDeleteListing = async (listingId: string, listingName: string) => {
     if (!confirm(`Are you sure you want to delete "${listingName}"? This action cannot be undone.`)) {
       return
     }
     
     try {
-      // Find the listing being deleted to get its logo URL
       const listingToDelete = listings.find(l => l.id === listingId)
       const logoUrl = listingToDelete?.logo_url
-      
-      // Check how many listings the user will have after deletion
       const remainingCount = listings.filter(l => l.id !== listingId).length
       const isLastListing = remainingCount === 0
       
-      // Delete the listing from database
       const { error } = await supabase
         .from('providers')
         .delete()
         .eq('id', listingId)
         .eq('user_id', user?.id)
-  
+
       if (error) throw error
       
-      // Update local state immediately
       setListings(prev => prev.filter(l => l.id !== listingId))
       
-      // If this was the last listing AND there was a logo, delete it from storage
       if (isLastListing && logoUrl) {
         console.log('Last listing deleted, removing logo from storage...')
         
-        // Call the delete API through your vercel-blob function
         const response = await fetch('/api/blob/delete', {
           method: 'POST',
           headers: {
@@ -177,14 +164,9 @@ export default function ProviderDashboard() {
         
         if (response.ok) {
           console.log('Logo deleted successfully from storage')
-          
-          // Trigger a refresh of the ProviderLogo component by forcing a re-render
-          // We can do this by updating a timestamp that the ProviderLogo watches
           setSuccess('Listing and logo deleted successfully!')
           
-          // Small delay to ensure the logo deletion is processed
           setTimeout(() => {
-            // Force a refresh of the page to reload all data including logo
             window.location.reload()
           }, 500)
         } else {
@@ -239,11 +221,8 @@ export default function ProviderDashboard() {
   }
 
   const handleTogglePauseListing = async (listingId: string, currentStatus: string) => {
-    console.log('Toggling pause status:', listingId, 'current:', currentStatus)
-    
     try {
       const newStatus = currentStatus === 'pause' ? 'approved' : 'pause'
-      console.log('Setting new status:', newStatus)
       
       const { error } = await supabase
         .from('providers')
@@ -254,10 +233,7 @@ export default function ProviderDashboard() {
         .eq('id', listingId)
         .eq('user_id', user?.id)
 
-      if (error) {
-        console.error('Supabase update error:', error)
-        throw error
-      }
+      if (error) throw error
       
       setListings(prev => 
         prev.map(listing => 
@@ -281,32 +257,25 @@ export default function ProviderDashboard() {
     router.push(`/providers/${listingId}`)
   }
 
-  // Count listings by status for quick overview
   const liveCount = listings.filter(l => l.status === 'approved').length
   const pendingCount = listings.filter(l => l.status === 'pending').length
   const rejectedCount = listings.filter(l => l.status === 'rejected').length
   const pausedCount = listings.filter(l => l.status === 'pause').length
   
-  // Get primary service area for a listing
   const getPrimaryServiceArea = (listingId: string) => {
     const areaData = serviceAreas[listingId]
     return areaData?.primaryArea || 'Not specified'
   }
 
-  // Debug: Log current listings and counts
-  useEffect(() => {
-    if (listings.length > 0) {
-      console.log('Current listings:', listings.map(l => ({ 
-        id: l.id, 
-        name: l.business_name, 
-        status: l.status 
-      })))
-      console.log('Counts:', { liveCount, pendingCount, rejectedCount, pausedCount })
-    }
-  }, [listings, liveCount, pendingCount, rejectedCount, pausedCount])
-
   if (isLoading) {
-    return <LoadingSkeleton />
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400 text-lg">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
@@ -365,16 +334,14 @@ export default function ProviderDashboard() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column: Logo & Actions */}
           <div className="lg:col-span-1">
-            {/* Logo Upload Card - UPDATED TO USE PROVIDERLOGO COMPONENT */}
-            
             <ProviderLogo
-  size="md"
-  onSuccess={(message) => {
-    setSuccess(message)
-    setTimeout(() => setSuccess(''), 3000)
-  }}
-  onError={(message) => setError(message)}
-/>
+              size="md"
+              onSuccess={(message) => {
+                setSuccess(message)
+                setTimeout(() => setSuccess(''), 3000)
+              }}
+              onError={(message) => setError(message)}
+            />
 
             {/* Quick Stats */}
             <div className="bg-gradient-to-b from-gray-800/30 to-gray-900/30 rounded-2xl border border-gray-700/50 p-6 mb-6">
@@ -459,7 +426,7 @@ export default function ProviderDashboard() {
             {loading ? (
               <div className="text-center py-12">
                 <Loader2 className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
-                <p className="text-gray-400">Loading listings...</p>
+                <p className="text-gray-400">Fetching your listings...</p>
               </div>
             ) : listings.length === 0 ? (
               <div className="text-center py-12 bg-gradient-to-b from-gray-800/30 to-gray-900/30 rounded-2xl border border-gray-700/50">
@@ -736,33 +703,6 @@ export default function ProviderDashboard() {
                 </p>
               </div>
             )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function LoadingSkeleton() {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black pt-24 pb-16">
-      <div className="container mx-auto px-4 max-w-6xl">
-        <div className="animate-pulse">
-          {/* Header */}
-          <div className="h-10 bg-gray-800 rounded w-64 mb-4"></div>
-          <div className="h-4 bg-gray-800 rounded w-96 mb-8"></div>
-          
-          {/* Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="space-y-6">
-              <div className="h-64 bg-gray-800 rounded-2xl"></div>
-              <div className="h-12 bg-gray-800 rounded-xl"></div>
-            </div>
-            
-            <div className="lg:col-span-2 space-y-4">
-              <div className="h-32 bg-gray-800 rounded-xl"></div>
-              <div className="h-32 bg-gray-800 rounded-xl"></div>
-            </div>
           </div>
         </div>
       </div>

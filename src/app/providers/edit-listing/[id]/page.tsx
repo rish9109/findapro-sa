@@ -199,20 +199,12 @@ function EditListingContent() {
         
         setListing(listingData)
         
-        // Check if user has any approved listings (excluding current one)
-        const { data: approvedListings } = await supabase
-          .from('providers')
-          .select('business_name')
-          .eq('user_id', session.user.id)
-          .eq('status', 'approved')
-          .neq('id', listingId) // Exclude current listing
-          .limit(1)
+        // FIX: Business name should ALWAYS be locked, just like email
+        // No conditions needed - once a user has ANY listing, business name is locked forever
+        setExistingBusinessName(listingData.business_name)
+        setLockedFields(['business_name', 'contact_email'])
         
-        // If user has another approved listing, lock the business name and email
-        if (approvedListings && approvedListings.length > 0) {
-          setExistingBusinessName(approvedListings[0].business_name)
-          setLockedFields(['business_name', 'contact_email'])
-        }
+        console.log('Business name and email locked for this listing')
         
         // Parse service areas
         let parsedServiceAreas: string[] = []
@@ -609,7 +601,7 @@ function EditListingContent() {
             mode="edit"
             serviceCategories={serviceCategories}
             userEmail={formData.contact_email}
-            existingBusinessName={existingBusinessName} // Pass the locked business name
+            existingBusinessName={existingBusinessName}
             selectedAccreditations={selectedAccreditations}
             onAccreditationsChange={handleAccreditationsSave}
             serviceAreas={serviceAreas}

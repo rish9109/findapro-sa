@@ -6,7 +6,7 @@ import {
   sendNewListingConfirmationEmail,
   sendProviderStatusEmail,
   sendAdminConfirmationEmail,
-  sendListingUpdatedEmail  // ADD THIS IMPORT
+  sendListingUpdatedEmail
 } from '@/lib/resend'
 
 export async function POST(request: NextRequest) {
@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     const { 
       event, 
       providerId, 
+      provider: directProvider, // 👈 Add this to accept direct provider data
       adminEmail, 
       action, 
       reason,
@@ -30,16 +31,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event type required' }, { status: 400 })
     }
 
-    // For listing_updated, we don't need provider object
-    if (event !== 'listing_updated' && !providerId) {
-      return NextResponse.json({ error: 'Provider ID required' }, { status: 400 })
-    }
-
-    let provider = null
+    let provider = directProvider || null // 👈 Use direct provider if provided
     let result = null
 
-    // Get provider details (except for listing_updated)
-    if (providerId && event !== 'listing_updated') {
+    // Only fetch from DB if provider data wasn't provided directly
+    if (!provider && providerId && event !== 'listing_updated') {
       const { data: providerData, error: providerError } = await supabase
         .from('providers')
         .select('*')
@@ -62,7 +58,7 @@ export async function POST(request: NextRequest) {
         console.log('📤 Sending new listing emails for:', provider?.business_name)
         
         if (!provider) {
-          return NextResponse.json({ error: 'Provider not found' }, { status: 404 })
+          return NextResponse.json({ error: 'Provider data required' }, { status: 404 })
         }
 
         // Use your existing working functions

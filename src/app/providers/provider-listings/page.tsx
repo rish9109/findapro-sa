@@ -329,12 +329,18 @@ function ProviderListingsContent() {
         await supabase.from('provider_accreditations').insert(accreditationsData)
       }
       
-      // Send notification (non-blocking)
-      fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'new_listing', providerId: data.id, launchTrial: true })
-      }).catch(() => {})
+// Send notification with full provider data (non-blocking)
+fetch('/api/email', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    event: 'new_listing', 
+    provider: data,  // Send the whole provider object instead of just ID
+    launchTrial: true 
+  })
+}).catch((error) => {
+  console.error('Email notification failed:', error) // Log errors instead of swallowing them
+})
       
       setSubmissionStatus('success')
       setSubmissionMessage('Listing Created!')

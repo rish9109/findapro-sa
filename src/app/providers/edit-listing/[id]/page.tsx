@@ -280,24 +280,32 @@ function EditListingContent() {
     loadData()
   }, [router, listingId])
 
-  // Memoized handlers
-  const handleServiceSelect = useCallback((service: ServiceCategory) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      main_service: service.name,
-      main_service_id: service.id 
-    }))
-    if (formErrors.main_service) {
-      setFormErrors(prev => ({ ...prev, main_service: '' }))
-    }
-  }, [formErrors])
+// Memoized handlers
+const handleServiceSelect = useCallback((service: ServiceCategory) => {
+  setFormData(prev => ({ 
+    ...prev, 
+    main_service: service.name,
+    main_service_id: service.id 
+  }))
+  if (formErrors.main_service) {
+    setFormErrors(prev => ({ ...prev, main_service: '' }))
+  }
+}, [formErrors])
 
-  const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
-    setSelectedAccreditations(accreditations)
-  }, [])
+const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
+  setSelectedAccreditations(accreditations)
+}, [])
 
 // Handler for ServiceAreaDrawer (expects string array)
-handleServiceAreaDrawerSave 
+const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
+  setServiceAreas({
+    primaryArea: areas[0] || '',
+    additionalAreas: areas.slice(1) || []
+  })
+  if (formErrors.primaryArea) {
+    setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+  }
+}, [formErrors])
 
 // Handler for ProviderForm (expects object with primaryArea/additionalAreas)
 const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
@@ -306,13 +314,8 @@ const handleServiceAreasChange = useCallback((areas: { primaryArea: string; addi
     setFormErrors(prev => ({ ...prev, primaryArea: '' }))
   }
 }, [formErrors])
-// Handler for ProviderForm (expects object with primaryArea/additionalAreas)
-const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
-  setServiceAreas(areas)
-  if (formErrors.primaryArea) {
-    setFormErrors(prev => ({ ...prev, primaryArea: '' }))
-  }
-}, [formErrors])
+
+
 
   const handleCancel = useCallback(() => {
     if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {

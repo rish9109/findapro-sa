@@ -365,17 +365,7 @@ export default function FavoritesPage() {
                           </div>
                           
                           <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-3">
-                            <div className="flex items-center gap-1 sm:gap-1.5">
-                              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
-                              <span className="font-semibold text-white text-sm sm:text-base">
-                                {provider.rating || 'New'}
-                              </span>
-                              {provider.total_reviews > 0 && (
-                                <span className="text-gray-400 text-xs sm:text-sm">
-                                  ({provider.total_reviews})
-                                </span>
-                              )}
-                            </div>
+                        
                             
                             <div className="flex items-center gap-1 sm:gap-1.5">
                               <span className="font-semibold text-emerald-400 text-sm sm:text-base">

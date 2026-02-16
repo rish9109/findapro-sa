@@ -274,6 +274,7 @@ export default function ProviderDetailPage() {
       .filter((s: string) => s) // Remove empty strings
   }
 
+/*
   const renderStarRating = (rating: number) => {
     return (
       <div className="flex items-center gap-1">
@@ -295,6 +296,7 @@ export default function ProviderDetailPage() {
       </div>
     )
   }
+*/
 
   if (loading) {
     return (
@@ -432,22 +434,6 @@ export default function ProviderDetailPage() {
                     {/* Rating and Price - UPDATED: Uses fees_pricing */}
                     <div className="flex flex-wrap items-center gap-4 mb-3">
                       <div className="flex items-center gap-1.5">
-                        {provider.rating > 0 ? (
-                          renderStarRating(provider.rating)
-                        ) : (
-                          <>
-                            <Star className="w-5 h-5 text-yellow-400" />
-                            <span className="font-bold text-white text-lg">Rating</span>
-                          </>
-                        )}
-                        {provider.total_reviews > 0 && (
-                          <span className="text-gray-400 ml-2">
-                            ({provider.total_reviews} reviews)
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-1.5">
                         <span className="font-bold text-emerald-400">
                           {getPriceDisplay()}
                         </span>
@@ -498,22 +484,6 @@ export default function ProviderDetailPage() {
               
               {/* Rating and Price - UPDATED: Uses fees_pricing */}
               <div className="flex flex-wrap items-center gap-4 mb-3">
-                <div className="flex items-center gap-1.5">
-                  {provider.rating > 0 ? (
-                    renderStarRating(provider.rating)
-                  ) : (
-                    <>
-                      <Star className="w-5 h-5 text-yellow-400" />
-                      <span className="font-bold text-white text-lg">Rating</span>
-                    </>
-                  )}
-                  {provider.total_reviews > 0 && (
-                    <span className="text-gray-400 ml-2">
-                      ({provider.total_reviews} reviews)
-                    </span>
-                  )}
-                </div>
-                
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-emerald-400">
                     {getPriceDisplay()}

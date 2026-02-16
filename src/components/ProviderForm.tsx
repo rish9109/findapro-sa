@@ -1,3 +1,4 @@
+// File: src/components/ProviderForm.tsx
 'use client'
 
 import { memo } from 'react'
@@ -140,6 +141,10 @@ function ProviderForm({
 
   const StatusIcon = statusInfo?.icon
 
+  // Check if business name should be locked (either in create mode with existingBusinessName, or in edit mode with disabledFields)
+  const isBusinessNameLocked = (mode === 'create' && existingBusinessName) || 
+                               (mode === 'edit' && disabledFields.includes('business_name'))
+
   return (
     <form 
       className="space-y-10"
@@ -173,11 +178,11 @@ function ProviderForm({
               <span className="text-red-500">*</span>
             </label>
             
-            {mode === 'create' && existingBusinessName ? (
+            {isBusinessNameLocked ? (
               <div className="relative">
                 <input
                   type="text"
-                  value={existingBusinessName}
+                  value={mode === 'create' ? existingBusinessName : formData.business_name}
                   readOnly
                   disabled
                   className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 cursor-not-allowed"

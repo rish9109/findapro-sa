@@ -1,4 +1,4 @@
-// edit-listings/page.tsx
+// File: src/app/providers/edit-listings/[id]/page.tsx
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -105,6 +105,10 @@ function EditListingContent() {
     additionalAreas: []
   })
   
+  // Locked fields state
+  const [existingBusinessName, setExistingBusinessName] = useState<string>('')
+  const [lockedFields, setLockedFields] = useState<string[]>([])
+  
   // Form state
   const [formData, setFormData] = useState<ProviderFormData>({
     business_name: '',
@@ -194,6 +198,21 @@ function EditListingContent() {
         }
         
         setListing(listingData)
+        
+        // Check if user has any approved listings (excluding current one)
+        const { data: approvedListings } = await supabase
+          .from('providers')
+          .select('business_name')
+          .eq('user_id', session.user.id)
+          .eq('status', 'approved')
+          .neq('id', listingId) // Exclude current listing
+          .limit(1)
+        
+        // If user has another approved listing, lock the business name and email
+        if (approvedListings && approvedListings.length > 0) {
+          setExistingBusinessName(approvedListings[0].business_name)
+          setLockedFields(['business_name', 'contact_email'])
+        }
         
         // Parse service areas
         let parsedServiceAreas: string[] = []
@@ -590,6 +609,7 @@ function EditListingContent() {
             mode="edit"
             serviceCategories={serviceCategories}
             userEmail={formData.contact_email}
+            existingBusinessName={existingBusinessName} // Pass the locked business name
             selectedAccreditations={selectedAccreditations}
             onAccreditationsChange={handleAccreditationsSave}
             serviceAreas={serviceAreas}
@@ -601,7 +621,7 @@ function EditListingContent() {
             onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
             onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
             statusInfo={statusInfo}
-            disabledFields={listing.status === 'deleted' ? ['all'] : []}
+            disabledFields={[...lockedFields, ...(listing.status === 'deleted' ? ['all'] : [])]}
           />
           
           {/* Form Actions */}

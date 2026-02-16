@@ -297,15 +297,7 @@ function EditListingContent() {
   }, [])
 
 // Handler for ServiceAreaDrawer (expects string array)
-const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
-  setServiceAreas({
-    primaryArea: areas[0] || '',
-    additionalAreas: areas.slice(1) || []
-  })
-  if (formErrors.primaryArea) {
-    setFormErrors(prev => ({ ...prev, primaryArea: '' }))
-  }
-}, [formErrors])
+handleServiceAreaDrawerSave 
 
 // Handler for ProviderForm (expects object with primaryArea/additionalAreas)
 const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {

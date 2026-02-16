@@ -425,13 +425,17 @@ function EditListingContent() {
         updated_at: new Date().toISOString(),
       }
       
-      let newStatus = formData.status
+      // Initialize with current status or fallback to 'pending'
+      let newStatus: string = formData.status || listing.status || 'pending'
+      
       if (formData.status === 'approved') {
         updateData.status = 'pending'
         newStatus = 'pending'
       } else if (formData.status === 'rejected') {
         updateData.status = 'rejected'
         newStatus = 'rejected'
+      } else {
+        updateData.status = newStatus // Keep existing status
       }
       
       const { error: updateError } = await supabase

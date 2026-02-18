@@ -190,16 +190,18 @@ export default function Header() {
             <div className="flex items-center min-w-0 flex-1">
               {isHomePage ? (
                 // Home page - Show Logo on left
-                <Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0">
-                  <div className="flex flex-col min-w-0">
-                    <div className="text-xl sm:text-2xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:from-blue-500 group-hover:to-purple-500 transition-all duration-300 truncate">
-                      Find A Pro
-                    </div>
-                    <div className="text-xs text-gray-400 font-light tracking-wider uppercase mt-0.5 hidden sm:block">
-                      Connecting you with verified professionals
-                    </div>
-                  </div>
-                </Link>
+
+
+<Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0">
+  <div className="flex flex-col min-w-0">
+    <div className="text-lg sm:text-2xl font-black bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent group-hover:from-amber-500 group-hover:via-yellow-400 group-hover:to-amber-500 transition-all duration-300 truncate">
+      findapro.co.za
+    </div>
+    <div className="text-[8px] sm:text-xs text-gray-300 font-dark tracking-wider uppercase mt-0.5 block whitespace-nowrap">
+      Service's you trust, professionals you'll love
+    </div>
+  </div>
+</Link>
               ) : (
                 // Other pages - Show Home icon (no text)
                 <Link 

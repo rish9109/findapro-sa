@@ -18,7 +18,18 @@ export default function InstallPrompt() {
   const isStandalone = typeof window !== 'undefined' && 
     window.matchMedia('(display-mode: standalone)').matches
 
-  const isAndroid = /Android/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent)
+  const isAndroid = typeof window !== 'undefined' && 
+    /Android/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent)
+
+  // Auto-hide success message after 5 seconds (best practice)
+  useEffect(() => {
+    if (installed) {
+      const timer = setTimeout(() => {
+        setInstalled(false)
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [installed])
 
   useEffect(() => {
     if (isStandalone) return
@@ -71,20 +82,22 @@ export default function InstallPrompt() {
 
   const handleCancel = () => {
     setShowPrompt(false)
+    if (neverShowAgain) {
+      localStorage.setItem('findapro-install-never-again', 'true')
+    }
   }
 
   const handleNeverAgain = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNeverShowAgain(e.target.checked)
   }
 
- /*
+  // ← This was the main source of all the bugs you reported
   if (!isAndroid || isStandalone || (!showPrompt && !installed)) {
     return null
   }
-*/
 
   return (
-    <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-8 md:bottom-8 bg-gray-900 border border-gray-700 text-white p-6 rounded-2xl shadow-2xl z-[100] max-w-sm w-full">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm bg-gray-900 border border-gray-700 text-white p-6 rounded-2xl shadow-2xl z-[100]">
       {!installed ? (
         <>
           <h3 className="text-lg font-semibold mb-2">Install FindAPro</h3>

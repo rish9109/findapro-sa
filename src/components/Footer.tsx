@@ -16,13 +16,11 @@ export default function Footer() {
               FindAPro
             </Link>
             <div className="hidden sm:block w-0.5 h-5 bg-gradient-to-b from-gray-700 via-gray-600 to-gray-700" />
-            <div className="text-xs text-gray-500 text-center sm:text-left">
-              Connecting South Africans since 2024
-            </div>
+            
           </div>
 
           <p className="text-gray-500 text-xs max-w-2xl mx-auto leading-relaxed px-2">
-            Trusted by thousands of homeowners and service providers across South Africa. 
+            Trusted by homeowners and service providers across South Africa. 
             Join our growing community of professionals and customers today.
           </p>
 
@@ -72,7 +70,7 @@ export default function Footer() {
           {/* Copyright & Protection Notice */}
           <div className="pt-6 border-t border-gray-800">
             <div className="text-gray-500 text-xs space-y-2">
-              <p>© {currentYear} Find A Pro Connect (PTY) LTD. All rights reserved.</p>
+              <p> Find A Pro Connect (PTY) LTD. All rights reserved.</p>
 
               <div className="mt-2 p-3 bg-gray-800/30 rounded-lg border border-gray-700/50">
                 <p className="text-gray-400 font-medium mb-1">⚠️ Intellectual Property Protection</p>
@@ -84,14 +82,7 @@ export default function Footer() {
                 </p>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-gray-800">
-                <p>findapro.co.za</p>
-                <p className="text-gray-600 text-[10px] mt-1">
-                  Need help? Email: <a href="mailto:support@findapro.co.za" className="text-gray-500 hover:text-cyan-400 transition-colors">
-                    support@findapro.co.za
-                  </a>
-                </p>
-              </div>
+             
             </div>
           </div>
         </div>

@@ -96,31 +96,33 @@ export default function Home() {
                 <span className="absolute -bottom-1 left-0 right-0 h-px bg-gradient-to-r from-orange-500/50 via-yellow-500 to-orange-500/50 rounded-full"></span>
               </span>
             </h2>
-            <p className="text-gray-300 text-sm md:text-base lg:text-lg max-w-2xl mx-auto leading-relaxed relative">
-              For every home, service, repair, and fix across South Africa.
-              <span className="absolute -bottom-1 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></span>
-              <a 
-                href="/providers/provider-listings"
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent hover:from-yellow-300 hover:to-amber-300 text-xs font-medium hover:underline transition-all duration-300 ml-2"
-              >
-                <span>List your service now →</span>
-              </a>
-            </p>
-          </div>
-          
-          {/* Floating Search Bar with visible design */}
-          <div className="flex flex-col items-center space-y-10 relative">
-            {/* Decorative lines around search */}
-            <div className="absolute -top-4 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-amber-400/20 to-transparent"></div>
-            
-            {/* The Search Bar - Centered with glow */}
-            <div className="flex justify-center w-full mb-0 md:mb-0 relative">
-              {/* Outer glow effect */}
-              <div className="absolute -inset-4 bg-gradient-to-r from-amber-500/10 to-blue-500/10 blur-lg rounded-full opacity-30"></div>
-              <SearchBar />
-            </div>
-            
-            <div className="absolute -bottom-4 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-blue-400/20 to-transparent"></div>
+
+            <p className="text-gray-300 text-sm md:text-base lg:text-lg max-w-2xl mx-auto leading-relaxed relative flex flex-col items-center">
+  <span className="text-center">
+    For every home, service, repair, and fix across South Africa.
+  </span>
+  
+  <span className="absolute hidden sm:block -bottom-1 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+  
+  <a 
+    href="/providers/provider-listings"
+    className="inline-flex items-center gap-2 mt-3 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all duration-300 group"
+  >
+    <span className="text-lg">✨</span>
+    <span className="whitespace-nowrap text-base md:text-lg font-semibold">List your business</span>
+<svg
+  className="h-5 w-6 sm:h-7 sm:w-7 text-amber-300 group-hover:text-white group-hover:translate-x-3 transition-all duration-500 ease-out"
+  fill="none"
+  stroke="currentColor"
+  viewBox="0 0 24 24"
+  strokeWidth={3.5}          // ← bolder line
+  strokeLinecap="round"
+  strokeLinejoin="round"
+>
+  <path d="M9 5l7 7-7 7" />
+</svg>
+  </a>
+</p>
           </div>
         </div>
         
@@ -163,7 +165,7 @@ export default function Home() {
             </h3>
             
             <p className="text-gray-300 text-sm md:text-base max-w-2xl mx-auto">
-              Join thousands of service providers who have expanded their customer base with FindAPro
+            List your business and start reaching more local customers. no risk, just opportunity.
             </p>
             
             <div className="pt-2">

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[]
@@ -21,7 +23,6 @@ export default function InstallPrompt() {
   const isAndroid = typeof window !== 'undefined' && 
     /Android/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent)
 
-  // Auto-hide success message after 5 seconds (best practice)
   useEffect(() => {
     if (installed) {
       const timer = setTimeout(() => {
@@ -39,6 +40,7 @@ export default function InstallPrompt() {
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault()
       setDeferredPrompt(e)
+      // Show prompt for Android Chrome users
       if (isAndroid) {
         setShowPrompt(true)
       }
@@ -91,63 +93,107 @@ export default function InstallPrompt() {
     setNeverShowAgain(e.target.checked)
   }
 
-  // ← This was the main source of all the bugs you reported
-  if (!isAndroid || isStandalone || (!showPrompt && !installed)) {
+  // Check if we should show anything at all
+  const shouldShow = showPrompt || installed
+
+  // Don't render if not Android, if standalone, or if we shouldn't show
+  if (!isAndroid || isStandalone || !shouldShow) {
     return null
   }
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm bg-gray-900 border border-gray-700 text-white p-6 rounded-2xl shadow-2xl z-[100]">
-      {!installed ? (
-        <>
-          <h3 className="text-lg font-semibold mb-2">Install FindAPro</h3>
-          <p className="text-sm text-gray-400 mb-5">
-            Get faster access • Works offline • App-like experience
-          </p>
-
-          <label className="flex items-center gap-3 mb-5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={neverShowAgain}
-              onChange={handleNeverAgain}
-              className="w-5 h-5 accent-indigo-600 bg-gray-700 border-gray-600 rounded"
-            />
-            <span className="text-sm text-gray-300">Don't show this again</span>
-          </label>
-
-          <div className="flex gap-3">
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -100 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -100 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[100]"
+      >
+        <div className="relative bg-gradient-to-b from-gray-900/95 to-black/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl shadow-2xl overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+          
+          {showPrompt && (
             <button
               onClick={handleCancel}
-              className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-medium transition"
+              className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/10 transition-colors"
             >
-              Cancel
+              <X className="w-4 h-4 text-gray-400" />
             </button>
+          )}
 
-            <button
-              onClick={handleInstall}
-              disabled={isInstalling}
-              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-800 disabled:cursor-not-allowed rounded-xl font-medium transition flex items-center justify-center gap-2"
-            >
-              {isInstalling ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Installing...
-                </>
-              ) : (
-                'Install'
-              )}
-            </button>
+          <div className="p-6">
+            {!installed ? (
+              <>
+                <div className="flex items-center gap-3 mb-4">
+                 
+                  <div>
+                  <h3 className="text-lg font-semibold justify-center-safe">App Install</h3>
+                  <h2 className="text-lg font-semibold text-center bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
+  findapro.co.za
+</h2>
+                    <p className="text-xs text-gray-400 justify-center-safe">FIND A PRO CONNECT (PTY) LTD</p>
+             
+                  </div>
+                </div>
+
+           
+
+                <label className="flex items-center gap-3 mb-5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={neverShowAgain}
+                    onChange={handleNeverAgain}
+                    className="w-4 h-4 accent-amber-500 bg-gray-800 border-gray-600 rounded transition-colors"
+                  />
+                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                    Don't show this again
+                  </span>
+                </label>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancel}
+                    className="flex-1 py-2.5 bg-gray-800/80 hover:bg-gray-700 rounded-xl font-medium text-sm transition-all hover:scale-[1.02]"
+                  >
+                    Later
+                  </button>
+
+                  <button
+                    onClick={handleInstall}
+                    disabled={isInstalling}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-medium text-sm transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                  >
+                    {isInstalling ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Installing...
+                      </>
+                    ) : (
+                      'Install App'
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", damping: 10 }}
+                  className="text-4xl mb-3"
+                >
+                  🎉
+                </motion.div>
+                <p className="font-semibold text-lg">Installed!</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  FindAPro is on your home screen
+                </p>
+              </div>
+            )}
           </div>
-        </>
-      ) : (
-        <div className="text-center py-4">
-          <div className="text-4xl mb-3">🎉</div>
-          <p className="font-semibold text-lg">Installed successfully!</p>
-          <p className="text-sm text-gray-400 mt-2">
-            FindAPro is now on your home screen
-          </p>
         </div>
-      )}
-    </div>
+      </motion.div>
+    </AnimatePresence>
   )
 }

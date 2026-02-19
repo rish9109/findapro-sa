@@ -251,11 +251,35 @@ function ProviderListingsContent() {
     return Object.keys(errors).length === 0
   }, [formData, existingBusinessName, serviceAreas])
 
+  const showIncompleteFormNotification = () => {
+    // Create a temporary notification element
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in';
+    notification.innerHTML = `
+      <div class="flex items-center gap-3">
+        <span>⚠️</span>
+        <div>
+          <p class="font-semibold">Incomplete Form</p>
+          <p class="text-sm opacity-90">Please fill in all required fields</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      notification.classList.add('animate-slide-out');
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
     if (!validateForm()) {
+      showIncompleteFormNotification() // Add this line
       return
     }
     

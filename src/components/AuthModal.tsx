@@ -1,4 +1,4 @@
-// File: src/components/AuthModal.tsx - FINAL VERSION WITH SUPABASE LOGIC
+// File: src/components/AuthModal.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -30,11 +30,9 @@ export default function AuthModal() {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
   
-  // Password visibility states
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
-  // Password validation states
   const [passwordChecks, setPasswordChecks] = useState({
     length: false,
     lowercase: false,
@@ -43,20 +41,28 @@ export default function AuthModal() {
     special: false
   })
 
-  // Prevent body scroll when modal is open
+  // Close modal automatically after successful sign-in (including Google)
+  useEffect(() => {
+    if (!authModalVisible) return
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        hideAuthModal()
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [authModalVisible, hideAuthModal])
+
   useEffect(() => {
     if (authModalVisible) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
     }
-    
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
+    return () => { document.body.style.overflow = 'unset' }
   }, [authModalVisible])
 
-  // Reset form when modal opens/closes
   useEffect(() => {
     if (authModalVisible) {
       setShowSignup(authModalMode === 'signup')
@@ -80,10 +86,8 @@ export default function AuthModal() {
     }
   }, [authModalVisible, authModalMode])
 
-  // Validate password as user types
   useEffect(() => {
     if (!showSignup) return
-    
     setPasswordChecks({
       length: password.length >= 8,
       lowercase: /[a-z]/.test(password),
@@ -93,14 +97,33 @@ export default function AuthModal() {
     })
   }, [password, showSignup])
 
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true)
+    setError('')
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
+      })
+
+      if (error) throw error
+      // Redirect happens automatically → listener above will close modal on success
+    } catch (err: any) {
+      setError(err.message || 'Failed to start Google sign-in')
+      console.error('Google OAuth error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setForgotPasswordLoading(true)
     setError('')
     setSuccess('')
-
-    console.log('🔐 Forgot password requested for:', forgotPasswordEmail)
-    console.log('📍 Redirect URL:', `${window.location.origin}/auth/reset-password`)
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotPasswordEmail, {
@@ -108,15 +131,12 @@ export default function AuthModal() {
       })
 
       if (error) {
-        console.error('❌ Forgot password error:', error)
         setError(error.message || 'Failed to send reset email')
       } else {
-        console.log('✅ Forgot password email sent successfully')
         setSuccess('Password reset email sent! Check your inbox.')
         setForgotPasswordEmail('')
       }
     } catch (err: any) {
-      console.error('❌ Forgot password exception:', err)
       setError(err.message || 'An error occurred')
     } finally {
       setForgotPasswordLoading(false)
@@ -131,34 +151,24 @@ export default function AuthModal() {
 
     try {
       if (showSignup) {
-        // Signup validation
-        console.log('📝 Signup attempt for:', email)
         if (!name.trim() || !surname.trim()) {
           setError('Please enter your name and surname')
-          setIsLoading(false)
           return
         }
-
         if (password !== confirmPassword) {
           setError('Passwords do not match')
-          setIsLoading(false)
           return
         }
-
-        // Check if all password requirements are met
         const allChecksMet = Object.values(passwordChecks).every(check => check)
         if (!allChecksMet) {
           setError('Please meet all password requirements')
-          setIsLoading(false)
           return
         }
 
         const result = await signup(email, password, name.trim(), surname.trim())
-        console.log('📝 Signup result:', result)
         
         if (result.success) {
           setSuccess(result.message || 'Account created successfully!')
-          // Clear form but keep modal open for login
           setName('')
           setSurname('')
           setPassword('')
@@ -168,13 +178,9 @@ export default function AuthModal() {
           setError(result.message || 'Signup failed')
         }
       } else {
-        // Login
-        console.log('🔐 Login attempt for:', email)
         const result = await login(email, password)
-        console.log('🔐 Login result:', result)
         
         if (!result.success) {
-          // Check if user doesn't exist - suggest signup
           if (result.message?.toLowerCase().includes('user') || result.message?.toLowerCase().includes('invalid')) {
             setError('No account found with this email. Would you like to sign up instead?')
             setShowSignup(true)
@@ -184,19 +190,18 @@ export default function AuthModal() {
         }
       }
     } catch (err: any) {
-      console.error('❌ Auth exception:', err)
       setError(err.message || 'An error occurred')
     } finally {
       setIsLoading(false)
     }
   }
 
+  // ─── Fixed switch functions ────────────────────────────────────────
   const switchToSignup = () => {
     setShowSignup(true)
     setShowForgotPassword(false)
     setError('')
     setSuccess('')
-    console.log('🔄 Switched to signup form')
   }
 
   const switchToLogin = () => {
@@ -204,27 +209,22 @@ export default function AuthModal() {
     setShowForgotPassword(false)
     setError('')
     setSuccess('')
-    console.log('🔄 Switched to login form')
   }
 
   const switchToForgotPassword = () => {
     setShowForgotPassword(true)
     setError('')
     setSuccess('')
-    console.log('🔄 Switched to forgot password form')
   }
 
-  // Check if passwords match (for signup)
   const passwordsMatch = showSignup && password === confirmPassword && confirmPassword.length > 0
 
-  // If modal is not visible, don't render anything
   if (!authModalVisible) return null
 
   return createPortal(
     <AnimatePresence>
       {authModalVisible && (
         <>
-          {/* Backdrop */}
           <motion.div
             key="backdrop"
             initial={{ opacity: 0 }}
@@ -233,7 +233,6 @@ export default function AuthModal() {
             className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm"
           />
           
-          {/* Modal Content */}
           <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 overflow-y-auto">
             <motion.div
               key="modal"
@@ -243,7 +242,8 @@ export default function AuthModal() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="w-full max-w-[500px] max-h-[90vh] overflow-y-auto"
             >
-              <div className="bg-gradient-to-b from-gray-900 to-black rounded-2xl shadow-2xl border border-emerald-500/20 overflow-hidden mx-auto">
+              <div className="bg-gradient-to-b from-gray-900 to-black rounded-2xl shadow-2xl border border-emerald-500/20 overflow-hidden">
+                
                 {/* Header */}
                 <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-4 sm:p-6 border-b border-emerald-500/20">
                   <div className="flex justify-between items-start sm:items-center mb-2">
@@ -265,10 +265,7 @@ export default function AuthModal() {
                       </div>
                     </div>
                     <button
-                      onClick={() => {
-                        console.log('❌ Auth modal closed')
-                        hideAuthModal()
-                      }}
+                      onClick={hideAuthModal}
                       className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 text-gray-400 hover:text-white ml-2 flex-shrink-0"
                     >
                       <X className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -276,25 +273,17 @@ export default function AuthModal() {
                   </div>
                 </div>
 
-                {/* Forgot Password Form */}
                 {showForgotPassword ? (
-                  <form onSubmit={handleForgotPassword} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                  <form onSubmit={handleForgotPassword} className="p-4 sm:p-6 space-y-5">
                     {success && (
-                      <div className="bg-emerald-500/10 text-emerald-400 p-3 sm:p-4 rounded-lg border border-emerald-500/20">
+                      <div className="bg-emerald-500/10 text-emerald-400 p-4 rounded-lg border border-emerald-500/20">
                         <div className="flex items-center gap-2 mb-2">
                           <Sparkles className="w-4 h-4" />
                           <span className="font-medium">Success!</span>
                         </div>
                         {success}
                         <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              console.log('↩️ Back to login from forgot password')
-                              switchToLogin()
-                            }}
-                            className="text-emerald-400 hover:text-emerald-300 font-medium text-sm"
-                          >
+                          <button type="button" onClick={switchToLogin} className="text-emerald-400 hover:text-emerald-300 font-medium text-sm">
                             ← Back to login
                           </button>
                         </div>
@@ -302,26 +291,21 @@ export default function AuthModal() {
                     )}
 
                     {error && (
-                      <div className="bg-red-500/10 text-red-400 p-3 sm:p-4 rounded-lg border border-red-500/20">
+                      <div className="bg-red-500/10 text-red-400 p-4 rounded-lg border border-red-500/20">
                         {error}
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Email Address
-                      </label>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                         <input
                           type="email"
                           value={forgotPasswordEmail}
-                          onChange={(e) => {
-                            console.log('📧 Forgot password email input:', e.target.value)
-                            setForgotPasswordEmail(e.target.value)
-                          }}
+                          onChange={(e) => setForgotPasswordEmail(e.target.value)}
                           required
-                          className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
                           placeholder="you@example.com"
                         />
                       </div>
@@ -330,11 +314,7 @@ export default function AuthModal() {
                     <button
                       type="submit"
                       disabled={forgotPasswordLoading}
-                      className={`w-full py-3 sm:py-3.5 rounded-lg font-semibold transition-all duration-300 text-sm sm:text-base ${
-                        forgotPasswordLoading
-                          ? 'bg-gray-700 cursor-not-allowed text-gray-400'
-                          : 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]'
-                      }`}
+                      className={`w-full py-3.5 rounded-lg font-semibold transition-all ${forgotPasswordLoading ? 'bg-gray-700 cursor-not-allowed text-gray-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg hover:shadow-emerald-500/30'}`}
                     >
                       {forgotPasswordLoading ? 'Sending...' : 'Send Reset Email'}
                     </button>
@@ -342,38 +322,23 @@ export default function AuthModal() {
                     <div className="text-center pt-4 border-t border-gray-800">
                       <p className="text-gray-500 text-sm">
                         Remember your password?{' '}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            console.log('↩️ Back to login clicked')
-                            switchToLogin()
-                          }}
-                          className="text-emerald-400 hover:text-emerald-300 font-medium"
-                        >
+                        <button type="button" onClick={switchToLogin} className="text-emerald-400 hover:text-emerald-300 font-medium">
                           Back to login
                         </button>
                       </p>
                     </div>
                   </form>
                 ) : (
-                  /* Login/Signup Form */
-                  <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                  <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
                     {success && (
-                      <div className="bg-emerald-500/10 text-emerald-400 p-3 sm:p-4 rounded-lg border border-emerald-500/20">
+                      <div className="bg-emerald-500/10 text-emerald-400 p-4 rounded-lg border border-emerald-500/20">
                         <div className="flex items-center gap-2 mb-2">
                           <Sparkles className="w-4 h-4" />
                           <span className="font-medium">Success!</span>
                         </div>
                         {success}
                         <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              console.log('↩️ Back to login from success')
-                              switchToLogin()
-                            }}
-                            className="text-emerald-400 hover:text-emerald-300 font-medium text-sm"
-                          >
+                          <button type="button" onClick={switchToLogin} className="text-emerald-400 hover:text-emerald-300 font-medium text-sm">
                             Click here to login →
                           </button>
                         </div>
@@ -381,20 +346,13 @@ export default function AuthModal() {
                     )}
 
                     {error && (
-                      <div className="bg-red-500/10 text-red-400 p-3 sm:p-4 rounded-lg border border-red-500/20">
+                      <div className="bg-red-500/10 text-red-400 p-4 rounded-lg border border-red-500/20">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="font-medium">Error</span>
                         </div>
                         {error}
-                        {error.includes('sign up') && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              console.log('🔄 Switching to signup from error')
-                              switchToSignup()
-                            }}
-                            className="block mt-2 text-red-400 hover:text-red-300 font-medium"
-                          >
+                        {error.toLowerCase().includes('sign up') && (
+                          <button type="button" onClick={switchToSignup} className="block mt-2 text-red-400 hover:text-red-300 font-medium">
                             Yes, create an account
                           </button>
                         )}
@@ -402,223 +360,151 @@ export default function AuthModal() {
                     )}
 
                     {showSignup && (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                              First Name
-                            </label>
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                              <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => {
-                                  console.log('👤 First name input:', e.target.value)
-                                  setName(e.target.value)
-                                }}
-                                required
-                                className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
-                                placeholder="John"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                              Last Name
-                            </label>
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                              <input
-                                type="text"
-                                value={surname}
-                                onChange={(e) => {
-                                  console.log('👤 Last name input:', e.target.value)
-                                  setSurname(e.target.value)
-                                }}
-                                required
-                                className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
-                                placeholder="Doe"
-                              />
-                            </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                            <input
+                              type="text"
+                              value={name}
+                              onChange={(e) => setName(e.target.value)}
+                              required
+                              className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-sm sm:text-base"
+                              placeholder="John"
+                            />
                           </div>
                         </div>
-                      </>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                            <input
+                              type="text"
+                              value={surname}
+                              onChange={(e) => setSurname(e.target.value)}
+                              required
+                              className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-sm sm:text-base"
+                              placeholder="Doe"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Email Address
-                      </label>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                         <input
                           type="email"
                           value={email}
-                          onChange={(e) => {
-                            console.log('📧 Email input:', e.target.value)
-                            setEmail(e.target.value)
-                          }}
+                          onChange={(e) => setEmail(e.target.value)}
                           required
-                          className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-sm sm:text-base"
                           placeholder="you@example.com"
                         />
                       </div>
                     </div>
 
-                    {!showSignup && (
+                    {!showSignup ? (
                       <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                          Password
-                        </label>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                           <input
                             type={showPassword ? "text" : "password"}
                             value={password}
-                            onChange={(e) => {
-                              console.log('🔑 Password input (masked)')
-                              setPassword(e.target.value)
-                            }}
+                            onChange={(e) => setPassword(e.target.value)}
                             required
-                            className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
+                            className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-sm sm:text-base"
                             placeholder="Your password"
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
                           >
                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                           </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            console.log('🔓 Forgot password clicked')
-                            switchToForgotPassword()
-                          }}
-                          className="text-emerald-400 hover:text-emerald-300 text-sm mt-2"
-                        >
+                        <button type="button" onClick={switchToForgotPassword} className="text-emerald-400 hover:text-emerald-300 text-sm mt-2">
                           Forgot password?
                         </button>
                       </div>
-                    )}
-
-                    {showSignup && (
+                    ) : (
                       <>
                         <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Password
-                          </label>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                             <input
                               type={showPassword ? "text" : "password"}
                               value={password}
-                              onChange={(e) => {
-                                console.log('🔑 Signup password input (masked)')
-                                setPassword(e.target.value)
-                              }}
+                              onChange={(e) => setPassword(e.target.value)}
                               required
-                              className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
+                              className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-sm sm:text-base"
                               placeholder="At least 8 characters"
                             />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
                             >
                               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                           </div>
-                          
-                          {/* Password requirements */}
+
                           <div className="mt-3 space-y-2">
                             <p className="text-xs text-gray-400">Password must contain:</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2">
-                              <div className="flex items-center gap-2">
-                                {passwordChecks.length ? 
-                                  <CheckCircle className="w-4 h-4 text-emerald-400" /> : 
-                                  <XCircle className="w-4 h-4 text-gray-500" />
-                                }
-                                <span className={`text-xs ${passwordChecks.length ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                  8+ characters
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {passwordChecks.lowercase ? 
-                                  <CheckCircle className="w-4 h-4 text-emerald-400" /> : 
-                                  <XCircle className="w-4 h-4 text-gray-500" />
-                                }
-                                <span className={`text-xs ${passwordChecks.lowercase ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                  Lowercase letter
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {passwordChecks.uppercase ? 
-                                  <CheckCircle className="w-4 h-4 text-emerald-400" /> : 
-                                  <XCircle className="w-4 h-4 text-gray-500" />
-                                }
-                                <span className={`text-xs ${passwordChecks.uppercase ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                  Uppercase letter
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {passwordChecks.number ? 
-                                  <CheckCircle className="w-4 h-4 text-emerald-400" /> : 
-                                  <XCircle className="w-4 h-4 text-gray-500" />
-                                }
-                                <span className={`text-xs ${passwordChecks.number ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                  Number
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {passwordChecks.special ? 
-                                  <CheckCircle className="w-4 h-4 text-emerald-400" /> : 
-                                  <XCircle className="w-4 h-4 text-gray-500" />
-                                }
-                                <span className={`text-xs ${passwordChecks.special ? 'text-emerald-400' : 'text-gray-500'}`}>
-                                  Special character
-                                </span>
-                              </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {Object.entries(passwordChecks).map(([key, valid]) => (
+                                <div key={key} className="flex items-center gap-2">
+                                  {valid ? (
+                                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                  ) : (
+                                    <XCircle className="w-4 h-4 text-gray-500" />
+                                  )}
+                                  <span className={`text-xs ${valid ? 'text-emerald-400' : 'text-gray-500'}`}>
+                                    {key === 'length' ? '8+ characters' :
+                                     key === 'lowercase' ? 'Lowercase letter' :
+                                     key === 'uppercase' ? 'Uppercase letter' :
+                                     key === 'number' ? 'Number' : 'Special character'}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Confirm Password
-                          </label>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                             <input
                               type={showConfirmPassword ? "text" : "password"}
                               value={confirmPassword}
-                              onChange={(e) => {
-                                console.log('🔑 Confirm password input (masked)')
-                                setConfirmPassword(e.target.value)
-                              }}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
                               required
-                              className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all duration-300 text-sm sm:text-base"
+                              className="w-full pl-10 pr-12 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all text-sm sm:text-base"
                               placeholder="Confirm your password"
                             />
                             <button
                               type="button"
                               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
                             >
                               {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                           </div>
-                          
-                          {/* Password match indicator */}
+
                           {confirmPassword.length > 0 && (
                             <div className="mt-2 flex items-center gap-2">
-                              {passwordsMatch ? 
-                                <CheckCircle className="w-4 h-4 text-emerald-400" /> : 
+                              {passwordsMatch ? (
+                                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                              ) : (
                                 <XCircle className="w-4 h-4 text-red-400" />
-                              }
+                              )}
                               <span className={`text-xs ${passwordsMatch ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {passwordsMatch ? 'Passwords match' : 'Passwords do not match'}
                               </span>
@@ -630,47 +516,62 @@ export default function AuthModal() {
 
                     <button
                       type="submit"
-                      disabled={isLoading || (showSignup && (!passwordsMatch || !Object.values(passwordChecks).every(check => check)))}
-                      className={`w-full py-3 sm:py-3.5 rounded-lg font-semibold transition-all duration-300 text-sm sm:text-base ${
-                        isLoading || (showSignup && (!passwordsMatch || !Object.values(passwordChecks).every(check => check)))
+                      disabled={isLoading || (showSignup && (!passwordsMatch || !Object.values(passwordChecks).every(Boolean)))}
+                      className={`w-full py-3.5 rounded-lg font-semibold transition-all ${
+                        isLoading || (showSignup && (!passwordsMatch || !Object.values(passwordChecks).every(Boolean)))
                           ? 'bg-gray-700 cursor-not-allowed text-gray-400'
                           : showSignup
-                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]'
-                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white hover:shadow-[0_0_30px_rgba(59,130,246,0.3)]'
+                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg hover:shadow-emerald-500/30'
+                            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-lg hover:shadow-blue-500/30'
                       }`}
                     >
-                      {isLoading 
+                      {isLoading
                         ? (showSignup ? 'Creating Account...' : 'Signing In...')
-                        : (showSignup ? 'Create Account' : 'Sign In')
-                      }
+                        : (showSignup ? 'Create Account' : 'Sign In')}
+                    </button>
+
+                    <div className="relative py-2">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-700" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-gradient-to-b from-gray-900 to-black px-4 text-gray-300">
+                          or continue with
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={isLoading}
+                      className={`w-full flex items-center justify-center gap-3 py-3.5 rounded-lg font-medium transition-all border ${
+                        isLoading
+                          ? 'bg-gray-800/50 text-gray-400 cursor-not-allowed border-gray-700'
+                          : 'bg-white hover:bg-gray-100 text-gray-900 border-gray-300 shadow-sm hover:shadow'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.51h5.84c-.25 1.31-.98 2.42-2.07 3.16v2.63h3.35c1.96-1.81 3.09-4.47 3.09-7.8z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-1.01 7.28-2.73l-3.35-2.63c-1.01.68-2.29 1.08-3.93 1.08-3.02 0-5.58-2.04-6.49-4.79H.96v2.67C2.77 20.39 6.62 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.51 14.21c-.23-.68-.36-1.41-.36-2.21s.13-1.53.36-2.21V7.34H.96C.35 8.85 0 10.39 0 12s.35 3.15.96 4.66l4.55-2.45z"/>
+                        <path fill="#EA4335" d="M12 4.98c1.64 0 3.11.56 4.27 1.66l3.19-3.19C17.46 1.01 14.97 0 12 0 6.62 0 2.77 2.61.96 6.34l4.55 2.45C6.42 6.02 8.98 4.98 12 4.98z"/>
+                      </svg>
+                      Continue with Google
                     </button>
 
                     <div className="text-center pt-4 border-t border-gray-800">
                       {showSignup ? (
                         <p className="text-gray-500 text-sm">
                           Already have an account?{' '}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              console.log('🔄 Switching to login from signup')
-                              switchToLogin()
-                            }}
-                            className="text-emerald-400 hover:text-emerald-300 font-medium"
-                          >
+                          <button type="button" onClick={switchToLogin} className="text-emerald-400 hover:text-emerald-300 font-medium">
                             Sign in here
                           </button>
                         </p>
                       ) : (
                         <p className="text-gray-500 text-sm">
                           Don't have an account?{' '}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              console.log('🔄 Switching to signup from login')
-                              switchToSignup()
-                            }}
-                            className="text-emerald-400 hover:text-emerald-300 font-medium"
-                          >
+                          <button type="button" onClick={switchToSignup} className="text-emerald-400 hover:text-emerald-300 font-medium">
                             Sign up here
                           </button>
                         </p>
@@ -679,7 +580,6 @@ export default function AuthModal() {
                   </form>
                 )}
 
-                {/* Security footer */}
                 <div className="p-3 sm:p-4 bg-gradient-to-r from-emerald-500/5 to-transparent border-t border-gray-800">
                   <div className="flex items-center justify-center gap-2">
                     <Shield className="w-4 h-4 text-emerald-400" />

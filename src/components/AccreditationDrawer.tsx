@@ -263,16 +263,37 @@ export default function AccreditationDrawer({
     }
   };
   
-  // Filter accreditations based on SELECTED INDUSTRY only
-  const filteredAccreditations = accreditations.filter(acc => {
-    if (selectedIndustry === 'all') return true;
-    
+// In AccreditationDrawer.tsx, update the filteredAccreditations logic:
+
+// Filter accreditations based on SELECTED INDUSTRY AND/OR SERVICE CATEGORY
+const filteredAccreditations = accreditations.filter(acc => {
+  // First, filter by selected industry if not 'all'
+  if (selectedIndustry !== 'all') {
     const selectedIndustryObj = industries.find(i => i.id === selectedIndustry);
-    if (!selectedIndustryObj?.name) return false;
-    
-    return acc.sector && acc.sector.toLowerCase().includes(selectedIndustryObj.name.toLowerCase());
-  });
+    if (selectedIndustryObj?.name) {
+      const matchesIndustry = acc.sector && acc.sector.toLowerCase().includes(selectedIndustryObj.name.toLowerCase());
+      if (!matchesIndustry) return false;
+    }
+  }
   
+  // Then, filter by serviceCategoryId if provided (for initial load/context)
+  if (serviceCategoryId && selectedIndustry === 'all') {
+    const selectedCategory = industries.find(i => i.id === serviceCategoryId);
+    if (selectedCategory?.name) {
+      return acc.sector && acc.sector.toLowerCase().includes(selectedCategory.name.toLowerCase());
+    }
+  }
+  
+  return true;
+});
+
+// Also update the useEffect that loads data to set the initial industry filter
+useEffect(() => {
+  if (isOpen && serviceCategoryId && serviceCategoryId !== 'all') {
+    // Set the selected industry to match the service category
+    setSelectedIndustry(serviceCategoryId);
+  }
+}, [isOpen, serviceCategoryId]);
   const toggleAccreditation = (accreditation: any) => {
     const existing = selected.find(s => 
       !s.is_custom && s.accreditation_id === accreditation.id

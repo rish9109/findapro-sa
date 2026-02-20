@@ -353,18 +353,34 @@ function ProviderListingsContent() {
         await supabase.from('provider_accreditations').insert(accreditationsData)
       }
       
-// Send notification with full provider data (non-blocking)
-fetch('/api/email', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ 
-    event: 'new_listing', 
-    provider: data,  // Send the whole provider object instead of just ID
-    launchTrial: true 
-  })
-}).catch((error) => {
-  console.error('Email notification failed:', error) // Log errors instead of swallowing them
-})
+      // Send notification with full provider data (non-blocking)
+      console.log('📤 Attempting to send email for:', data.business_name, 'Email:', data.contact_email)
+      
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          event: 'new_listing', 
+          provider: data,
+          launchTrial: true 
+        })
+      })
+      .then(async response => {
+        const result = await response.json()
+        if (response.ok) {
+          console.log('✅ Email sent successfully:', {
+            requestId: result.requestId,
+            adminEmail: result.data?.adminEmail,
+            providerEmail: result.data?.providerEmail
+          })
+        } else {
+          console.error('❌ Email API returned error:', result)
+        }
+        return result
+      })
+      .catch((error) => {
+        console.error('❌ Email notification network error:', error.message)
+      })
       
       setSubmissionStatus('success')
       setSubmissionMessage('Listing Created!')
@@ -379,7 +395,6 @@ fetch('/api/email', {
       setLoading(false)
     }
   }
-
   if (loadingData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">

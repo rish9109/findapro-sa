@@ -67,7 +67,8 @@ export async function rejectProvider(providerId: string, reason: string, adminEm
 
 export async function pauseProvider(providerId: string, reason?: string, adminEmail?: string) {
   try {
-    const { error: updateError } = await supabase
+    // Update the database and RETURN the updated record
+    const { data: updatedProvider, error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'pause',
@@ -75,21 +76,27 @@ export async function pauseProvider(providerId: string, reason?: string, adminEm
         reviewed_at: new Date().toISOString()
       })
       .eq('id', providerId)
+      .select()  // ← This returns the updated data
+      .single()
 
     if (updateError) throw updateError
 
-    // Send email to provider
-    await fetch('/api/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'status_update',
-        providerId,
-        adminEmail,
-        action: 'pause',
-        reason
-      }),
-    })
+    // Send email with the UPDATED provider data (non-blocking)
+    if (updatedProvider) {
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'status_update',
+          provider: updatedProvider,  // ← Send the full updated provider
+          adminEmail,
+          action: 'pause',
+          reason
+        }),
+      }).catch(error => {
+        console.error('Email notification failed (pause action):', error)
+      })
+    }
 
     return { success: true }
   } catch (error: any) {
@@ -97,7 +104,6 @@ export async function pauseProvider(providerId: string, reason?: string, adminEm
     return { success: false, error: error.message }
   }
 }
-
 export async function deleteProvider(providerId: string, reason?: string, adminEmail?: string) {
   try {
     console.log('🗑️ HARD DELETING provider:', providerId)

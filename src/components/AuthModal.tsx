@@ -100,17 +100,20 @@ export default function AuthModal() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
     setError('')
-
+  
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       })
-
+  
       if (error) throw error
-      // Redirect happens automatically → listener above will close modal on success
     } catch (err: any) {
       setError(err.message || 'Failed to start Google sign-in')
       console.error('Google OAuth error:', err)

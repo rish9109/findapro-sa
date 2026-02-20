@@ -288,7 +288,7 @@ function ProviderForm({
           
           {/* Alternate Phone */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
               Alternate Phone
             </label>
             <input
@@ -359,9 +359,9 @@ function ProviderForm({
           
           {/* Details */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
               Details
-              <span className="text-gray-500 text-xs ml-2">(Use commas or separate lines for lists)</span>
+              <span className="text-gray-300 text-xs ml-2"><span className="text-orange-400">💡</span>Enter services separated by commas or on separate lines. Will display as a bullet list.</span>
             </label>
             <textarea
               name="details"
@@ -369,15 +369,10 @@ function ProviderForm({
               onChange={handleChange}
               rows={10}
               disabled={disabledFields.includes('details')}
-              className={`w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
               placeholder="Enter your service details..."
+          
             />
-            <div className="mt-2 text-xs text-gray-500">
-              <span className="inline-flex items-center gap-1">
-                <span className="text-orange-400">💡</span>
-                Enter services separated by commas or on separate lines. Will display as a bullet list.
-              </span>
-            </div>
           </div>
           
           {/* Accreditations */}

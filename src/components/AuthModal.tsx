@@ -145,13 +145,12 @@ export default function AuthModal() {
       setForgotPasswordLoading(false)
     }
   }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
     setSuccess('')
-
+  
     try {
       if (showSignup) {
         if (!name.trim() || !surname.trim()) {
@@ -167,7 +166,7 @@ export default function AuthModal() {
           setError('Please meet all password requirements')
           return
         }
-
+  
         const result = await signup(email, password, name.trim(), surname.trim())
         
         if (result.success) {
@@ -184,11 +183,24 @@ export default function AuthModal() {
         const result = await login(email, password)
         
         if (!result.success) {
-          if (result.message?.toLowerCase().includes('user') || result.message?.toLowerCase().includes('invalid')) {
+          // Check if the email exists in auth by trying to send a magic link
+          const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: false // Don't create user if they don't exist
+            }
+          })
+          
+          if (!magicLinkError) {
+            // Email exists in auth - must be a Google account
+            setError(
+              'This email uses Google Sign-In. Please click the Google button below to log in, ' +
+              'or click "Forgot Password" to set up email login.'
+            )
+          } else {
+            // Email doesn't exist at all
             setError('No account found with this email. Would you like to sign up instead?')
             setShowSignup(true)
-          } else {
-            setError(result.message || 'Login failed')
           }
         }
       }
@@ -198,7 +210,6 @@ export default function AuthModal() {
       setIsLoading(false)
     }
   }
-
   // ─── Fixed switch functions ────────────────────────────────────────
   const switchToSignup = () => {
     setShowSignup(true)
@@ -347,20 +358,44 @@ export default function AuthModal() {
                         </div>
                       </div>
                     )}
-
-                    {error && (
-                      <div className="bg-red-500/10 text-red-400 p-4 rounded-lg border border-red-500/20">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-medium">Error</span>
-                        </div>
-                        {error}
-                        {error.toLowerCase().includes('sign up') && (
-                          <button type="button" onClick={switchToSignup} className="block mt-2 text-red-400 hover:text-red-300 font-medium">
-                            Yes, create an account
-                          </button>
-                        )}
-                      </div>
-                    )}
+{error && (
+  <div className={`p-4 rounded-lg border ${
+    error.includes('Google') 
+      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
+      : 'bg-red-500/10 text-red-400 border-red-500/20'
+  }`}>
+    <div className="flex items-center gap-2 mb-2">
+      <span className="font-medium">
+        {error.includes('Google') ? 'Google Account Detected' : 'Error'}
+      </span>
+    </div>
+    {error}
+    {error.includes('Google') && (
+      <div className="mt-3 flex gap-3">
+        <button 
+          type="button" 
+          onClick={switchToForgotPassword} 
+          className="text-blue-400 hover:text-blue-300 font-medium text-sm underline"
+        >
+          Forgot Password
+        </button>
+        <span className="text-gray-500">|</span>
+        <button 
+          type="button" 
+          onClick={handleGoogleSignIn} 
+          className="text-blue-400 hover:text-blue-300 font-medium text-sm underline"
+        >
+          Continue with Google
+        </button>
+      </div>
+    )}
+    {error.toLowerCase().includes('sign up') && !error.includes('Google') && (
+      <button type="button" onClick={switchToSignup} className="block mt-2 text-red-400 hover:text-red-300 font-medium underline">
+        Yes, create an account
+      </button>
+    )}
+  </div>
+)}
 
                     {showSignup && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -1,9 +1,9 @@
-// File: src/components/AccreditationDrawer.tsx - MOBILE STYLING FIXES
+// File: src/components/AccreditationDrawer.tsx - EXACT MATCH OF SERVICE AREA DRAWER
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Plus, Check, Award, Filter, ChevronDown } from 'lucide-react';
+import { X, Plus, Check, Award, Filter, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface AccreditationDrawerProps {
@@ -31,18 +31,28 @@ export default function AccreditationDrawer({
   maxSelection = 10,
   serviceCategoryId
 }: AccreditationDrawerProps) {
+  // State
   const [mounted, setMounted] = useState(false);
-  const [accreditations, setAccreditations] = useState<any[]>([]);
   const [selected, setSelected] = useState<any[]>([]);
   const [customName, setCustomName] = useState('');
-  const [showCustomForm, setShowCustomForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showBrowseDrawer, setShowBrowseDrawer] = useState(false);
+  const [browseSearch, setBrowseSearch] = useState('');
+  const [accreditations, setAccreditations] = useState<any[]>([]);
+  const [isLoadingAccreditations, setIsLoadingAccreditations] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [industries, setIndustries] = useState<Industry[]>([
     { id: 'all', name: 'All Industries', count: undefined }
   ]);
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [expandedIndustries, setExpandedIndustries] = useState<Set<string>>(new Set());
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
+
+  // Refs
+  const customInputRef = useRef<HTMLInputElement>(null);
+  const browseSearchRef = useRef<HTMLInputElement>(null);
+  const isInitialized = useRef(false);
 
   // Handle mounting for portal
   useEffect(() => {
@@ -50,13 +60,21 @@ export default function AccreditationDrawer({
     return () => setMounted(false);
   }, []);
 
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Handle escape key and body scroll
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        setIsDropdownOpen(false);
-      }
+      if (e.key === 'Escape') onClose();
     };
     
     if (isOpen) {
@@ -68,72 +86,68 @@ export default function AccreditationDrawer({
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
-  // Load all data when drawer opens
+  // Initialize state when drawer opens
   useEffect(() => {
-    if (isOpen) {
-      const loadAllData = async () => {
-        setLoading(true);
-        try {
-          // Fetch service categories
-          await fetchServiceCategories();
-          
-          // Fetch ALL global accreditations
-          await fetchAllAccreditations();
-          
-          // Fetch provider's existing accreditations if this is an edit (not temp)
-          if (providerId && providerId !== 'temp') {
-            await fetchProviderAccreditations();
-          }
-        } catch (error) {
-          console.error('Error loading data:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
+    if (isOpen && !isInitialized.current) {
+      setSelected(initialSelection || []);
+      setCustomName('');
+      setError('');
+      setBrowseSearch('');
+      setSelectedIndustry(serviceCategoryId || 'all');
+      setExpandedIndustries(new Set());
+      isInitialized.current = true;
       
-      loadAllData();
+      // Fetch accreditations and categories
+      fetchAccreditationsWithCategories();
+      
+      if (!isMobile) {
+        const timer = setTimeout(() => {
+          customInputRef.current?.focus();
+        }, 150);
+        return () => clearTimeout(timer);
+      }
+    } else if (!isOpen) {
+      isInitialized.current = false;
+    }
+  }, [isOpen, initialSelection, isMobile, serviceCategoryId]);
+
+  // Focus browse search when browse drawer opens
+  useEffect(() => {
+    if (showBrowseDrawer && !isMobile) {
+      const timer = setTimeout(() => browseSearchRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [showBrowseDrawer, isMobile]);
+
+  // Fetch provider's existing accreditations if this is an edit (not temp)
+  useEffect(() => {
+    if (isOpen && providerId && providerId !== 'temp') {
+      fetchProviderAccreditations();
     }
   }, [isOpen, providerId]);
 
-  // Initialize selected from initialSelection when drawer opens (for new listings)
-  useEffect(() => {
-    if (isOpen && providerId === 'temp') {
-      setSelected(initialSelection);
-    }
-  }, [isOpen, providerId, initialSelection]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.industry-dropdown')) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const fetchServiceCategories = async () => {
+  const fetchAccreditationsWithCategories = async () => {
     try {
-      const { data, error } = await supabase
+      setIsLoadingAccreditations(true);
+      
+      // Fetch service categories first
+      const { data: categoriesData, error: categoriesError } = await supabase
         .from('service_categories')
         .select('id, name')
         .eq('is_active', true)
         .order('name');
         
-      if (!error && data) {
-        setServiceCategories(data);
+      if (!categoriesError && categoriesData) {
+        setServiceCategories(categoriesData);
         
-        // Build industries with placeholder counts
+        // Build industries list
         const industryList: Industry[] = [
           { id: 'all', name: 'All Industries', count: undefined }
         ];
         
-        data.forEach((cat: any) => {
+        categoriesData.forEach((cat: any) => {
           industryList.push({
             id: cat.id,
             name: cat.name,
@@ -143,69 +157,63 @@ export default function AccreditationDrawer({
         
         setIndustries(industryList);
       }
-    } catch (error) {
-      console.error('Error fetching service categories:', error);
-    }
-  };
-  
-  const fetchAllAccreditations = async () => {
-    try {
-      // Fetch ALL global accreditations - NO FILTERING
+      
+      // Fetch all accreditations
       const { data, error } = await supabase
         .from('accreditations')
         .select('*')
         .eq('is_global', true)
         .order('name');
-        
-      if (error) throw error;
       
-      console.log('Fetched all accreditations:', data?.length);
+      if (error) {
+        console.error('Error fetching accreditations:', error);
+        return;
+      }
+      
       setAccreditations(data || []);
       
+      // Update industry counts
+      if (data && categoriesData) {
+        const industryCounts: Record<string, number> = {};
+        
+        categoriesData.forEach(cat => {
+          industryCounts[cat.name] = 0;
+        });
+        
+        data.forEach((acc: any) => {
+          if (acc.sector) {
+            categoriesData.forEach(cat => {
+              if (acc.sector.toLowerCase().includes(cat.name.toLowerCase())) {
+                industryCounts[cat.name] = (industryCounts[cat.name] || 0) + 1;
+              }
+            });
+          }
+        });
+        
+        setIndustries(prev => {
+          const updated = [...prev];
+          updated.forEach((industry, index) => {
+            if (industry.id !== 'all' && industry.name) {
+              updated[index] = {
+                ...industry,
+                count: industryCounts[industry.name] || 0
+              };
+            }
+          });
+          return updated;
+        });
+      }
     } catch (error) {
-      console.error('Error fetching accreditations:', error);
+      console.error('Error in fetchAccreditationsWithCategories:', error);
+    } finally {
+      setIsLoadingAccreditations(false);
     }
   };
 
-  // Separate useEffect to calculate counts AFTER both accreditations AND serviceCategories are loaded
-  useEffect(() => {
-    if (accreditations.length > 0 && serviceCategories.length > 0) {
-      const industryCounts: Record<string, number> = {};
-      
-      // Initialize counts for all industries
-      serviceCategories.forEach(cat => {
-        industryCounts[cat.name] = 0;
-      });
-      
-      // Count accreditations per industry
-      accreditations.forEach((acc: any) => {
-        if (acc.sector) {
-          serviceCategories.forEach(cat => {
-            if (acc.sector.toLowerCase().includes(cat.name.toLowerCase())) {
-              industryCounts[cat.name] = (industryCounts[cat.name] || 0) + 1;
-            }
-          });
-        }
-      });
-      
-      setIndustries(prev => {
-        const updated = [...prev];
-        updated.forEach((industry, index) => {
-          if (industry.id !== 'all' && industry.name) {
-            updated[index] = {
-              ...industry,
-              count: industryCounts[industry.name] || 0
-            };
-          }
-        });
-        return updated;
-      });
-    }
-  }, [accreditations, serviceCategories]);
-
   const fetchProviderAccreditations = async () => {
     try {
-      // Fetch provider's existing accreditations
+      setIsLoading(true);
+      
       const { data, error } = await supabase
         .from('provider_accreditations')
         .select('*')
@@ -214,15 +222,11 @@ export default function AccreditationDrawer({
         
       if (error) throw error;
       
-      console.log('Fetched provider accreditations:', data?.length);
-      
       if (data && data.length > 0) {
-        // Get all accreditation IDs to fetch their details
         const accreditationIds = data
           .filter(acc => !acc.is_custom && acc.accreditation_id)
           .map(acc => acc.accreditation_id);
         
-        // Fetch full accreditation details for standard accreditations
         let accreditationDetails: any[] = [];
         if (accreditationIds.length > 0) {
           const { data: accData, error: accError } = await supabase
@@ -235,7 +239,6 @@ export default function AccreditationDrawer({
           }
         }
         
-        // Format the selected accreditations
         const formattedSelected = data.map((acc: any) => {
           if (acc.is_custom) {
             return {
@@ -260,96 +263,165 @@ export default function AccreditationDrawer({
       }
     } catch (error) {
       console.error('Error fetching provider accreditations:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-// In AccreditationDrawer.tsx, update the filteredAccreditations logic:
 
-// Filter accreditations based on SELECTED INDUSTRY AND/OR SERVICE CATEGORY
-const filteredAccreditations = accreditations.filter(acc => {
-  // First, filter by selected industry if not 'all'
-  if (selectedIndustry !== 'all') {
-    const selectedIndustryObj = industries.find(i => i.id === selectedIndustry);
-    if (selectedIndustryObj?.name) {
-      const matchesIndustry = acc.sector && acc.sector.toLowerCase().includes(selectedIndustryObj.name.toLowerCase());
-      if (!matchesIndustry) return false;
-    }
-  }
-  
-  // Then, filter by serviceCategoryId if provided (for initial load/context)
-  if (serviceCategoryId && selectedIndustry === 'all') {
-    const selectedCategory = industries.find(i => i.id === serviceCategoryId);
-    if (selectedCategory?.name) {
-      return acc.sector && acc.sector.toLowerCase().includes(selectedCategory.name.toLowerCase());
-    }
-  }
-  
-  return true;
-});
+  // Toggle industry expansion
+  const toggleIndustry = useCallback((industryId: string) => {
+    setExpandedIndustries(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(industryId)) {
+        newSet.delete(industryId);
+      } else {
+        newSet.add(industryId);
+      }
+      return newSet;
+    });
+  }, []);
 
-// Also update the useEffect that loads data to set the initial industry filter
-useEffect(() => {
-  if (isOpen && serviceCategoryId && serviceCategoryId !== 'all') {
-    // Set the selected industry to match the service category
-    setSelectedIndustry(serviceCategoryId);
-  }
-}, [isOpen, serviceCategoryId]);
-  const toggleAccreditation = (accreditation: any) => {
+  // Get total count of accreditations
+  const totalAccreditationsCount = useMemo(() => {
+    return accreditations.length;
+  }, [accreditations]);
+
+  // Memoize filtered industries for browse drawer
+  const filteredIndustries = useMemo(() => {
+    if (!browseSearch.trim()) return industries.filter(i => i.id !== 'all');
+    
+    const searchTerm = browseSearch.toLowerCase().trim();
+    
+    return industries
+      .filter(i => i.id !== 'all')
+      .map(industry => {
+        const industryMatches = industry.name.toLowerCase().includes(searchTerm);
+        const matchingAccreditations = accreditations.filter(acc => 
+          acc.sector?.toLowerCase().includes(industry.name.toLowerCase()) &&
+          acc.name.toLowerCase().includes(searchTerm)
+        );
+        
+        if (industryMatches) {
+          return { 
+            ...industry, 
+            accreditations: accreditations.filter(acc => 
+              acc.sector?.toLowerCase().includes(industry.name.toLowerCase())
+            ) 
+          };
+        } else if (matchingAccreditations.length > 0) {
+          return { 
+            ...industry, 
+            accreditations: matchingAccreditations 
+          };
+        }
+        
+        return null;
+      })
+      .filter(industry => industry !== null);
+  }, [industries, accreditations, browseSearch]);
+
+  const sanitizeInput = useCallback((input: string): string => {
+    return input
+      .replace(/[<>]/g, '')
+      .trim()
+      .slice(0, 100);
+  }, []);
+
+  const toggleAccreditationFromBrowse = useCallback((accreditation: any) => {
     const existing = selected.find(s => 
       !s.is_custom && s.accreditation_id === accreditation.id
     );
     
     if (existing) {
-      setSelected(selected.filter(s => s.id !== existing.id));
-    } else if (selected.length < maxSelection) {
-      setSelected([...selected, {
+      setSelected(prev => prev.filter(s => s.id !== existing.id));
+    } else {
+      if (selected.length >= maxSelection) {
+        setError(`Maximum ${maxSelection} accreditations allowed`);
+        return;
+      }
+      setSelected(prev => [...prev, {
         id: `temp-${Date.now()}`,
         accreditation_id: accreditation.id,
         accreditation: accreditation,
         is_custom: false,
-        position: selected.length
+        position: prev.length
       }]);
     }
-  };
-  
-  const addCustomAccreditation = () => {
-    if (!customName.trim() || selected.length >= maxSelection) return;
+    setError('');
+  }, [selected, maxSelection]);
+
+  const addCustomAccreditation = useCallback(() => {
+    const sanitizedName = sanitizeInput(customName);
     
-    const newCustom = {
+    if (!sanitizedName) {
+      setError('Please enter an accreditation name');
+      return;
+    }
+    
+    if (selected.some(s => s.is_custom && s.custom_name?.toLowerCase() === sanitizedName.toLowerCase())) {
+      setError('This accreditation is already added');
+      return;
+    }
+    
+    if (selected.length >= maxSelection) {
+      setError(`Maximum ${maxSelection} accreditations allowed`);
+      return;
+    }
+    
+    setSelected(prev => [...prev, {
       id: `custom-${Date.now()}`,
-      custom_name: customName.trim(),
+      custom_name: sanitizedName,
       is_custom: true,
-      position: selected.length
-    };
-    
-    setSelected([...selected, newCustom]);
+      position: prev.length
+    }]);
     setCustomName('');
-    setShowCustomForm(false);
-  };
-  
-  const removeAccreditation = (id: string) => {
-    setSelected(selected.filter(s => s.id !== id));
-  };
-  
-  const handleSave = () => {
-    const updatedSelection = selected.map((acc, index) => ({
-      ...acc,
-      position: index
-    }));
-    onSave(updatedSelection);
-    onClose();
-  };
+    setError('');
+    if (!isMobile) {
+      customInputRef.current?.focus();
+    }
+  }, [customName, selected, maxSelection, sanitizeInput, isMobile]);
 
-  const getSelectedIndustryName = () => {
-    if (selectedIndustry === 'all') return 'All Industries';
-    const industry = industries.find(i => i.id === selectedIndustry);
-    return industry?.name || 'Select Industry';
-  };
+  const removeAccreditation = useCallback((accreditationToRemove: any) => {
+    setSelected(prev => prev.filter(s => s.id !== accreditationToRemove.id));
+    setError('');
+  }, []);
 
-  const getTotalAccreditationsCount = () => {
-    return accreditations.length;
-  };
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (customName.trim()) {
+        addCustomAccreditation();
+      }
+    }
+  }, [customName, addCustomAccreditation]);
 
+  const handleSave = useCallback(() => {
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const updatedSelection = selected.map((acc, index) => ({
+        ...acc,
+        position: index
+      }));
+      onSave(updatedSelection);
+      onClose();
+    } catch (err) {
+      setError('Failed to save accreditations. Please try again.');
+      console.error('Save error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selected, onSave, onClose]);
+  const clearAllAccreditations = useCallback(() => {
+    setSelected([]);
+    setError('');
+    if (!isMobile) {
+      customInputRef.current?.focus();
+    }
+  }, [isMobile]);
+
+  // Don't render if not open or not mounted
   if (!isOpen || !mounted) return null;
 
   return createPortal(
@@ -383,14 +455,15 @@ useEffect(() => {
           top: 0,
           bottom: 0,
           right: 0,
+          left: isMobile ? 0 : 'auto',
           zIndex: 1000000,
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
-          maxWidth: '560px',
+          maxWidth: isMobile ? '100%' : '560px',
+          marginLeft: 'auto',
         }}
       >
-        {/* Drawer Content */}
         <div
           style={{
             backgroundColor: '#1f2937',
@@ -398,14 +471,14 @@ useEffect(() => {
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
-            height: '100vh',
+            height: '100dvh',
             animation: 'slideLeft 0.3s ease-out',
           }}
         >
-          {/* Header - FIXED: Better mobile spacing */}
+          {/* Header */}
           <div
             style={{
-              padding: '1rem 1.25rem',
+              padding: isMobile ? '1rem 1.25rem' : '1.25rem 1.5rem',
               borderBottom: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
@@ -422,14 +495,14 @@ useEffect(() => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Award style={{ width: '1.25rem', height: '1.25rem', color: '#f97316' }} />
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'white', margin: 0 }}>
-                  Select Accreditations
+                  Accreditations
                 </h3>
               </div>
               <button
                 onClick={onClose}
                 style={{
                   color: '#9ca3af',
-                  padding: '0.5rem',
+                  padding: isMobile ? '0.5rem' : '0.375rem',
                   borderRadius: '0.5rem',
                   background: 'transparent',
                   border: 'none',
@@ -437,7 +510,8 @@ useEffect(() => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 0.2s',
+                  minHeight: isMobile ? '44px' : 'auto',
+                  minWidth: isMobile ? '44px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#374151';
@@ -451,589 +525,339 @@ useEffect(() => {
                 <X style={{ width: '1.25rem', height: '1.25rem' }} />
               </button>
             </div>
-            
-            {/* Selection info */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between', 
-              marginBottom: '0.75rem' 
-            }}>
-              <span style={{ fontSize: '0.875rem', color: '#d1d5db' }}>
-                Selected: <span style={{ fontWeight: '600', color: '#f97316' }}>
-                  {selected.length}/{maxSelection}
-                </span>
-              </span>
-              
-              {selected.length < maxSelection && (
-                <button
-                  onClick={() => setShowCustomForm(!showCustomForm)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    padding: '0.5rem 0.75rem',
-                    fontSize: '0.8125rem',
-                    backgroundColor: showCustomForm ? '#4b5563' : '#374151',
-                    border: 'none',
-                    borderRadius: '0.5rem',
-                    color: 'white',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!showCustomForm) {
-                      e.currentTarget.style.backgroundColor = '#4b5563';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!showCustomForm) {
-                      e.currentTarget.style.backgroundColor = '#374151';
-                    }
-                  }}
-                >
-                  <Plus style={{ width: '1rem', height: '1rem' }} />
-                  Add Custom
-                </button>
-              )}
-            </div>
-            
-            {/* Selected badges - FIXED: Better mobile scrolling and spacing */}
-            {selected.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'nowrap',
-                  gap: '0.5rem',
-                  marginTop: '0.5rem',
-                  paddingBottom: '0.5rem',
-                  overflowX: 'auto',
-                  overflowY: 'hidden',
-                  WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                }}
-                className="selected-badges-scroll"
-              >
-                {selected.map(acc => (
-                  <div
-                    key={acc.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.375rem 0.75rem',
-                      borderRadius: '9999px',
-                      backgroundColor: 'rgba(249, 115, 22, 0.2)',
-                      border: '1px solid rgba(249, 115, 22, 0.3)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: '#fdba74',
-                      maxWidth: '150px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {acc.is_custom ? acc.custom_name : acc.accreditation?.name || 'Certified'}
-                    </span>
-                    <button
-                      onClick={() => removeAccreditation(acc.id)}
-                      style={{
-                        color: '#fdba74',
-                        background: 'transparent',
-                        border: 'none',
-                        padding: '0.125rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        cursor: 'pointer',
-                        borderRadius: '9999px',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = '#f97316';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = '#fdba74';
-                      }}
-                    >
-                      <X style={{ width: '0.75rem', height: '0.75rem' }} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
           
-          {/* Custom form */}
-          {showCustomForm && (
-            <div
-              style={{
-                padding: '1rem 1.25rem',
-                borderBottom: '1px solid #374151',
-                backgroundColor: 'rgba(17, 24, 39, 0.5)',
-              }}
-            >
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Enter custom accreditation name"
-                  style={{
-                    flex: 1,
-                    padding: '0.75rem 0.75rem',
-                    backgroundColor: '#1f2937',
-                    border: '1px solid #374151',
-                    borderRadius: '0.5rem',
-                    color: 'white',
-                    fontSize: '0.875rem',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#f97316';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#374151';
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && addCustomAccreditation()}
-                  autoFocus
-                />
-                <button
-                  onClick={addCustomAccreditation}
-                  disabled={!customName.trim()}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    backgroundColor: !customName.trim() ? '#374151' : '#f97316',
-                    border: 'none',
-                    borderRadius: '0.5rem',
-                    color: !customName.trim() ? '#6b7280' : 'white',
-                    fontWeight: '500',
-                    fontSize: '0.875rem',
-                    cursor: !customName.trim() ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.2s',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>
-                Custom accreditations are saved to your profile only
+          {/* Error message */}
+          {error && (
+            <div style={{
+              margin: isMobile ? '0.75rem 1.25rem 0' : '1rem 1.5rem 0',
+              padding: isMobile ? '0.625rem 0.875rem' : '0.75rem 1rem',
+              backgroundColor: 'rgba(185, 28, 28, 0.2)',
+              border: '1px solid rgba(185, 28, 28, 0.5)',
+              borderRadius: '0.5rem',
+              flexShrink: 0,
+            }}>
+              <p style={{ color: '#fca5a5', fontSize: '0.875rem', margin: 0 }}>
+                {error}
               </p>
             </div>
           )}
           
-          {/* Industries Dropdown */}
-          <div
-            className="industry-dropdown"
-            style={{
-              padding: '1rem 1.25rem',
-              borderBottom: '1px solid #374151',
-              backgroundColor: '#1f2937',
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '0.5rem',
-            }}>
-              <label style={{
-                fontSize: '0.75rem',
-                fontWeight: '500',
-                color: '#f97316',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}>
-                Filter by Industry
-              </label>
-              <span style={{
-                fontSize: '0.80rem',
-                color: '#f97316',
-              }}>
-                {getTotalAccreditationsCount()} total
-              </span>
-            </div>
-            
-            {/* Custom dropdown trigger */}
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              style={{
-                width: '100%',
-                padding: '0.875rem 1rem',
-                backgroundColor: '#111827',
-                border: `1px solid ${isDropdownOpen ? '#f97316' : '#374151'}`,
-                borderRadius: '0.75rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                color: 'white',
-                fontSize: '0.9375rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                outline: 'none',
-              }}
-            >
-              <span style={{ 
-                color: selectedIndustry === 'all' ? '#9ca3af' : 'white',
-                fontWeight: selectedIndustry === 'all' ? 'normal' : '500',
-              }}>
-                {getSelectedIndustryName()}
-              </span>
-              <ChevronDown style={{
-                width: '1.125rem',
-                height: '1.125rem',
-                color: '#9ca3af',
-                transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
-                transition: 'transform 0.2s',
-              }} />
-            </button>
-            
-            {/* Dropdown menu */}
-            {isDropdownOpen && (
-              <div
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  marginTop: '0.375rem',
-                  backgroundColor: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '0.75rem',
-                  overflow: 'hidden',
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-                  zIndex: 1000001,
-                }}
-              >
-                <div style={{
-                  maxHeight: 'min(300px, 50vh)',
-                  overflowY: 'auto',
-                  padding: '0.375rem',
-                }}>
-                  {industries.map((industry) => (
-                    <button
-                      key={industry.id}
-                      onClick={() => {
-                        setSelectedIndustry(industry.id);
-                        setIsDropdownOpen(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '0.875rem 1rem',
-                        backgroundColor: selectedIndustry === industry.id ? 'rgba(249, 115, 22, 0.2)' : 'transparent',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        color: selectedIndustry === industry.id ? '#fdba74' : 'white',
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s',
-                        marginBottom: '0.125rem',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (selectedIndustry !== industry.id) {
-                          e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.5)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (selectedIndustry !== industry.id) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }
-                      }}
-                    >
-                      <span style={{
-                        fontWeight: selectedIndustry === industry.id ? '600' : '400',
-                      }}>
-                        {industry.name}
-                      </span>
-                      {industry.count !== undefined && industry.id !== 'all' && (
-                        <span style={{
-                          padding: '0.25rem 0.625rem',
-                          backgroundColor: selectedIndustry === industry.id 
-                            ? 'rgba(249, 115, 22, 0.3)' 
-                            : 'rgba(75, 85, 99, 0.5)',
-                          borderRadius: '9999px',
-                          fontSize: '0.75rem',
-                          color: selectedIndustry === industry.id ? '#fdba74' : '#9ca3af',
-                          fontWeight: '500',
-                          display: 'inline-block',
-                          minWidth: '28px',
-                          textAlign: 'center',
-                        }}>
-                          {industry.count}
-                        </span>
-                      )}
-                      {industry.id === 'all' && (
-                        <span style={{
-                          fontSize: '0.75rem',
-                          color: '#6b7280',
-                          padding: '0.25rem 0.5rem',
-                        }}>
-                          {accreditations.length}
-                        </span>
-                      )}
-                      {selectedIndustry === industry.id && (
-                        <Check style={{
-                          width: '1rem',
-                          height: '1rem',
-                          color: '#f97316',
-                          marginLeft: '0.5rem',
-                        }} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Mobile close button - FIXED: Better touch target */}
-                <div style={{
-                  padding: '0.75rem',
-                  borderTop: '1px solid #374151',
-                  display: 'none',
-                }} className="dropdown-mobile-close">
-                  <button
-                    onClick={() => setIsDropdownOpen(false)}
-                    style={{
-                      width: '100%',
-                      padding: '0.875rem',
-                      backgroundColor: '#374151',
-                      border: 'none',
-                      borderRadius: '0.5rem',
-                      color: 'white',
-                      fontSize: '0.9375rem',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      minHeight: '48px',
-                    }}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {/* Active filter indicator */}
-            {selectedIndustry !== 'all' && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                marginTop: '0.75rem',
-              }}>
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  padding: '0.375rem 0.625rem',
-                  backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  color: '#fdba74',
-                }}>
-                  <Filter style={{ width: '0.75rem', height: '0.75rem' }} />
-                  Active filter: {getSelectedIndustryName()}
-                </span>
-                <button
-                  onClick={() => setSelectedIndustry('all')}
-                  style={{
-                    padding: '0.375rem 0.625rem',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: '#9ca3af',
-                    fontSize: '0.75rem',
-                    textDecoration: 'underline',
-                    textUnderlineOffset: '2px',
-                    cursor: 'pointer',
-                    minHeight: '32px',
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {/* Content Area - Scrollable */}
+          {/* Content Area */}
           <div
             style={{
               flex: '1 1 auto',
               overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
-              padding: '1.25rem',
+              padding: isMobile ? '1.25rem' : '1.5rem',
               backgroundColor: '#1f2937',
             }}
           >
-            {loading ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '3rem 0',
+            {/* Browse Accreditations Button */}
+            <div style={{ marginBottom: isMobile ? '1.25rem' : '1.5rem' }}>
+              <h4 style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                color: 'white', 
+                marginBottom: '0.75rem',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                gap: '1rem',
+                gap: '0.5rem',
               }}>
-                <div style={{
-                  width: '2.5rem',
-                  height: '2.5rem',
-                  border: '3px solid #f97316',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                }} />
-                <p style={{ color: '#9ca3af', fontSize: '0.9375rem', margin: 0 }}>
-                  Loading accreditations...
-                </p>
+                <span style={{ color: '#f97316' }}>Browse Accreditations</span>
+                {isLoadingAccreditations && (
+                  <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Loading...</span>
+                )}
+              </h4>
+              
+              <button
+                onClick={() => setShowBrowseDrawer(true)}
+                disabled={isLoadingAccreditations}
+                style={{
+                  width: '100%',
+                  padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                  backgroundColor: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  color: 'white',
+                  fontSize: '0.9375rem',
+                  cursor: isLoadingAccreditations ? 'not-allowed' : 'pointer',
+                  opacity: isLoadingAccreditations ? 0.5 : 1,
+                  marginBottom: '0.5rem',
+                  minHeight: isMobile ? '48px' : 'auto',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoadingAccreditations) {
+                    e.currentTarget.style.backgroundColor = '#1f2937';
+                    e.currentTarget.style.borderColor = '#4b5563';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isLoadingAccreditations) {
+                    e.currentTarget.style.backgroundColor = '#111827';
+                    e.currentTarget.style.borderColor = '#374151';
+                  }
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Award style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+                  <span>Browse by Industry</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.875rem', color: '#f97316', fontWeight: '500' }}>
+                    {totalAccreditationsCount} accreditations
+                  </span>
+                  <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+                </div>
+              </button>
+              
+              <p style={{ fontSize: '0.75rem', color: '#e5e7eb', margin: 0 }}>
+                {industries.length - 1} industries • {totalAccreditationsCount} accreditations
+              </p>
+            </div>
+            
+            {/* Add custom accreditation */}
+            <div style={{ marginBottom: isMobile ? '1.25rem' : '1.5rem' }}>
+              <h4 style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: '500', 
+                color: 'white', 
+                marginBottom: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <span style={{ color: '#f97316' }}>Add Custom Accreditation</span>
+              </h4>
+              
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  ref={customInputRef}
+                  type="text"
+                  value={customName}
+                  onChange={(e) => {
+                    setCustomName(e.target.value);
+                    setError('');
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a custom accreditation name..."
+                  inputMode="text"
+                  autoCapitalize="words"
+                  enterKeyHint="done"
+                  style={{
+                    flex: 1,
+                    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '0.75rem',
+                    color: 'white',
+                    fontSize: '0.9375rem',
+                    outline: 'none',
+                    minHeight: isMobile ? '48px' : 'auto',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#f97316';
+                    e.currentTarget.style.boxShadow = '0 0 0 1px #f97316';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#374151';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
+                <button
+                  onClick={addCustomAccreditation}
+                  disabled={!customName.trim() || selected.length >= maxSelection}
+                  style={{
+                    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                    background: !customName.trim() || selected.length >= maxSelection
+                      ? '#374151'
+                      : 'linear-gradient(to right, #ea580c, #f97316)',
+                    border: 'none',
+                    borderRadius: '0.75rem',
+                    color: !customName.trim() || selected.length >= maxSelection
+                      ? '#6b7280'
+                      : 'white',
+                    fontWeight: '500',
+                    fontSize: '0.875rem',
+                    cursor: !customName.trim() || selected.length >= maxSelection
+                      ? 'not-allowed'
+                      : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: isMobile ? '48px' : 'auto',
+                    minHeight: isMobile ? '48px' : 'auto',
+                  }}
+                  aria-label="Add custom accreditation"
+                >
+                  <Plus style={{ width: '1rem', height: '1rem' }} />
+                </button>
               </div>
-            ) : filteredAccreditations.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {filteredAccreditations.map(acc => {
-                  const isSelected = selected.some(s => 
-                    !s.is_custom && s.accreditation_id === acc.id
-                  );
-                  const isDisabled = selected.length >= maxSelection && !isSelected;
-                  
-                  return (
+              <p style={{ fontSize: '0.75rem', color: '#e5e7eb', marginTop: '0.5rem', marginBottom: 0 }}>
+                Press Enter to add
+              </p>
+            </div>
+            
+            {/* Selected Accreditations */}
+            <div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                marginBottom: '0.75rem' 
+              }}>
+                <h4 style={{ 
+                  fontSize: '0.875rem', 
+                  fontWeight: '500', 
+                  color: 'white', 
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}>
+                  <span style={{ color: '#f97316' }}>Selected Accreditations</span>
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#fdba74', fontWeight: '500' }}>
+                    {selected.length}/{maxSelection}
+                  </span>
+                  {selected.length > 0 && (
                     <button
-                      key={acc.id}
-                      onClick={() => !isDisabled && toggleAccreditation(acc)}
-                      disabled={isDisabled}
+                      onClick={clearAllAccreditations}
                       style={{
-                        width: '100%',
-                        padding: '1rem',
-                        borderRadius: '0.75rem',
-                        borderWidth: '1px',
-                        borderStyle: 'solid',
-                        textAlign: 'left',
-                        transition: 'all 0.2s',
-                        background: isSelected
-                          ? 'linear-gradient(to right, rgba(234, 88, 12, 0.2), rgba(249, 115, 22, 0.2))'
-                          : isDisabled
-                          ? 'rgba(17, 24, 39, 0.2)'
-                          : 'rgba(17, 24, 39, 0.3)',
-                        borderColor: isSelected
-                          ? 'rgba(249, 115, 22, 0.5)'
-                          : isDisabled
-                          ? '#374151'
-                          : '#374151',
-                        opacity: isDisabled ? 0.5 : 1,
-                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        fontSize: '0.75rem',
+                        color: '#9ca3af',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        padding: isMobile ? '0.5rem' : '0.25rem',
+                        minHeight: isMobile ? '44px' : 'auto',
                       }}
                       onMouseEnter={(e) => {
-                        if (!isSelected && !isDisabled) {
-                          e.currentTarget.style.backgroundColor = 'rgba(31, 41, 55, 0.5)';
-                          e.currentTarget.style.borderColor = '#4b5563';
-                        }
+                        e.currentTarget.style.color = '#ef4444';
                       }}
                       onMouseLeave={(e) => {
-                        if (!isSelected && !isDisabled) {
-                          e.currentTarget.style.backgroundColor = 'rgba(17, 24, 39, 0.3)';
-                          e.currentTarget.style.borderColor = '#374151';
-                        }
+                        e.currentTarget.style.color = '#9ca3af';
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                        <div
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {selected.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {selected.map((acc, index) => {
+                    const isPreconfigured = !acc.is_custom;
+                    return (
+                      <div
+                        key={acc.id || index}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                          background: 'linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(31, 41, 55, 0.3))',
+                          border: '1px solid #374151',
+                          borderRadius: '0.75rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Award style={{ 
+                            width: '1rem', 
+                            height: '1rem', 
+                            color: isPreconfigured ? '#f97316' : '#60a5fa' 
+                          }} />
+                          <span style={{ color: '#d1d5db', fontSize: '0.875rem', fontWeight: '500' }}>
+                            {acc.is_custom ? acc.custom_name : acc.accreditation?.name || 'Accreditation'}
+                          </span>
+                          {acc.is_custom && (
+                            <span style={{ 
+                              fontSize: '0.75rem',
+                              padding: '0.125rem 0.5rem',
+                              backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                              color: '#93c5fd',
+                              borderRadius: '9999px',
+                            }}>
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeAccreditation(acc)}
                           style={{
-                            flexShrink: 0,
-                            width: '1.25rem',
-                            height: '1.25rem',
-                            borderRadius: '0.375rem',
-                            borderWidth: '1px',
-                            borderStyle: 'solid',
+                            color: '#9ca3af',
+                            background: 'transparent',
+                            border: 'none',
+                            padding: isMobile ? '0.5rem' : '0.25rem',
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            background: isSelected ? '#f97316' : '#1f2937',
-                            borderColor: isSelected ? '#f97316' : '#4b5563',
+                            borderRadius: '0.375rem',
+                            minHeight: isMobile ? '44px' : 'auto',
+                            minWidth: isMobile ? '44px' : 'auto',
                           }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#f97316';
+                            e.currentTarget.style.backgroundColor = 'rgba(249, 115, 22, 0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '#9ca3af';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          aria-label={`Remove ${acc.is_custom ? acc.custom_name : acc.accreditation?.name}`}
                         >
-                          {isSelected && (
-                            <Check style={{ width: '0.75rem', height: '0.75rem', color: 'white' }} />
-                          )}
-                        </div>
-                        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-                          <h4 style={{
-                            fontWeight: '600',
-                            color: 'white',
-                            fontSize: '0.9375rem',
-                            marginBottom: '0.25rem',
-                            marginTop: 0,
-                          }}>
-                            {acc.name}
-                          </h4>
-                          {acc.description && (
-                            <p style={{
-                              fontSize: '0.8125rem',
-                              color: '#9ca3af',
-                              marginBottom: 0,
-                              marginTop: 0,
-                              lineHeight: '1.4',
-                            }}>
-                              {acc.description}
-                            </p>
-                          )}
-                        </div>
+                          <X style={{ width: '1rem', height: '1rem' }} />
+                        </button>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '3rem 1rem',
-                backgroundColor: 'rgba(17, 24, 39, 0.3)',
-                borderRadius: '0.75rem',
-              }}>
-                <div style={{
-                  width: '3rem',
-                  height: '3rem',
-                  backgroundColor: '#1f2937',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1rem',
-                }}>
-                  <Filter style={{ width: '1.5rem', height: '1.5rem', color: '#6b7280' }} />
+                    );
+                  })}
                 </div>
-                <p style={{ color: '#d1d5db', fontWeight: '500', marginBottom: '0.25rem' }}>
-                  No accreditations found
-                </p>
-                <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>
-                  No accreditations available
-                </p>
-              </div>
-            )}
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: isMobile ? '2rem 1rem' : '2rem 1rem',
+                  border: '2px dashed #374151',
+                  borderRadius: '0.75rem',
+                }}>
+                  <Award style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
+                  <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                    No accreditations selected yet
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: '#4b5563', margin: 0 }}>
+                    Browse industries or add custom accreditations
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
           
-          {/* Footer - FIXED: Better mobile sticky footer */}
+          {/* Footer */}
           <div
             style={{
-              padding: '1rem 1.25rem',
+              padding: isMobile ? '1rem 1.25rem' : '1rem 1.5rem',
               borderTop: '1px solid #374151',
               backgroundColor: '#1f2937',
               flexShrink: 0,
-              boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)',
               position: 'sticky',
               bottom: 0,
               width: '100%',
+              zIndex: 10,
+              paddingBottom: isMobile ? 'max(1rem, env(safe-area-inset-bottom))' : '1rem',
             }}
           >
-            <div style={{ 
-              display: 'flex', 
-              gap: '0.75rem',
-              flexDirection: 'row',
-            }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
                 onClick={onClose}
                 style={{
                   flex: 1,
-                  padding: '0.875rem 0.75rem',
+                  padding: isMobile ? '0.875rem 0.75rem' : '0.75rem',
                   backgroundColor: '#374151',
                   border: 'none',
                   borderRadius: '0.75rem',
@@ -1041,8 +865,7 @@ useEffect(() => {
                   fontWeight: '500',
                   fontSize: '0.9375rem',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s',
-                  minHeight: '48px',
+                  minHeight: isMobile ? '48px' : 'auto',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#4b5563';
@@ -1054,29 +877,53 @@ useEffect(() => {
                 Cancel
               </button>
               <button
-                onClick={handleSave}
-                style={{
-                  flex: 1,
-                  padding: '0.875rem 0.75rem',
-                  background: 'linear-gradient(to right, #ea580c, #f97316)',
-                  border: 'none',
-                  borderRadius: '0.75rem',
-                  color: 'white',
-                  fontWeight: '600',
-                  fontSize: '0.9375rem',
-                  cursor: 'pointer',
-                  transition: 'opacity 0.2s',
-                  minHeight: '48px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
-                }}
-              >
-                Save ({selected.length})
-              </button>
+  onClick={handleSave}
+  disabled={isLoading}
+  style={{
+    flex: 1,
+    padding: isMobile ? '0.875rem 0.75rem' : '0.75rem',
+    background: isLoading
+      ? '#374151'
+      : 'linear-gradient(to right, #ea580c, #f97316)',
+    border: 'none',
+    borderRadius: '0.75rem',
+    color: isLoading ? '#6b7280' : 'white',
+    fontWeight: '600',
+    fontSize: '0.9375rem',
+    cursor: isLoading ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.5rem',
+    minHeight: isMobile ? '48px' : 'auto',
+  }}
+  onMouseEnter={(e) => {
+    if (!isLoading) {
+      e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
+    }
+  }}
+  onMouseLeave={(e) => {
+    if (!isLoading) {
+      e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
+    }
+  }}
+>
+  {isLoading ? (
+    <>
+      <div style={{
+        width: '1rem',
+        height: '1rem',
+        border: '2px solid white',
+        borderTopColor: 'transparent',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite',
+      }} />
+      Saving...
+    </>
+  ) : (
+    `Save ${selected.length} Accreditation${selected.length !== 1 ? 's' : ''}`
+  )}
+</button>
             </div>
           </div>
         </div>
@@ -1084,82 +931,407 @@ useEffect(() => {
 
       <style>{`
         @keyframes slideLeft {
-          from {
-            transform: translateX(100%);
-          }
-          to {
-            transform: translateX(0);
-          }
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
         }
-        
         @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
-
-        /* Hide scrollbar for selected badges */
-        .selected-badges-scroll::-webkit-scrollbar {
-          display: none;
+        @media (max-width: 768px) {
+          input, button { font-size: 16px !important; }
+          input[type="text"] { font-size: 16px; }
         }
-
-        @media (max-width: 640px) {
-          div[style*="max-width: 560px"] {
-            max-width: 100% !important;
-          }
-          
-          .dropdown-mobile-close {
-            display: block !important;
-          }
-          
-          button, input, select {
-            min-height: 48px;
-          }
-          
-          select, input, button {
-            font-size: 16px !important;
-          }
-          
-          /* Better touch targets */
-          button[style*="border-radius: 0.5rem"] {
-            padding-top: 0.875rem;
-            padding-bottom: 0.875rem;
-          }
-          
-          /* Ensure footer is always visible */
-          div[style*="position: sticky"][style*="bottom: 0"] {
-            background-color: #1f2937;
-            border-top: 1px solid #374151;
-            z-index: 10;
-          }
-        }
-
-        @media (min-width: 641px) and (max-width: 1024px) {
-          div[style*="max-width: 560px"] {
-            max-width: 480px !important;
-          }
-        }
-
         div[style*="overflow-y: auto"]::-webkit-scrollbar {
           width: 6px;
         }
-        
         div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
           background: #1f2937;
         }
-        
         div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
           background: #4b5563;
           border-radius: 3px;
         }
-        
-        div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
-          background: #6b7280;
-        }
       `}</style>
+
+      {/* Browse Accreditations Drawer */}
+      {showBrowseDrawer && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1000001,
+        }}>
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              zIndex: 1000001,
+              cursor: 'pointer',
+            }}
+            onClick={() => setShowBrowseDrawer(false)}
+          />
+          
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              bottom: 0,
+              right: 0,
+              left: isMobile ? 0 : 'auto',
+              zIndex: 1000002,
+              display: 'flex',
+              flexDirection: 'column',
+              width: '100%',
+              maxWidth: isMobile ? '100%' : '560px',
+              marginLeft: 'auto',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: '#1f2937',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                height: '100dvh',
+                animation: 'slideLeft 0.3s ease-out',
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  padding: isMobile ? '1rem 1.25rem' : '1.25rem 1.5rem',
+                  borderBottom: '1px solid #374151',
+                  backgroundColor: '#1f2937',
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Award style={{ width: '1.25rem', height: '1.25rem', color: '#f97316' }} />
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                      Accreditations by Industry
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowBrowseDrawer(false)}
+                    style={{
+                      color: '#9ca3af',
+                      padding: isMobile ? '0.5rem' : '0.375rem',
+                      borderRadius: '0.5rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: isMobile ? '44px' : 'auto',
+                      minWidth: isMobile ? '44px' : 'auto',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#374151';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = '#9ca3af';
+                    }}
+                  >
+                    <X style={{ width: '1.25rem', height: '1.25rem' }} />
+                  </button>
+                </div>
+                
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  marginBottom: '0.75rem',
+                }}>
+                  <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
+                    {totalAccreditationsCount} accreditations • {industries.length - 1} industries
+                  </p>
+                  <p style={{ fontSize: '0.875rem', color: '#fdba74', margin: 0 }}>
+                    {selected.length}/{maxSelection} selected
+                  </p>
+                </div>
+                
+                {/* Search */}
+                <input
+                  ref={browseSearchRef}
+                  type="text"
+                  value={browseSearch}
+                  onChange={(e) => setBrowseSearch(e.target.value)}
+                  placeholder="Search industries or accreditations..."
+                  inputMode="search"
+                  enterKeyHint="search"
+                  style={{
+                    width: '100%',
+                    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                    backgroundColor: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '0.75rem',
+                    color: 'white',
+                    fontSize: '0.9375rem',
+                    outline: 'none',
+                    minHeight: isMobile ? '48px' : 'auto',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#f97316';
+                    e.currentTarget.style.boxShadow = '0 0 0 1px #f97316';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#374151';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+              
+              {/* Industries & Accreditations List */}
+              <div
+                style={{
+                  flex: '1 1 auto',
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  padding: isMobile ? '1.25rem' : '1.5rem',
+                  backgroundColor: '#1f2937',
+                }}
+              >
+                {isLoadingAccreditations ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                    <div style={{
+                      width: '2rem',
+                      height: '2rem',
+                      border: '2px solid #f97316',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      margin: '0 auto 0.5rem',
+                    }} />
+                    <p style={{ color: '#9ca3af', fontSize: '0.875rem', margin: 0 }}>
+                      Loading...
+                    </p>
+                  </div>
+                ) : filteredIndustries.length === 0 ? (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '2rem 1rem',
+                    backgroundColor: 'rgba(17, 24, 39, 0.3)',
+                    borderRadius: '0.75rem',
+                  }}>
+                    <Award style={{ width: '2rem', height: '2rem', color: '#4b5563', margin: '0 auto 0.5rem' }} />
+                    <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                      No matches found
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>
+                      Try a different search term
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {filteredIndustries.map((industry: any) => {
+                      const isExpanded = expandedIndustries.has(industry.id);
+                      const industryAccreditations = accreditations.filter(acc => 
+                        acc.sector?.toLowerCase().includes(industry.name.toLowerCase())
+                      );
+                      const someAccreditationsSelected = industryAccreditations.some(acc => 
+                        selected.some(s => !s.is_custom && s.accreditation_id === acc.id)
+                      );
+                      
+                      return (
+                        <div key={industry.id}>
+                          {/* Industry Header */}
+                          <button
+                            onClick={() => toggleIndustry(industry.id)}
+                            style={{
+                              width: '100%',
+                              padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+                              backgroundColor: isExpanded ? '#1f2937' : '#111827',
+                              border: '1px solid',
+                              borderColor: someAccreditationsSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151',
+                              borderRadius: '0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              color: 'white',
+                              fontSize: '0.9375rem',
+                              cursor: 'pointer',
+                              marginBottom: isExpanded ? '0.25rem' : 0,
+                              minHeight: isMobile ? '48px' : 'auto',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isExpanded) e.currentTarget.style.backgroundColor = '#1f2937';
+                              e.currentTarget.style.borderColor = '#4b5563';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isExpanded) e.currentTarget.style.backgroundColor = '#111827';
+                              e.currentTarget.style.borderColor = someAccreditationsSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151';
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {isExpanded ? (
+                                <ChevronDown style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
+                              ) : (
+                                <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+                              )}
+                              <span style={{ fontWeight: '500' }}>{industry.name}</span>
+                              {someAccreditationsSelected && (
+                                <span style={{ 
+                                  fontSize: '0.75rem',
+                                  padding: '0.125rem 0.5rem',
+                                  backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                                  color: '#fdba74',
+                                  borderRadius: '9999px',
+                                }}>
+                                  {industryAccreditations.filter(acc => 
+                                    selected.some(s => !s.is_custom && s.accreditation_id === acc.id)
+                                  ).length} selected
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                              {industry.count} {industry.count === 1 ? 'accreditation' : 'accreditations'}
+                            </span>
+                          </button>
+                          
+                          {/* Accreditations List */}
+                          {isExpanded && (
+                            <div style={{ 
+                              marginLeft: isMobile ? '1rem' : '1.5rem',
+                              marginTop: '0.25rem',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.25rem',
+                            }}>
+                              {industryAccreditations.map((acc: any) => {
+                                const isSelected = selected.some(s => 
+                                  !s.is_custom && s.accreditation_id === acc.id
+                                );
+                                const isDisabled = selected.length >= maxSelection && !isSelected;
+                                
+                                return (
+                                  <button
+                                    key={acc.id}
+                                    onClick={() => !isDisabled && toggleAccreditationFromBrowse(acc)}
+                                    disabled={isDisabled}
+                                    style={{
+                                      width: '100%',
+                                      padding: isMobile ? '0.75rem 1rem' : '0.625rem 1rem',
+                                      backgroundColor: isSelected
+                                        ? 'rgba(249, 115, 22, 0.15)'
+                                        : isDisabled
+                                        ? 'rgba(17, 24, 39, 0.2)'
+                                        : 'transparent',
+                                      border: '1px solid',
+                                      borderColor: isSelected
+                                        ? 'rgba(249, 115, 22, 0.3)'
+                                        : '#374151',
+                                      borderRadius: '0.5rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      color: isSelected
+                                        ? '#fdba74'
+                                        : isDisabled
+                                        ? '#6b7280'
+                                        : '#d1d5db',
+                                      fontSize: '0.875rem',
+                                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                      opacity: isDisabled ? 0.5 : 1,
+                                      minHeight: isMobile ? '44px' : 'auto',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected && !isDisabled) {
+                                        e.currentTarget.style.backgroundColor = '#1f2937';
+                                        e.currentTarget.style.borderColor = '#4b5563';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected && !isDisabled) {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.borderColor = '#374151';
+                                      }
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                                      <Award style={{ 
+                                        width: '0.875rem', 
+                                        height: '0.875rem', 
+                                        color: isSelected ? '#f97316' : '#6b7280' 
+                                      }} />
+                                      <span>{acc.name}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Check style={{ width: '0.875rem', height: '0.875rem', color: '#f97316' }} />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div
+                style={{
+                  padding: isMobile ? '1rem 1.25rem' : '1rem 1.5rem',
+                  borderTop: '1px solid #374151',
+                  backgroundColor: '#1f2937',
+                  flexShrink: 0,
+                  position: 'sticky',
+                  bottom: 0,
+                  width: '100%',
+                  zIndex: 10,
+                  paddingBottom: isMobile ? 'max(1rem, env(safe-area-inset-bottom))' : '1rem',
+                }}
+              >
+                <button
+                  onClick={() => setShowBrowseDrawer(false)}
+                  style={{
+                    width: '100%',
+                    padding: isMobile ? '0.875rem' : '0.75rem',
+                    background: 'linear-gradient(to right, #ea580c, #f97316)',
+                    border: 'none',
+                    borderRadius: '0.75rem',
+                    color: 'white',
+                    fontWeight: '600',
+                    fontSize: '0.9375rem',
+                    cursor: 'pointer',
+                    minHeight: isMobile ? '48px' : 'auto',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
+                  }}
+                >
+                  Done ({selected.length})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>,
     document.body
   );

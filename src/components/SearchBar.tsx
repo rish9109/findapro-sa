@@ -1,245 +1,141 @@
-// File: src/components/SearchBar.tsx
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, ArrowRight } from 'lucide-react'
 
-export default function SearchBar() {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [search, setSearch] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
+interface SearchBarProps {
+  value: string
+  onChange: (value: string) => void
+  onSearch?: () => void
+  placeholder?: string
+  className?: string
+  variant?: 'default' | 'compact' | 'hero'
+  autoFocus?: boolean
+}
+
+export default function SearchBar({ 
+  value, 
+  onChange, 
+  onSearch,
+  placeholder = "Search for services, businesses...",
+  className = "",
+  variant = "default",
+  autoFocus = false
+}: SearchBarProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [isFocused, setIsFocused] = useState(false)
 
-  // Focus input when expanded
   useEffect(() => {
-    if (isExpanded && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 150)
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus()
     }
-  }, [isExpanded])
+  }, [autoFocus])
 
-  // Close on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isExpanded) {
-        handleClose()
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      if (onSearch) {
+        onSearch()
+      } else if (value.trim()) {
+        router.push(`/search?q=${encodeURIComponent(value.trim())}`)
       }
     }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [isExpanded])
+  }
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!search.trim() || isSearching) return
+  const handleSearch = () => {
+    if (value.trim()) {
+      router.push(`/search?q=${encodeURIComponent(value.trim())}`)
+    }
+  }
+
+  // Different styles based on variant
+  const getContainerStyles = () => {
+    switch (variant) {
+      case 'hero':
+        return 'max-w-3xl mx-auto'
+      case 'compact':
+        return 'max-w-2xl'
+      default:
+        return 'max-w-2xl'
+    }
+  }
+
+  const getInputStyles = () => {
+    const baseStyles = "w-full text-gray-900 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
     
-    setIsSearching(true)
-    
-    try {
-      // Navigate to search results
-      router.push(`/search?q=${encodeURIComponent(search.trim())}`)
-      
-      // Show success state briefly
-      await new Promise(resolve => setTimeout(resolve, 600))
-      
-    } finally {
-      handleClose()
+    switch (variant) {
+      case 'hero':
+        return `${baseStyles} px-6 py-4 text-lg rounded-2xl shadow-2xl`
+      case 'compact':
+        return `${baseStyles} px-4 py-2.5 text-sm rounded-lg`
+      default:
+        return `${baseStyles} px-4 py-3 text-base rounded-xl`
     }
-  }
-
-  const handleToggle = () => {
-    if (isExpanded) {
-      if (search.trim()) {
-        handleSearch(new Event('submit') as any)
-      } else {
-        handleClose()
-      }
-    } else {
-      setIsExpanded(true)
-    }
-  }
-
-  const handleClose = () => {
-    setIsExpanded(false)
-    setSearch('')
-    setIsSearching(false)
-  }
-
-  // Get current icon based on state
-  const getCurrentIcon = () => {
-    if (isSearching) {
-      return (
-        <div className="relative">
-          <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-enhanced-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-          </div>
-        </div>
-      )
-    }
-    if (isExpanded) {
-      return search.trim() ? 
-        <ArrowRight className="w-5 h-5" style={{ color: '#d1d5db' }} /> : 
-        <X className="w-5 h-5" style={{ color: '#d1d5db' }} />
-    }
-    return <Search className="w-5 h-5" style={{ color: '#d1d5db' }} />
   }
 
   return (
-    <div className="relative">
-      {/* Main Container */}
-      <div className={`
-        relative transition-all duration-300 ease-out
-        ${isExpanded ? 'w-80 md:w-96' : 'w-12'}
-      `}>
-        {/* Button Container - Minimal visibility */}
-        {!isExpanded && (
-          <div className="absolute inset-0 rounded-full overflow-hidden bg-black/5 backdrop-blur-sm border border-gray-500/10 cursor-pointer hover:border-gray-400/20 transition-colors"></div>
-        )}
-
-        {/* Interactive Content */}
-        <div className="relative flex items-center h-12">
-          {/* Action Button */}
-          <button
-            type="button"
-            onClick={handleToggle}
-            disabled={isSearching}
-            className={`
-              flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full
-              transition-all duration-300 disabled:opacity-70
-              relative z-10 bg-transparent
-            `}
-            aria-label={isExpanded ? (search.trim() ? "Search" : "Close") : "Open search"}
-            style={{
-              color: '#d1d5db' // gray-300 inline style to prevent flash
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#e5e7eb'; // gray-200 on hover
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#d1d5db'; // gray-300 normal
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'scale(0.98)';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            {getCurrentIcon()}
-          </button>
-
-          {/* Search Input - INLINE STYLES to prevent white flash */}
-          {isExpanded && (
-            <form onSubmit={handleSearch} className="flex-1 pr-4">
-              <div className="relative">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="What service are you looking for?"
-                  className="w-full bg-transparent focus:outline-none text-sm md:text-base pr-4 pl-2"
-                  autoComplete="off"
-                  disabled={isSearching}
-                  style={{
-                    color: '#d1d5db', // gray-300 - prevents white flash
-                    caretColor: 'rgba(156, 163, 175, 0.8)', // gray-400
-                  }}
-                  onFocus={(e) => {
-                    // Keep gray color even on focus
-                    e.target.style.color = '#e5e7eb'; // gray-200 on focus
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.color = '#d1d5db'; // gray-300 on blur
-                  }}
-                />
-                
-                {/* Very subtle input underline */}
-                <div className="absolute bottom-0 left-0 right-4 h-[0.5px] bg-gradient-to-r from-gray-400/5 via-gray-300/3 to-transparent"></div>
-              </div>
-            </form>
-          )}
-        </div>
+    <div className={`relative ${getContainerStyles()} ${className}`}>
+      {/* Search Icon */}
+      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+        <svg 
+          className={`${variant === 'hero' ? 'w-5 h-5' : 'w-4 h-4'} text-gray-400`} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
       </div>
 
-      {/* Searching Overlay - Minimal visibility with gray tones */}
-      {isSearching && (
-        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2">
-          <div 
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/5 backdrop-blur-md border border-gray-500/10 search-overlay-enter"
-            style={{
-              color: '#d1d5db', // gray-300 inline style
-              animation: 'slide-up 0.3s ease-out forwards'
-            }}
+      {/* Input */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        placeholder={placeholder}
+        className={`${getInputStyles()} pl-10 pr-12 transition-all duration-300 ${
+          isFocused ? 'shadow-lg scale-[1.02]' : ''
+        }`}
+      />
+
+      {/* Clear button */}
+      {value && (
+        <button
+          onClick={() => onChange('')}
+          className="absolute inset-y-0 right-12 flex items-center pr-2"
+          aria-label="Clear search"
+        >
+          <svg 
+            className={`${variant === 'hero' ? 'w-5 h-5' : 'w-4 h-4'} text-gray-400 hover:text-gray-600 transition-colors`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-enhanced-spin"></div>
-              <span className="text-xs font-medium whitespace-nowrap">
-                Searching online database...
-              </span>
-            </div>
-          </div>
-        </div>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       )}
-      
-      {/* Single global style tag - not nested */}
-      <style jsx global>{`
-        /* Prevent text color flashes globally for search bar */
-        input[type="text"].bg-transparent {
-          color: #d1d5db !important; /* gray-300 */
-        }
-        
-        /* Placeholder styling */
-        input::placeholder {
-          color: rgba(156, 163, 175, 0.7) !important; /* gray-400/70 */
-        }
-        
-        input:focus::placeholder {
-          opacity: 0.5;
-        }
-        
-        /* Button hover states */
-        button:hover {
-          color: #e5e7eb !important; /* gray-200 */
-        }
-        
-        button:disabled {
-          opacity: 0.7;
-          color: #9ca3af !important; /* gray-400 */
-        }
-        
-        /* Animation for search overlay */
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(10px) translateX(-50%);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) translateX(-50%);
-          }
-        }
-        
-        .search-overlay-enter {
-          animation: slide-up 0.3s ease-out forwards;
-        }
-        
-        /* Enhanced spinner animation */
-        @keyframes enhanced-spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        
-        .animate-enhanced-spin {
-          animation: enhanced-spin 0.8s linear infinite;
-        }
-      `}</style>
+
+      {/* Search button */}
+      <button
+        onClick={handleSearch}
+        className="absolute inset-y-0 right-0 flex items-center px-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-r-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-300"
+        aria-label="Search"
+      >
+        <svg 
+          className={`${variant === 'hero' ? 'w-5 h-5' : 'w-4 h-4'}`} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <span className="ml-2 hidden sm:inline text-sm font-medium">Search</span>
+      </button>
     </div>
   )
 }

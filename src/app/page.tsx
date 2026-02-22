@@ -148,7 +148,7 @@ export default function Home() {
               <SearchBar 
                 value={searchTerm}
                 onChange={setSearchTerm}
-                placeholder="Search for plumbers, electricians, tutors, events..."
+                placeholder="Search for: Painter, Engineer, Sandton, events..."
                 variant="compact"
               />
               
@@ -197,8 +197,8 @@ export default function Home() {
                       </p>
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                         {[
-                          'plumber', 'electrician', 'tutor', 'event planner',
-                          'red seal', 'carpenter', 'painter', 'landscaper'
+                          'Business names', 'descriptions', 'Accreditation', 'sectors',
+                          'Details', 'Cities / towns', 'Emergency', 
                         ].map((term) => (
                           <button 
                             key={term}

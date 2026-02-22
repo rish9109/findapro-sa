@@ -13,6 +13,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { user } = useAuth()
+  const [searchTerm, setSearchTerm] = useState('')
   
   useEffect(() => {
     const checkMobile = () => {
@@ -131,25 +132,48 @@ export default function Home() {
       </header>
       
       {/* Categories Section */}
-      <section className="container mx-auto px-4 md:px-6 relative overflow-hidden">
-        <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 w-[300px] h-[300px] md:w-80 md:h-80 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl max-w-full"></div>
+{/* Categories Section */}
+<section className="container mx-auto px-4 md:px-6 relative overflow-hidden">
+  <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 w-[300px] h-[300px] md:w-80 md:h-80 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl max-w-full"></div>
+  
+  <div className="relative z-10">
+    <div className="text-center mb-8 md:mb-12 px-2">
+      <div className="inline-flex items-center gap-2 md:gap-3 mb-3 flex-wrap justify-center">
+        <div className="w-6 md:w-8 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
+        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Service</span> Categories
+        </h2>
+        <div className="w-6 md:w-8 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
+      </div>
+      
+      {/* THIS PARAGRAPH IS REPLACED WITH SEARCH BAR */}
+      <div className="max-w-2xl mx-auto mb-6">
+        <SearchBar 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search for plumbers, electricians, tutors, events..."
+          variant="compact"
+        />
         
-        <div className="relative z-10">
-          <div className="text-center mb-8 md:mb-12 px-2">
-            <div className="inline-flex items-center gap-2 md:gap-3 mb-3 flex-wrap justify-center">
-              <div className="w-6 md:w-8 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Service</span> Categories
-              </h2>
-              <div className="w-6 md:w-8 h-0.5 bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
-            </div>
-            <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto">
-              Browse through our comprehensive list of service categories
-            </p>
-          </div>
-          <CategoryGrid />
+        {/* Optional: Quick search suggestions */}
+        <div className="flex flex-wrap justify-center gap-2 mt-3">
+          <span className="text-xs text-gray-500">Quick search:</span>
+          {['Plumber', 'Electrician', 'Tutor', 'Event Planner'].map((term) => (
+            <button
+              key={term}
+              onClick={() => setSearchTerm(term)}
+              className="text-xs px-2 py-1 bg-white/5 hover:bg-white/10 text-gray-300 rounded-full transition-colors"
+            >
+              {term}
+            </button>
+          ))}
         </div>
-      </section>
+      </div>
+    </div>
+    
+    <CategoryGrid />
+  </div>
+</section>
       
       {/* Call to Action Section */}
       <section className="container mx-auto px-4 md:px-6 py-8 md:py-12">

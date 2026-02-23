@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
+import { usePathname } from 'next/navigation' // Add this import
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[]
@@ -16,12 +17,23 @@ export default function InstallPrompt() {
   const [isInstalling, setIsInstalling] = useState(false)
   const [neverShowAgain, setNeverShowAgain] = useState(false)
   const [installed, setInstalled] = useState(false)
+  
+  // Add this to get current path
+  const pathname = usePathname()
 
   const isStandalone = typeof window !== 'undefined' && 
     window.matchMedia('(display-mode: standalone)').matches
 
   const isAndroid = typeof window !== 'undefined' && 
     /Android/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent)
+
+  // Check localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const neverShowAgainStored = localStorage.getItem('findapro-install-never-again') === 'true'
+      setNeverShowAgain(neverShowAgainStored)
+    }
+  }, [])
 
   useEffect(() => {
     if (installed) {
@@ -33,17 +45,16 @@ export default function InstallPrompt() {
   }, [installed])
 
   useEffect(() => {
+    // Don't show if: standalone, not Android, not on home page, or never-show-again is true
     if (isStandalone) return
-
-    if (localStorage.getItem('findapro-install-never-again') === 'true') return
+    if (!isAndroid) return
+    if (pathname !== '/') return // Only show on home page
+    if (neverShowAgain) return // Check the state, not localStorage directly
 
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      // Show prompt for Android Chrome users
-      if (isAndroid) {
-        setShowPrompt(true)
-      }
+      setShowPrompt(true)
     }
 
     const handleAppInstalled = () => {
@@ -59,7 +70,7 @@ export default function InstallPrompt() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [isStandalone, isAndroid])
+  }, [isStandalone, isAndroid, pathname, neverShowAgain]) // Add dependencies
 
   const handleInstall = async () => {
     if (!deferredPrompt) return
@@ -96,8 +107,8 @@ export default function InstallPrompt() {
   // Check if we should show anything at all
   const shouldShow = showPrompt || installed
 
-  // Don't render if not Android, if standalone, or if we shouldn't show
-  if (!isAndroid || isStandalone || !shouldShow) {
+  // Don't render if not Android, if standalone, if not on home page, or if we shouldn't show
+  if (!isAndroid || isStandalone || !shouldShow || pathname !== '/') {
     return null
   }
 
@@ -126,18 +137,14 @@ export default function InstallPrompt() {
             {!installed ? (
               <>
                 <div className="flex items-center gap-3 mb-4">
-                 
                   <div>
-                  <h3 className="text-lg font-semibold justify-center-safe">App Install</h3>
-                  <h2 className="text-lg font-semibold text-center bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-  findapro.co.za
-</h2>
+                    <h3 className="text-lg font-semibold justify-center-safe">App Install</h3>
+                    <h2 className="text-lg font-semibold text-center bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
+                      findapro.co.za
+                    </h2>
                     <p className="text-xs text-gray-400 justify-center-safe">FIND A PRO CONNECT (PTY) LTD</p>
-             
                   </div>
                 </div>
-
-           
 
                 <label className="flex items-center gap-3 mb-5 cursor-pointer group">
                   <input

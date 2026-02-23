@@ -1,4 +1,4 @@
-// File: src/app/api/email/route.ts
+// File: src/app/api/email/route.ts - COMPLETE WORKING VERSION
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { 
@@ -6,7 +6,8 @@ import {
   sendNewListingConfirmationEmail,
   sendProviderStatusEmail,
   sendAdminConfirmationEmail,
-  sendListingUpdatedEmail
+  sendListingUpdatedEmail,
+  sendResubmitConfirmationEmail
 } from '@/lib/resend'
 
 export async function POST(request: NextRequest) {
@@ -19,7 +20,6 @@ export async function POST(request: NextRequest) {
   console.log('='.repeat(80))
   
   try {
-    // Log raw request body
     const body = await request.json()
     console.log(`📧 [${requestId}] Request body:`, JSON.stringify(body, null, 2))
 
@@ -31,14 +31,12 @@ export async function POST(request: NextRequest) {
       action, 
       reason,
       businessName,
-      status,
       recipientEmail,
+      status,
       recipientType = 'provider'
     } = body
 
-    // Validate required fields
     if (!event) {
-      console.error(`❌ [${requestId}] No event provided`)
       return NextResponse.json({ 
         success: false,
         error: 'Event type required' 
@@ -46,165 +44,97 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`📧 [${requestId}] Processing event: "${event}"`)
-    console.log(`📧 [${requestId}] Has direct provider:`, !!directProvider)
-    console.log(`📧 [${requestId}] Provider ID:`, providerId || 'not provided')
-    
-    let provider = directProvider || null
-    let result = null
-
-    // Log provider data if available
-    if (provider) {
-      console.log(`📧 [${requestId}] Direct provider data:`, {
-        id: provider.id,
-        business_name: provider.business_name,
-        contact_email: provider.contact_email,
-        contact_person: provider.contact_person,
-        status: provider.status
-      })
-    }
-
- // Only fetch from DB if provider data wasn't provided directly
-// For status_update, we ALWAYS need to fetch if we don't have direct provider
-if (!provider && providerId) {
-  console.log(`📧 [${requestId}] Fetching provider from DB with ID: ${providerId}`)
-  
-  const { data: providerData, error: providerError } = await supabase
-    .from('providers')
-    .select('*')
-    .eq('id', providerId)
-    .single()
-
-  if (providerError) {
-    console.error(`❌ [${requestId}] Provider lookup error:`, providerError)
-    
-    // For status_update, we need to handle this gracefully
-    if (event === 'status_update') {
-      console.log(`📧 [${requestId}] Cannot fetch provider for status_update, but continuing with available data`)
-      // Don't return error, just log it and continue
-    } else {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Provider not found',
-        details: providerError.message
-      }, { status: 404 })
-    }
-  } else {
-    provider = providerData
-    console.log(`📧 [${requestId}] Provider fetched from DB:`, {
-      id: provider.id,
-      business_name: provider.business_name,
-      contact_email: provider.contact_email
-    })
-  }
-}
 
     // Handle different event types
     switch (event) {
       case 'new_listing':
-        console.log(`📧 [${requestId}] ===== NEW LISTING EVENT =====`)
-        
-        if (!provider) {
-          console.error(`❌ [${requestId}] No provider data available for new_listing`)
+        if (!directProvider) {
           return NextResponse.json({ 
             success: false,
             error: 'Provider data required for new listing' 
-          }, { status: 404 })
+          }, { status: 400 })
         }
 
-        console.log(`📧 [${requestId}] Sending emails for:`, {
-          business: provider.business_name,
-          admin_to: 'admin@findapro.co.za',
-          provider_to: provider.contact_email
-        })
-
-        // Send emails sequentially with detailed logging
-        console.log(`📧 [${requestId}] Calling sendNewListingAdminEmail...`)
-        const adminResult = await sendNewListingAdminEmail(provider)
-        console.log(`📧 [${requestId}] Admin email result:`, JSON.stringify(adminResult, null, 2))
+        const adminResult = await sendNewListingAdminEmail(directProvider)
+        const providerResult = await sendNewListingConfirmationEmail(directProvider)
         
-        console.log(`📧 [${requestId}] Calling sendNewListingConfirmationEmail...`)
-        const providerResult = await sendNewListingConfirmationEmail(provider)
-        console.log(`📧 [${requestId}] Provider email result:`, JSON.stringify(providerResult, null, 2))
-        
-        result = { 
+        return NextResponse.json({ 
           success: true,
           adminEmail: adminResult,
           providerEmail: providerResult
-        }
-        
-        console.log(`📧 [${requestId}] New listing emails completed`)
-        break
+        })
 
       case 'status_update':
-        console.log(`📧 [${requestId}] ===== STATUS UPDATE EVENT =====`)
         console.log(`📧 [${requestId}] Action:`, action)
-        console.log(`📧 [${requestId}] Reason:`, reason)
         
         if (!action) {
-          console.error(`❌ [${requestId}] No action provided for status_update`)
           return NextResponse.json({ 
             success: false,
             error: 'Action required' 
           }, { status: 400 })
         }
 
+        // Use direct provider if provided
+        let provider = directProvider || null
+
+        // If no direct provider but we have ID, try to fetch
+        if (!provider && providerId) {
+          const { data: providerData } = await supabase
+            .from('providers')
+            .select('*')
+            .eq('id', providerId)
+            .maybeSingle()
+
+          if (providerData) {
+            provider = providerData
+          }
+        }
+
+        // If still no provider, return warning but not error
         if (!provider) {
-          console.error(`❌ [${requestId}] No provider found for status_update`)
-          // Return success false but don't throw 404 - email will fail but action completed
+          console.log(`📧 [${requestId}] No provider data available for ${action}`)
           return NextResponse.json({ 
             success: false,
-            error: 'Provider data not available for email',
-            message: 'Status updated but email could not be sent'
-          }, { status: 200 }) // Return 200 so admin UI shows success
+            warning: true,
+            message: `Action ${action} completed but email could not be sent - provider data missing`
+          }, { status: 200 })
         }
         
-        console.log(`📧 [${requestId}] Sending status update email to provider:`, provider.contact_email)
+        // Send status email to provider
         const providerEmailResult = await sendProviderStatusEmail(provider, action, reason)
-        console.log(`📧 [${requestId}] Provider status email result:`, JSON.stringify(providerEmailResult, null, 2))
         
+        // Send admin confirmation if admin email provided
         let adminConfirmResult = null
         if (adminEmail) {
-          console.log(`📧 [${requestId}] Sending admin confirmation to:`, adminEmail)
           adminConfirmResult = await sendAdminConfirmationEmail(adminEmail, provider, action, reason)
-          console.log(`📧 [${requestId}] Admin confirmation result:`, JSON.stringify(adminConfirmResult, null, 2))
         }
         
-        result = { 
+        return NextResponse.json({ 
           success: true, 
           providerEmail: providerEmailResult,
           adminConfirmation: adminConfirmResult
+        })
+
+      case 'resubmit_confirmation':
+        if (!recipientEmail || !businessName) {
+          return NextResponse.json({ 
+            success: false,
+            error: 'Recipient email and business name required' 
+          }, { status: 400 })
         }
-        break
+
+        const resubmitResult = await sendResubmitConfirmationEmail(recipientEmail, businessName)
+        
+        return NextResponse.json({ 
+          success: resubmitResult.success,
+          data: resubmitResult
+        })
 
       case 'listing_updated':
-        console.log(`📧 [${requestId}] ===== LISTING UPDATED EVENT =====`)
-        console.log(`📧 [${requestId}] Business name:`, businessName)
-        console.log(`📧 [${requestId}] Status:`, status)
-        console.log(`📧 [${requestId}] Recipient type:`, recipientType)
-        console.log(`📧 [${requestId}] Recipient email:`, recipientEmail)
-        
-        // Validate required fields
-        if (!businessName) {
-          console.error(`❌ [${requestId}] No business name provided`)
+        if (!businessName || !status) {
           return NextResponse.json({ 
             success: false,
-            error: 'Business name required' 
-          }, { status: 400 })
-        }
-
-        if (!status) {
-          console.error(`❌ [${requestId}] No status provided`)
-          return NextResponse.json({ 
-            success: false,
-            error: 'Status required' 
-          }, { status: 400 })
-        }
-
-        if (recipientType === 'provider' && !recipientEmail) {
-          console.error(`❌ [${requestId}] Provider email required but not provided`)
-          return NextResponse.json({ 
-            success: false,
-            error: 'Provider email required' 
+            error: 'Business name and status required' 
           }, { status: 400 })
         }
 
@@ -212,9 +142,7 @@ if (!provider && providerId) {
           ? recipientEmail! 
           : (recipientEmail || 'admin@findapro.co.za')
         
-        console.log(`📧 [${requestId}] Sending listing updated email to:`, emailTo)
-        
-        result = await sendListingUpdatedEmail(
+        const result = await sendListingUpdatedEmail(
           emailTo,
           businessName,
           status,
@@ -222,45 +150,26 @@ if (!provider && providerId) {
           recipientType
         )
         
-        console.log(`📧 [${requestId}] Listing updated email result:`, JSON.stringify(result, null, 2))
-        break
+        return NextResponse.json({ 
+          success: true,
+          data: result
+        })
 
       default:
-        console.error(`❌ [${requestId}] Unknown event type:`, event)
         return NextResponse.json({ 
           success: false,
           error: 'Unknown event type' 
         }, { status: 400 })
     }
 
-    const duration = Date.now() - startTime
-    console.log(`📧 [${requestId}] ✅ Request completed in ${duration}ms`)
-    console.log('='.repeat(80))
-    console.log('\n')
-
-    return NextResponse.json({
-      success: true,
-      message: 'Email processing complete',
-      requestId,
-      duration: `${duration}ms`,
-      data: result
-    })
-
   } catch (error: any) {
     const duration = Date.now() - startTime
-    console.error(`❌ [${requestId}] Email API error after ${duration}ms:`)
-    console.error(`❌ [${requestId}] Error message:`, error.message)
-    console.error(`❌ [${requestId}] Error stack:`, error.stack)
-    console.error('='.repeat(80))
-    console.log('\n')
+    console.error(`❌ [${requestId}] Email API error:`, error.message)
     
     return NextResponse.json(
       { 
         success: false,
-        requestId,
-        duration: `${duration}ms`,
-        error: error.message || 'Failed to process email',
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error: error.message || 'Failed to process email'
       },
       { status: 500 }
     )
@@ -272,7 +181,6 @@ export async function GET() {
     status: 'ok',
     service: 'FindAPro Email Service',
     timestamp: new Date().toISOString(),
-    endpoints: ['POST /api/email - Send emails'],
     templates: [
       'new_listing_admin',
       'listing_submitted',

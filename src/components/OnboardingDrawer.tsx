@@ -3,7 +3,8 @@
 
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Briefcase, ShieldCheck, Star, Sparkles } from 'lucide-react'
+import { X, Briefcase, ShieldCheck, Star, Sparkles, Info } from 'lucide-react'
+import Link from 'next/link'
 
 interface OnboardingDrawerProps {
   isOpen: boolean
@@ -190,25 +191,67 @@ export default function OnboardingDrawer({
                   </div>
                 </div>
 
-                {/* Footer – single button */}
-                <div className="mt-10 sm:mt-12 flex justify-end">
-                  <button
-                    onClick={handleClose}
-                    className="
-                      px-8 py-3.5 sm:px-10 sm:py-4
-                      rounded-xl sm:rounded-2xl
-                      bg-gradient-to-r from-cyan-700/80 to-blue-800/80
-                      hover:from-cyan-600/90 hover:to-blue-700/90
-                      border border-cyan-400/30 hover:border-cyan-400/50
-                      text-white font-medium text-base sm:text-lg
-                      shadow-md hover:shadow-cyan-900/30
-                      transition-all duration-300 ease-out
-                      active:scale-[0.98]
-                    "
-                  >
-                    Ok, Got It
-                  </button>
-                </div>
+{/* Footer – About Us link and button */}
+<div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center justify-between gap-6">
+  {/* About Us Link - Enhanced */}
+  <Link
+    href="/about"
+    onClick={handleClose}
+    className="
+      group relative
+      flex items-center gap-3
+      px-6 py-3 sm:px-8 sm:py-4
+      rounded-2xl
+      bg-gradient-to-r from-orange-500/10 to-yellow-500/10
+      hover:from-orange-500/20 hover:to-yellow-500/20
+      border border-orange-500/20 hover:border-orange-500/40
+      transition-all duration-300 ease-out
+      transform hover:scale-105 hover:-translate-y-0.5
+      shadow-lg hover:shadow-orange-500/25
+    "
+  >
+    {/* Animated background glow */}
+    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/0 via-orange-500/10 to-yellow-500/0 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500" />
+    
+    {/* Icon with pulse animation */}
+    <div className="relative">
+      <Info className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400 group-hover:text-orange-300 transition-all duration-300 group-hover:rotate-12 animate-pulse" />
+    </div>
+    
+    {/* Text */}
+    <span className="relative text-base sm:text-lg font-semibold bg-gradient-to-r from-orange-400 to-yellow-400 bg-clip-text text-transparent group-hover:from-orange-300 group-hover:to-yellow-300">
+    About FindAPro
+    </span>
+    
+    {/* Animated arrow */}
+    <svg 
+      className="relative w-5 h-5 text-orange-400 group-hover:text-orange-300 transition-all duration-300 group-hover:translate-x-1" 
+      fill="none" 
+      viewBox="0 0 24 24" 
+      stroke="currentColor"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+    </svg>
+  </Link>
+
+  <button
+    onClick={handleClose}
+    className="
+      px-8 py-3.5 sm:px-10 sm:py-4
+      rounded-xl sm:rounded-2xl
+      bg-gradient-to-r from-cyan-700/80 to-blue-800/80
+      hover:from-cyan-600/90 hover:to-blue-700/90
+      border border-cyan-400/30 hover:border-cyan-400/50
+      text-white font-medium text-base sm:text-lg
+      shadow-md hover:shadow-cyan-900/30
+      transition-all duration-300 ease-out
+      active:scale-[0.98]
+      hover:scale-105
+    "
+  >
+    Ok, Got It
+  </button>
+</div>
               </div>
             </div>
           </motion.div>

@@ -21,7 +21,7 @@ export default function AboutPage() {
             About <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400">FindAPro</span>
           </h1>
           <p className="text-gray-400 text-lg max-w-3xl mx-auto">
-            Connecting South Africans with trusted local service professionals since 2024
+            Connecting South Africans with trusted local service professionals
           </p>
         </div>
 
@@ -124,7 +124,7 @@ export default function AboutPage() {
                   <p><strong className="text-gray-300">Company Name:</strong> Find A Pro Connect (PTY) LTD</p>
                   <p><strong className="text-gray-300">Registration:</strong> Registered with CIPC</p>
                   <p><strong className="text-gray-300">Website:</strong> findapro.co.za</p>
-                  <p><strong className="text-gray-300">Founded:</strong> 2024</p>
+                  <p><strong className="text-gray-300">Founded:</strong> 2025</p>
                 </div>
               </div>
               
@@ -146,22 +146,7 @@ export default function AboutPage() {
                 </p>
               </div>
               
-              <div className="pt-6 border-t border-gray-800">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link
-                    href="/contact"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-yellow-600 transition-all duration-300"
-                  >
-                    Contact Us
-                  </Link>
-                  <Link
-                    href="/providers/provider-listings"
-                    className="inline-flex items-center justify-center px-6 py-3 bg-gray-800 text-white font-semibold rounded-xl hover:bg-gray-700 transition-all duration-300"
-                  >
-                    List Your Service
-                  </Link>
-                </div>
-              </div>
+           
             </div>
           </motion.div>
         </div>

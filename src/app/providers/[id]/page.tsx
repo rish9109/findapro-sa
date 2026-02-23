@@ -544,109 +544,99 @@ export default function ProviderDetailPage() {
                 <div className="space-y-6">
                   {/* Contact Information */}
                   <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-                    <h3 className="text-lg font-bold text-white mb-4">Contact Information</h3>
-                    
-                    <div className="space-y-4">
-                      {provider.contact_person && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Contact Person</p>
-                          <div className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg">
-                            <Users className="w-4 h-4 text-gray-400" />
-                            <span className="text-white font-medium">{provider.contact_person}</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Primary Phone */}
-                      {provider.contact_phone && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Primary Phone</p>
-                          <a
-                            href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
-                            className="block p-4 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/30 transition-all group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/40 transition-colors">
-                                <Phone className="w-6 h-6 text-emerald-400" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm text-emerald-400 mb-1">Tap to Call</p>
-                                <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
-                                  {provider.contact_phone}
-                                </p>
-                              </div>
-                              <PhoneCall className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </a>
-                        </div>
-                      )}
-                      
-                      {/* Alternate Phone */}
-                      {provider.alternate_phone && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Alternate Phone</p>
-                          <a
-                            href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
-                            className="block p-4 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/30 transition-all group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/40 transition-colors">
-                                <Phone className="w-6 h-6 text-blue-400" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm text-blue-400 mb-1">Tap to Call</p>
-                                <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors">
-                                  {provider.alternate_phone}
-                                </p>
-                              </div>
-                              <PhoneCall className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </a>
-                        </div>
-                      )}
-                      
-                      {/* Email */}
-                      {provider.contact_email && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Email Address</p>
-                          <a
-                            href={`mailto:${provider.contact_email}`}
-                            className="block p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/30 transition-all group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center group-hover:bg-purple-500/40 transition-colors">
-                                <Mail className="w-6 h-6 text-purple-400" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm text-purple-400 mb-1">Tap to Email</p>
-                                <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors break-all">
-                                  {provider.contact_email}
-                                </p>
-                              </div>
-                              <Mail className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </a>
-                        </div>
-                      )}
-                      
-                      {/* Website */}
-                      {provider.portfolio_url && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Portfolio/Website</p>
-                          <a
-                            href={provider.portfolio_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-colors border border-gray-700 hover:border-blue-500/30"
-                          >
-                            <Globe className="w-4 h-4 text-blue-400" />
-                            <span className="text-blue-400 font-medium">Visit Website</span>
-                            <ExternalLink className="w-3 h-3 text-blue-400 ml-auto" />
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+  <h3 className="text-lg font-bold text-white mb-4">Contact Information</h3>
+  
+  <div className="space-y-4">
+    {provider.contact_person && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Contact Person</p>
+        <div className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg">
+          <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <span className="text-white font-medium truncate">{provider.contact_person}</span>
+        </div>
+      </div>
+    )}
+    
+    {/* Primary Phone */}
+    {provider.contact_phone && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Primary Phone</p>
+        <a
+          href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
+          className="block p-4 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/30 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/40 transition-colors flex-shrink-0">
+              <Phone className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-emerald-400 mb-1">Tap to Call</p>
+              <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
+                {provider.contact_phone}
+              </p>
+            </div>
+            <PhoneCall className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </div>
+        </a>
+      </div>
+    )}
+    
+    {/* Alternate Phone */}
+    {provider.alternate_phone && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Alternate Phone</p>
+        <a
+          href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
+          className="block p-4 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/30 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/40 transition-colors flex-shrink-0">
+              <Phone className="w-6 h-6 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-blue-400 mb-1">Tap to Call</p>
+              <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors truncate">
+                {provider.alternate_phone}
+              </p>
+            </div>
+            <PhoneCall className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </div>
+        </a>
+      </div>
+    )}
+    
+    {/* Email - IMPROVED VERSION */}
+    {provider.contact_email && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Email Address</p>
+        <a
+          href={`mailto:${provider.contact_email}`}
+          className="block p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/30 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center group-hover:bg-purple-500/40 transition-colors flex-shrink-0">
+              <Mail className="w-6 h-6 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-purple-400 mb-1">Tap to Email</p>
+              <div className="relative">
+                <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                  {provider.contact_email}
+                </p>
+                {/* Optional: Show full email on hover for desktop */}
+                <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 p-2 bg-gray-900 rounded-lg border border-purple-500/30 text-sm text-white whitespace-nowrap z-10 shadow-xl">
+                  {provider.contact_email}
+                </div>
+              </div>
+            </div>
+            <Mail className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </div>
+        </a>
+      </div>
+    )}
+    
+  </div>
+</div>
 
                   {/* Service Areas - FIXED: Shows parsed data correctly */}
                   {serviceAreas.length > 0 && (

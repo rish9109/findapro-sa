@@ -717,7 +717,7 @@ function ProviderForm({
                   />
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-gray-400" />
-                    <label className="text-gray-300 text-sm font-medium">Have Insurance</label>
+                    <label className="text-gray-300 text-sm font-medium">Insurance Approved</label>
                   </div>
                 </div>
               </div>

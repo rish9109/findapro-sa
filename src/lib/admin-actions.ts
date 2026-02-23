@@ -1,31 +1,49 @@
-// File: src/lib/admin-actions.ts - WORKING VERSION
+// File: src/lib/admin-actions.ts - COMPLETE WORKING VERSION
 import { supabase } from './supabase'
 
 export async function approveProvider(providerId: string, adminEmail?: string) {
   try {
+    // FIRST: Get the provider data before updating
+    const { data: provider, error: fetchError } = await supabase
+      .from('providers')
+      .select('*')
+      .eq('id', providerId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!provider) throw new Error('Provider not found')
+
+    // THEN: Update the provider status
     const { error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'approved',
-        reviewed_at: new Date().toISOString()
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminEmail
       })
       .eq('id', providerId)
 
     if (updateError) throw updateError
 
-    // Send email to provider
-    await fetch('/api/email', {
+    // FINALLY: Send email with the FULL provider data
+    const emailResponse = await fetch('/api/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event: 'status_update',
         providerId,
+        provider: provider,
         adminEmail,
         action: 'approve'
       }),
     })
 
-    return { success: true }
+    const emailResult = await emailResponse.json()
+    if (!emailResponse.ok) {
+      console.warn('⚠️ Email notification failed:', emailResult)
+    }
+
+    return { success: true, emailSent: emailResult.success }
   } catch (error: any) {
     console.error('Error approving provider:', error)
     return { success: false, error: error.message }
@@ -34,31 +52,49 @@ export async function approveProvider(providerId: string, adminEmail?: string) {
 
 export async function rejectProvider(providerId: string, reason: string, adminEmail?: string) {
   try {
+    // FIRST: Get the provider data before updating
+    const { data: provider, error: fetchError } = await supabase
+      .from('providers')
+      .select('*')
+      .eq('id', providerId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!provider) throw new Error('Provider not found')
+
+    // THEN: Update the provider status
     const { error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'rejected',
         rejection_reason: reason,
-        reviewed_at: new Date().toISOString()
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminEmail
       })
       .eq('id', providerId)
 
     if (updateError) throw updateError
 
-    // Send email to provider
-    await fetch('/api/email', {
+    // FINALLY: Send email with the FULL provider data
+    const emailResponse = await fetch('/api/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event: 'status_update',
         providerId,
+        provider: provider,
         adminEmail,
         action: 'reject',
         reason
       }),
     })
 
-    return { success: true }
+    const emailResult = await emailResponse.json()
+    if (!emailResponse.ok) {
+      console.warn('⚠️ Email notification failed:', emailResult)
+    }
+
+    return { success: true, emailSent: emailResult.success }
   } catch (error: any) {
     console.error('Error rejecting provider:', error)
     return { success: false, error: error.message }
@@ -67,138 +103,24 @@ export async function rejectProvider(providerId: string, reason: string, adminEm
 
 export async function pauseProvider(providerId: string, reason?: string, adminEmail?: string) {
   try {
-    // Update the database and RETURN the updated record
-    const { data: updatedProvider, error: updateError } = await supabase
-      .from('providers')
-      .update({ 
-        status: 'pause',
-        pause_reason: reason,
-        reviewed_at: new Date().toISOString()
-      })
-      .eq('id', providerId)
-      .select()  // ← This returns the updated data
-      .single()
-
-    if (updateError) throw updateError
-
-    // Send email with the UPDATED provider data (non-blocking)
-    if (updatedProvider) {
-      fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'status_update',
-          provider: updatedProvider,  // ← Send the full updated provider
-          adminEmail,
-          action: 'pause',
-          reason
-        }),
-      }).catch(error => {
-        console.error('Email notification failed (pause action):', error)
-      })
-    }
-
-    return { success: true }
-  } catch (error: any) {
-    console.error('Error pausing provider:', error)
-    return { success: false, error: error.message }
-  }
-}
-export async function deleteProvider(providerId: string, reason?: string, adminEmail?: string) {
-  try {
-    console.log('🗑️ HARD DELETING provider:', providerId)
-    
-    // Get provider first (for email and verification)
+    // FIRST: Get the provider data before updating
     const { data: provider, error: fetchError } = await supabase
       .from('providers')
       .select('*')
       .eq('id', providerId)
       .single()
 
-    if (fetchError) {
-      console.error('❌ Error fetching provider:', fetchError)
-      throw new Error(`Provider lookup failed: ${fetchError.message}`)
-    }
+    if (fetchError) throw fetchError
+    if (!provider) throw new Error('Provider not found')
 
-    if (!provider) {
-      throw new Error(`Provider with ID ${providerId} not found`)
-    }
-
-    console.log('📧 Sending deletion email to:', provider.contact_email)
-
-    // Send email to provider BEFORE deletion
-    const emailResponse = await fetch('/api/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event: 'status_update',
-        providerId,
-        adminEmail,
-        action: 'delete',
-        reason: reason || 'Account removed by admin'
-      }),
-    })
-
-    const emailResult = await emailResponse.json()
-    console.log('📧 Delete email response:', emailResult)
-
-    // Verify email was sent (or at least attempted)
-    if (!emailResponse.ok) {
-      console.warn('⚠️ Email API returned error:', emailResult)
-      // Decide if you want to continue with deletion or stop here
-      // For now, we'll continue but log the warning
-    }
-
-    // PERMANENTLY DELETE FROM DATABASE
-    console.log('🗑️ Performing HARD DELETE from database...')
-    const { error: deleteError } = await supabase
-      .from('providers')
-      .delete()  // This PERMANENTLY removes the record
-      .eq('id', providerId)
-
-    if (deleteError) {
-      console.error('❌ Database deletion error:', deleteError)
-      throw new Error(`Database deletion failed: ${deleteError.message}`)
-    }
-
-    console.log('✅ Provider PERMANENTLY deleted from database:', providerId)
-    console.log('📊 Deleted provider details:', {
-      id: provider.id,
-      business: provider.business_name,
-      email: provider.contact_email,
-      timestamp: new Date().toISOString()
-    })
-
-    return { 
-      success: true,
-      message: 'Provider permanently deleted from database',
-      providerId,
-      businessName: provider.business_name,
-      deletedAt: new Date().toISOString(),
-      emailSent: emailResult.success || false
-    }
-  } catch (error: any) {
-    console.error('❌ CRITICAL: Error in deleteProvider:', error)
-    return { 
-      success: false, 
-      error: error.message || 'Unknown error during deletion',
-      providerId,
-      timestamp: new Date().toISOString()
-    }
-  }
-}
-
-export async function reactivateProvider(providerId: string, adminEmail?: string) {
-  try {
-    console.log('🔄 Reactivating provider:', providerId)
-    
-    // Update provider status
+    // THEN: Update the database and RETURN the updated record
     const { data: updatedProvider, error: updateError } = await supabase
       .from('providers')
       .update({ 
-        status: 'approved',
-        // Add reactivation timestamp if you have this column
-        // reactivated_at: new Date().toISOString()
+        status: 'paused',
+        pause_reason: reason,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminEmail
       })
       .eq('id', providerId)
       .select()
@@ -206,38 +128,163 @@ export async function reactivateProvider(providerId: string, adminEmail?: string
 
     if (updateError) throw updateError
 
-    if (!updatedProvider) {
-      throw new Error('Provider not found or not updated')
-    }
-
-    console.log('✅ Provider updated successfully, sending reactivation email...')
-
-    // Send email to provider
+    // FINALLY: Send email with the UPDATED provider data
     const emailResponse = await fetch('/api/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event: 'status_update',
-        providerId,
+        provider: updatedProvider,
+        adminEmail,
+        action: 'pause',
+        reason
+      }),
+    })
+
+    const emailResult = await emailResponse.json()
+    if (!emailResponse.ok) {
+      console.warn('⚠️ Email notification failed:', emailResult)
+    }
+
+    return { success: true, emailSent: emailResult.success }
+  } catch (error: any) {
+    console.error('Error pausing provider:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteProvider(providerId: string, reason?: string, adminEmail?: string) {
+  try {
+    console.log('🗑️ DELETING provider:', providerId)
+    
+    // Get provider first (for email)
+    const { data: provider, error: fetchError } = await supabase
+      .from('providers')
+      .select('*')
+      .eq('id', providerId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!provider) throw new Error('Provider not found')
+
+    // Send email to provider BEFORE deletion
+    const emailResponse = await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'status_update',
+        provider: provider,
+        adminEmail,
+        action: 'delete',
+        reason: reason || 'Account removed by admin'
+      }),
+    })
+
+    const emailResult = await emailResponse.json()
+    if (!emailResponse.ok) {
+      console.warn('⚠️ Email notification failed:', emailResult)
+    }
+
+    // PERMANENTLY DELETE FROM DATABASE
+    const { error: deleteError } = await supabase
+      .from('providers')
+      .delete()
+      .eq('id', providerId)
+
+    if (deleteError) throw deleteError
+
+    return { 
+      success: true,
+      message: 'Provider permanently deleted',
+      emailSent: emailResult.success || false
+    }
+  } catch (error: any) {
+    console.error('Error in deleteProvider:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function reactivateProvider(providerId: string, adminEmail?: string) {
+  try {
+    // FIRST: Get the provider data before updating
+    const { data: provider, error: fetchError } = await supabase
+      .from('providers')
+      .select('*')
+      .eq('id', providerId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!provider) throw new Error('Provider not found')
+    
+    // THEN: Update provider status
+    const { data: updatedProvider, error: updateError } = await supabase
+      .from('providers')
+      .update({ 
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminEmail
+      })
+      .eq('id', providerId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    // FINALLY: Send email to provider
+    const emailResponse = await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'status_update',
+        provider: updatedProvider,
         adminEmail,
         action: 'reactivate'
       }),
     })
 
     const emailResult = await emailResponse.json()
-    console.log('📧 Reactivation email sent:', emailResult)
+    if (!emailResponse.ok) {
+      console.warn('⚠️ Email notification failed:', emailResult)
+    }
 
     return { 
       success: true,
-      message: 'Provider reactivated successfully',
-      provider: updatedProvider,
       emailSent: emailResult.success
     }
   } catch (error: any) {
-    console.error('❌ Error reactivating provider:', error)
-    return { 
-      success: false, 
-      error: error.message || 'Unknown error'
+    console.error('Error reactivating provider:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function resubmitProvider(providerId: string, businessName: string, contactEmail: string, adminEmail?: string) {
+  try {
+    console.log('🔄 Resubmitting provider:', providerId)
+    
+    // Send confirmation email for resubmission
+    const emailResponse = await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'resubmit_confirmation',
+        providerId,
+        businessName,
+        recipientEmail: contactEmail,
+        adminEmail
+      }),
+    })
+
+    const emailResult = await emailResponse.json()
+    if (!emailResponse.ok) {
+      console.warn('⚠️ Resubmit email notification failed:', emailResult)
     }
+
+    return { 
+      success: true,
+      emailSent: emailResult.success
+    }
+  } catch (error: any) {
+    console.error('Error in resubmitProvider:', error)
+    return { success: false, error: error.message }
   }
 }

@@ -3,6 +3,7 @@
 
 import { memo, useCallback } from 'react'
 import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
+import Link from 'next/link'
 
 // Types
 export interface ServiceCategory {
@@ -745,17 +746,26 @@ function ProviderForm({
                 required
                 className={`mt-1 mr-3 ${formErrors.accept_terms ? 'accent-red-500' : 'accent-orange-500'} w-5 h-5`}
               />
-              <div>
-                <label className="text-sm text-gray-300 font-medium">
-                  I agree to the Terms of Service and Privacy Policy 
-                </label>
-                <p className="text-xs text-gray-500 mt-1">
-                  By checking this box, you confirm all information provided is accurate
-                </p>
-                {formErrors.accept_terms && (
-                  <p className="mt-1 text-xs text-red-400">{formErrors.accept_terms}</p>
-                )}
-              </div>
+<div>
+  <label className="text-sm text-gray-300 font-medium block">
+    <span className="block sm:inline">I agree to the </span>
+    <span className="block sm:inline space-x-1">
+      <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
+        Terms of Service
+      </Link>
+      <span> and </span>
+      <Link href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
+        Privacy Policy
+      </Link>
+    </span>
+  </label>
+  <p className="text-xs text-gray-500 mt-1">
+    By checking this box, you confirm all information provided is accurate
+  </p>
+  {formErrors.accept_terms && (
+    <p className="mt-1 text-xs text-red-400">{formErrors.accept_terms}</p>
+  )}
+</div>
             </div>
             
             {/* Review Info */}

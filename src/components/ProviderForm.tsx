@@ -76,8 +76,7 @@ interface ProviderFormProps {
   formData: ProviderFormData
   onFormChange: (data: ProviderFormData) => void
   formErrors: Record<string, string>
-  setFormErrors?: (errors: Record<string, string>) => void // Add this for error updates
-  
+  setFormErrors?: React.Dispatch<React.SetStateAction<Record<string, string>>>  
   // Drawer controls (passed from parent)
   onOpenServiceDrawer: () => void
   onOpenAreaDrawer: () => void

@@ -215,9 +215,6 @@ export default function TermsPage() {
                       By using FindAPro, you acknowledge that you have read, understood, and agree to be bound by these Terms & Conditions. 
                       You also acknowledge that FindAPro is a directory platform and not a service provider.
                     </p>
-                    <p className="text-gray-400 text-sm mt-3">
-                      For legal inquiries or to report violations, please use our <Link href="/contact" className="text-blue-400 hover:text-blue-300 underline">contact form</Link>.
-                    </p>
                   </div>
                 </div>
               </div>

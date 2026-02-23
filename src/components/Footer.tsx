@@ -24,48 +24,50 @@ export default function Footer() {
             Join our growing community of professionals and customers today.
           </p>
 
-          {/* Navigation Links - WITH HOME LINK ADDED */}
-          <nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            {/* HOME LINK - ADDED */}
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent hover:from-orange-300 hover:to-red-300 text-xs font-medium hover:underline transition-all duration-300"
-            >
-              Home
-            </Link>
+   {/* Navigation Links - WITH PRIVACY POLICY ADDED */}
+<nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-4 pt-4">
+  <Link
+    href="/"
+    className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent hover:from-orange-300 hover:to-red-300 text-xs font-medium hover:underline transition-all duration-300"
+  >
+    Home
+  </Link>
 
-            <Link
-              href="/about"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent hover:from-green-300 hover:to-emerald-300 text-xs font-medium hover:underline transition-all duration-300"
-            >
-              About Us
-            </Link>
+  <Link
+    href="/about"
+    className="inline-flex items-center gap-2 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent hover:from-green-300 hover:to-emerald-300 text-xs font-medium hover:underline transition-all duration-300"
+  >
+    About Us
+  </Link>
 
-            <Link
-              href="/legal"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-cyan-300 text-xs font-medium hover:underline transition-all duration-300"
-            >
-              Legal
-            </Link>
+  <Link
+    href="/legal"
+    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-cyan-300 text-xs font-medium hover:underline transition-all duration-300"
+  >
+    Legal
+  </Link>
 
-            <Link
-              href="/terms"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-purple-300 hover:to-pink-300 text-xs font-medium hover:underline transition-all duration-300"
-            >
-              Terms & Conditions
-            </Link>
+  <Link
+    href="/privacy"
+    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent hover:from-blue-300 hover:to-indigo-300 text-xs font-medium hover:underline transition-all duration-300"
+  >
+    Privacy Policy
+  </Link>
 
-            <Link
-              href="/contact"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent hover:from-cyan-300 hover:to-teal-300 text-xs font-medium hover:underline transition-all duration-300"
-            >
-              Contact Us
-            </Link>
-            <div className="relative">
-  <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-</div>
+  <Link
+    href="/terms"
+    className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-purple-300 hover:to-pink-300 text-xs font-medium hover:underline transition-all duration-300"
+  >
+    Terms & Conditions
+  </Link>
 
-          </nav>
+  <Link
+    href="/contact"
+    className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent hover:from-cyan-300 hover:to-teal-300 text-xs font-medium hover:underline transition-all duration-300"
+  >
+    Contact Us
+  </Link>
+</nav>
 
           {/* Copyright & Protection Notice */}
           <div className="pt-6 border-t border-gray-800">

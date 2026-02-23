@@ -1,4 +1,4 @@
-// File: src/lib/admin-actions.ts - COMPLETE WORKING VERSION
+// File: src/lib/admin-actions.ts - FIXED (removed reviewed_by)
 import { supabase } from './supabase'
 
 export async function approveProvider(providerId: string, adminEmail?: string) {
@@ -13,13 +13,13 @@ export async function approveProvider(providerId: string, adminEmail?: string) {
     if (fetchError) throw fetchError
     if (!provider) throw new Error('Provider not found')
 
-    // THEN: Update the provider status
+    // THEN: Update the provider status (removed reviewed_by)
     const { error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'approved',
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminEmail
+        reviewed_at: new Date().toISOString()
+        // reviewed_by removed - column doesn't exist
       })
       .eq('id', providerId)
 
@@ -62,14 +62,14 @@ export async function rejectProvider(providerId: string, reason: string, adminEm
     if (fetchError) throw fetchError
     if (!provider) throw new Error('Provider not found')
 
-    // THEN: Update the provider status
+    // THEN: Update the provider status (removed reviewed_by)
     const { error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'rejected',
         rejection_reason: reason,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminEmail
+        reviewed_at: new Date().toISOString()
+        // reviewed_by removed - column doesn't exist
       })
       .eq('id', providerId)
 
@@ -113,14 +113,14 @@ export async function pauseProvider(providerId: string, reason?: string, adminEm
     if (fetchError) throw fetchError
     if (!provider) throw new Error('Provider not found')
 
-    // THEN: Update the database and RETURN the updated record
+    // THEN: Update the database and RETURN the updated record (removed reviewed_by)
     const { data: updatedProvider, error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'paused',
         pause_reason: reason,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminEmail
+        reviewed_at: new Date().toISOString()
+        // reviewed_by removed - column doesn't exist
       })
       .eq('id', providerId)
       .select()
@@ -216,13 +216,13 @@ export async function reactivateProvider(providerId: string, adminEmail?: string
     if (fetchError) throw fetchError
     if (!provider) throw new Error('Provider not found')
     
-    // THEN: Update provider status
+    // THEN: Update provider status (removed reviewed_by)
     const { data: updatedProvider, error: updateError } = await supabase
       .from('providers')
       .update({ 
         status: 'approved',
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: adminEmail
+        reviewed_at: new Date().toISOString()
+        // reviewed_by removed - column doesn't exist
       })
       .eq('id', providerId)
       .select()

@@ -19,6 +19,7 @@ import {
   Briefcase,
   MessageCircle
 } from 'lucide-react'
+import OnboardingDrawer from '@/components/OnboardingDrawer'
 
 export default function Header() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
@@ -26,6 +27,7 @@ export default function Header() {
   const [categoryName, setCategoryName] = useState<string>('')
   const [providerName, setProviderName] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   
   // Get current pathname
   const pathname = usePathname()
@@ -135,8 +137,28 @@ export default function Header() {
     setUserDropdownOpen(false)
   }, [pathname])
 
+  // Check if onboarding should show when user signs in
+  useEffect(() => {
+    if (user) {
+      // Check if user has seen onboarding before
+      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding')
+      if (!hasSeenOnboarding) {
+        // Small delay to let the header render first
+        setTimeout(() => setShowOnboarding(true), 500)
+      }
+    }
+  }, [user])
+
   const handleAuthClick = () => {
     showAuthModal('login')
+  }
+
+  const handleCloseOnboarding = () => {
+    setShowOnboarding(false)
+  }
+
+  const handleDontShowAgain = () => {
+    localStorage.setItem('hasSeenOnboarding', 'true')
   }
 
   const userInitial = user?.user_metadata?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'
@@ -230,11 +252,20 @@ export default function Header() {
               {user ? (
                 // Logged in state - Classy trigger button
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="relative group/user-trigger flex items-center gap-2 p-1.5 sm:p-2 pl-2 sm:pl-3 pr-2 sm:pr-4 rounded-xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 hover:from-blue-500/15 hover:via-purple-500/15 hover:to-cyan-500/15 border border-white/10 hover:border-white/20 transition-all duration-300"
-                >
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                className={`
+                  relative group/user-trigger flex items-center gap-2 p-1.5 sm:p-2 pl-2 sm:pl-3 pr-2 sm:pr-4 rounded-xl 
+                  bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 
+                  hover:from-blue-500/15 hover:via-purple-500/15 hover:to-cyan-500/15 
+                  border border-white/10 hover:border-white/20 transition-all duration-300
+                  ${showOnboarding 
+                    ? 'ring-2 ring-cyan-400/70 ring-offset-2 ring-offset-black animate-neon-pulse' 
+                    : ''
+                  }
+                `}
+              >
                   <div className="relative">
                     {/* User avatar with classy border */}
                     <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-900/30 via-purple-900/30 to-cyan-900/30 flex items-center justify-center border border-white/10 overflow-hidden group-hover/user-trigger:border-white/20 transition-all duration-300">
@@ -423,6 +454,13 @@ export default function Header() {
 
       {/* Spacer for fixed header */}
       <div className="h-20 sm:h-24"></div>
+
+      {/* Onboarding Drawer */}
+      <OnboardingDrawer
+        isOpen={showOnboarding}
+        onClose={handleCloseOnboarding}
+        onDontShowAgain={handleDontShowAgain}
+      />
     </>
   )
 }

@@ -1,7 +1,7 @@
 // File: src/components/ProviderForm.tsx
 'use client'
 
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
 
 // Types
@@ -76,7 +76,7 @@ interface ProviderFormProps {
   formData: ProviderFormData
   onFormChange: (data: ProviderFormData) => void
   formErrors: Record<string, string>
-  
+  setFormErrors?: React.Dispatch<React.SetStateAction<Record<string, string>>>  
   // Drawer controls (passed from parent)
   onOpenServiceDrawer: () => void
   onOpenAreaDrawer: () => void
@@ -110,6 +110,7 @@ function ProviderForm({
   formData,
   onFormChange,
   formErrors,
+  setFormErrors,
   onOpenServiceDrawer,
   onOpenAreaDrawer,
   onOpenAccreditationDrawer,
@@ -118,6 +119,71 @@ function ProviderForm({
   disabledFields = []
 }: ProviderFormProps) {
   
+  // Phone number formatting helper
+  const formatPhoneNumber = useCallback((value: string) => {
+    // Remove all non-digit characters
+    const cleaned = value.replace(/\D/g, '');
+    
+    // Format as "XXX XXX XXXX" (3 digits space 3 digits space 4 digits)
+    if (cleaned.length <= 3) {
+      return cleaned;
+    } else if (cleaned.length <= 6) {
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    } else {
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 10)}`;
+    }
+  }, []);
+
+  // Phone number validation helper
+  const validatePhoneNumber = useCallback((phone: string, isOptional = false) => {
+    // Remove all non-digit characters for validation
+    const digitsOnly = phone.replace(/\D/g, '');
+    
+    if (isOptional && !digitsOnly) {
+      return ''; // No error for empty optional field
+    }
+    
+    if (!isOptional && !digitsOnly) {
+      return 'Phone number is required';
+    }
+    
+    if (digitsOnly.length < 10) {
+      return 'Phone number must have at least 10 digits';
+    }
+    
+    if (digitsOnly.length > 10) {
+      return 'Phone number cannot exceed 10 digits';
+    }
+    
+    return ''; // No error
+  }, []);
+
+  // Validate and format phone on blur
+  const handlePhoneBlur = useCallback((e: React.FocusEvent<HTMLInputElement>, fieldName: string, isOptional = false) => {
+    const { value } = e.target;
+    
+    // Validate
+    const error = validatePhoneNumber(value, isOptional);
+    
+    // Update form errors if setFormErrors is provided
+    if (setFormErrors) {
+      setFormErrors(prev => ({
+        ...prev,
+        [fieldName]: error
+      }));
+    }
+    
+    // Format the number if it has content
+    if (value) {
+      const formattedValue = formatPhoneNumber(value);
+      
+      // Only update if the formatted value is different
+      if (formattedValue !== value) {
+        onFormChange({ ...formData, [fieldName]: formattedValue });
+      }
+    }
+  }, [formData, onFormChange, setFormErrors, formatPhoneNumber, validatePhoneNumber]);
+
   // Optimized handleChange with value comparison to prevent unnecessary re-renders
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -132,9 +198,30 @@ function ProviderForm({
         onFormChange({ ...formData, [name]: checked })
       }
     } else {
-      // Only update if the value actually changed
-      if (formData[name as keyof ProviderFormData] !== value) {
-        onFormChange({ ...formData, [name]: value })
+      // Special handling for phone fields - allow only digits and format
+      if (name === 'contact_phone' || name === 'alternate_phone') {
+        // Allow only digits (no letters, no special chars)
+        const digitsOnly = value.replace(/\D/g, '');
+        
+        // Limit to 10 digits
+        if (digitsOnly.length <= 10) {
+          const formatted = formatPhoneNumber(digitsOnly);
+          
+          // Only update if the value actually changed
+          if (formData[name as keyof ProviderFormData] !== formatted) {
+            onFormChange({ ...formData, [name]: formatted });
+          }
+          
+          // Clear error while typing if it exists
+          if (setFormErrors && formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: '' }));
+          }
+        }
+      } else {
+        // Only update if the value actually changed
+        if (formData[name as keyof ProviderFormData] !== value) {
+          onFormChange({ ...formData, [name]: value })
+        }
       }
     }
   }
@@ -276,10 +363,14 @@ function ProviderForm({
               name="contact_phone"
               value={formData.contact_phone}
               onChange={handleChange}
+              onBlur={(e) => handlePhoneBlur(e, 'contact_phone', false)}
               required
               disabled={disabledFields.includes('contact_phone')}
               className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.contact_phone ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('contact_phone') ? 'opacity-70 cursor-not-allowed' : ''}`}
-              placeholder="+27 12 345 6789"
+              placeholder="123 456 7890"
+              maxLength={12} // 3 digits + space + 3 digits + space + 4 digits = 12 chars
+              inputMode="numeric"
+              pattern="[0-9\s]*"
             />
             {formErrors.contact_phone && (
               <p className="mt-1 text-sm text-red-400">{formErrors.contact_phone}</p>
@@ -296,10 +387,17 @@ function ProviderForm({
               name="alternate_phone"
               value={formData.alternate_phone}
               onChange={handleChange}
+              onBlur={(e) => handlePhoneBlur(e, 'alternate_phone', true)}
               disabled={disabledFields.includes('alternate_phone')}
-              className={`w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('alternate_phone') ? 'opacity-70 cursor-not-allowed' : ''}`}
-              placeholder="Optional"
+              className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.alternate_phone ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('alternate_phone') ? 'opacity-70 cursor-not-allowed' : ''}`}
+              placeholder="123 456 7890"
+              maxLength={12}
+              inputMode="numeric"
+              pattern="[0-9\s]*"
             />
+            {formErrors.alternate_phone && (
+              <p className="mt-1 text-sm text-red-400">{formErrors.alternate_phone}</p>
+            )}
           </div>
         </div>
       </div>
@@ -336,27 +434,35 @@ function ProviderForm({
             )}
           </div>
           
-          {/* Years of Experience */}
-          <div>
-            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-              <span>Years of Experience</span>
-              <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="experience_years"
-              value={formData.experience_years}
-              onChange={handleChange}
-              required
-              disabled={disabledFields.includes('experience_years')}
-              className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('experience_years') ? 'opacity-70 cursor-not-allowed' : ''}`}
-              placeholder="e.g., 5 years"
-            />
-            {formErrors.experience_years && (
-              <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
-            )}
-          </div>
-          
+        {/* Years of Experience */}
+<div>
+  <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+    <span>Years of Experience</span>
+    <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="number"
+    name="experience_years"
+    value={formData.experience_years}
+    onChange={handleChange}
+    onKeyDown={(e) => {
+      // Prevent 'e', 'E', '+', '-', '.' from being entered
+      if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-' || e.key === '.') {
+        e.preventDefault();
+      }
+    }}
+    required
+    min="0"
+    max="100"
+    step="1"
+    disabled={disabledFields.includes('experience_years')}
+    className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('experience_years') ? 'opacity-70 cursor-not-allowed' : ''}`}
+    placeholder="e.g., 5"
+  />
+  {formErrors.experience_years && (
+    <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
+  )}
+</div>
           {/* Details */}
           <div>
             <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
@@ -371,7 +477,6 @@ function ProviderForm({
               disabled={disabledFields.includes('details')}
               className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
               placeholder="Enter your service details..."
-          
             />
           </div>
           

@@ -8,16 +8,7 @@ export default function Footer() {
     <footer className="bg-gradient-to-b from-gray-900 to-black border-t border-gray-800 relative z-50">
       <div className="container mx-auto px-4 md:px-6 py-8 max-w-full">
         <div className="text-center space-y-6">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 md:gap-3">
-            <Link
-              href="/"
-              className="text-xl text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-400 font-bold hover:from-orange-300 hover:to-yellow-300 transition-all duration-300"
-            >
-              FindAPro
-            </Link>
-            <div className="hidden sm:block w-0.5 h-5 bg-gradient-to-b from-gray-700 via-gray-600 to-gray-700" />
-            
-          </div>
+        
 
           <p className="text-gray-500 text-xs max-w-2xl mx-auto leading-relaxed px-2">
             Trusted by homeowners and service providers across South Africa. 

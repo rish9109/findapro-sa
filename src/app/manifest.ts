@@ -7,11 +7,14 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'FindAPro',
     description: 'Connect with verified professionals for home services, repairs, maintenance across South Africa',
     start_url: '/',
-    scope: '/',                     // ← added this line (helps Android scope)
+    scope: '/',                     // good to keep
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
-    background_color: '#111827',
-    theme_color: '#ea580c',
+    
+    // Updated colors – match your real dark background
+    background_color: '#0a0b0f',    // prevents white/light flash on load
+    theme_color: '#0a0b0f',         // status bar / title bar / task switcher – dark & consistent
+    
     orientation: 'portrait-primary',
     icons: [
       {

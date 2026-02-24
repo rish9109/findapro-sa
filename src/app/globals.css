@@ -1,4 +1,4 @@
-/* File: src/app/globals.css - CORRECTED VERSION */
+/* File: src/app/globals.css - CORRECTED + STANDARD THEME CONTROL */
 @import "tailwindcss";
 
 @theme {
@@ -27,9 +27,9 @@
 }
 
 /* Base styles */
-:root {
-  --background: #0a0b0f;
-  --foreground: #ffffff;
+:root,
+html {
+  color-scheme: dark only !important;   /* strongest possible */
 }
 
 body {

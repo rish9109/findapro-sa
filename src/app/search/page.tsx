@@ -6,11 +6,14 @@ import { SearchResults } from '@/components/SearchResults'
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
+// Get the return type from your useSearch hook
+type SearchResultsType = ReturnType<typeof useSearch>['results'][number]
+
 export default function SearchPage() {
   const searchParams = useSearchParams()
   const [originalTerm, setOriginalTerm] = useState('')
-  const [originalResults, setOriginalResults] = useState([])
-  const [hasLoaded, setHasLoaded] = useState(false) // Add this flag
+  const [originalResults, setOriginalResults] = useState<SearchResultsType[]>([])
+  const [hasLoaded, setHasLoaded] = useState(false)
   
   const {
     searchTerm,
@@ -20,16 +23,15 @@ export default function SearchPage() {
     loadingFilters,
   } = useSearch()
 
-  // Get the original search term from URL - ONLY ON PAGE LOAD
+  // Rest of your component remains the same...
   useEffect(() => {
     const q = searchParams.get('q')
     if (q) {
       setOriginalTerm(q)
-      setSearchTerm('') // Start with EMPTY search bar
+      setSearchTerm('')
     }
-  }, [searchParams, setSearchTerm]) // Remove results dependency
+  }, [searchParams, setSearchTerm])
 
-  // Store original results ONLY ONCE when they first load
   useEffect(() => {
     if (results.length > 0 && !hasLoaded && !loading) {
       setOriginalResults(results)
@@ -37,19 +39,17 @@ export default function SearchPage() {
     }
   }, [results, hasLoaded, loading])
 
-  // Clear just empties the search bar
   const handleClear = () => {
-    setSearchTerm('') // Empty the input
+    setSearchTerm('')
   }
 
-  // Determine which results to show
   const displayResults = searchTerm ? results : originalResults
 
   return (
+    // Your JSX remains exactly the same...
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
       <header className="relative bg-gray-950 text-white pt-4 pb-2 overflow-hidden">
         <div className="container mx-auto px-4 relative z-10">
-          {/* Show what was originally searched */}
           {originalTerm && (
             <div className="mb-4">
               <p className="text-gray-400 flex items-center gap-2">
@@ -61,7 +61,6 @@ export default function SearchPage() {
             </div>
           )}
 
-          {/* Search bar starts EMPTY */}
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
@@ -72,7 +71,6 @@ export default function SearchPage() {
             mode="live"
           />
 
-          {/* Results count */}
           {!loading && displayResults.length > 0 && (
             <p className="text-sm text-gray-400">
               Found {displayResults.length} provider{displayResults.length !== 1 ? 's' : ''}
@@ -82,7 +80,6 @@ export default function SearchPage() {
         </div>
       </header>
 
-      {/* Results */}
       <div className="container mx-auto px-4 py-6">
         <SearchResults
           results={displayResults}

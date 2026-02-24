@@ -209,23 +209,21 @@ export default function Header() {
         <div className="container mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between">
             {/* Left Section - Logo on Home, Home Icon on Other Pages */}
-            <div className="flex items-center min-w-0 flex-1">
+            <div className={`flex items-center ${isHomePage ? 'flex-shrink-0' : 'flex-shrink-0 min-w-0 max-w-[120px] sm:max-w-[180px]'}`}>
               {isHomePage ? (
-                // Home page - Show Logo on left
-
-
-<Link href="/" className="flex items-center gap-2 sm:gap-3 group min-w-0">
-  <div className="flex flex-col min-w-0">
-    <div className="text-lg sm:text-2xl font-black bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent group-hover:from-amber-500 group-hover:via-yellow-400 group-hover:to-amber-500 transition-all duration-300 truncate">
-      findapro.co.za
-    </div>
-    <div className="text-[8px] sm:text-xs text-gray-300 font-dark tracking-wider uppercase mt-0.5 block whitespace-nowrap">
-      Service's you trust, professionals you'll love
-    </div>
-  </div>
-</Link>
+                // Home page - Show Logo on left (FULL DISPLAY - NO TRUNCATION)
+                <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
+                  <div className="flex flex-col">
+                    <div className="text-lg sm:text-2xl font-black bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent group-hover:from-amber-500 group-hover:via-yellow-400 group-hover:to-amber-500 transition-all duration-300 whitespace-nowrap">
+                      findapro.co.za
+                    </div>
+                    <div className="text-[8px] sm:text-xs text-gray-300 font-dark tracking-wider uppercase mt-0.5 whitespace-nowrap">
+                      Service's you trust, professionals you'll love
+                    </div>
+                  </div>
+                </Link>
               ) : (
-                // Other pages - Show Home icon (no text)
+                // Other pages - Show Home icon with limited space
                 <Link 
                   href="/" 
                   className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors duration-300 group flex-shrink-0"
@@ -237,9 +235,9 @@ export default function Header() {
             </div>
 
             {/* Center Section - Page Title (Hidden on Homepage) */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex-1 min-w-0 max-w-lg mx-auto">
+            <div className="flex-1 flex justify-center min-w-0 px-2 sm:px-4">
               {!isHomePage && (
-                <div className="flex flex-col items-center justify-center min-w-0">
+                <div className="flex flex-col items-center justify-center min-w-0 max-w-md mx-auto">
                   <h1 className="text-lg sm:text-xl font-bold text-white text-center truncate max-w-full px-2">
                     {loading ? 'Loading...' : getPageTitle()}
                   </h1>
@@ -252,20 +250,20 @@ export default function Header() {
               {user ? (
                 // Logged in state - Classy trigger button
                 <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className={`
-                  relative group/user-trigger flex items-center gap-2 p-1.5 sm:p-2 pl-2 sm:pl-3 pr-2 sm:pr-4 rounded-xl 
-                  bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 
-                  hover:from-blue-500/15 hover:via-purple-500/15 hover:to-cyan-500/15 
-                  border border-white/10 hover:border-white/20 transition-all duration-300
-                  ${showOnboarding 
-                    ? 'ring-2 ring-cyan-400/70 ring-offset-2 ring-offset-black animate-neon-pulse' 
-                    : ''
-                  }
-                `}
-              >
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className={`
+                    relative group/user-trigger flex items-center gap-2 p-1.5 sm:p-2 pl-2 sm:pl-3 pr-2 sm:pr-4 rounded-xl 
+                    bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 
+                    hover:from-blue-500/15 hover:via-purple-500/15 hover:to-cyan-500/15 
+                    border border-white/10 hover:border-white/20 transition-all duration-300
+                    ${showOnboarding 
+                      ? 'ring-2 ring-cyan-400/70 ring-offset-2 ring-offset-black animate-neon-pulse' 
+                      : ''
+                    }
+                  `}
+                >
                   <div className="relative">
                     {/* User avatar with classy border */}
                     <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-900/30 via-purple-900/30 to-cyan-900/30 flex items-center justify-center border border-white/10 overflow-hidden group-hover/user-trigger:border-white/20 transition-all duration-300">
@@ -274,8 +272,6 @@ export default function Header() {
                       <span className="text-white font-bold text-sm sm:text-lg relative z-10">
                         {userInitial}
                       </span>
-                      
-          
                     </div>
                   </div>
                   
@@ -283,8 +279,6 @@ export default function Header() {
                   <div className="text-left hidden sm:block">
                     <div className="text-white font-semibold text-xs sm:text-sm truncate max-w-[120px]">
                       {user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0]}
-                    </div>
-                    <div className="text-xs text-gray-400 flex items-center gap-1">
                     </div>
                   </div>
                   
@@ -400,21 +394,22 @@ export default function Header() {
                       </Link>
                       
                       {/* Contact Us */}
-<Link 
-  href="/contact" 
-  className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
-  onClick={() => setUserDropdownOpen(false)}
->
-  <div className="relative">
-    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-300">
-      <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
-    </div>
-  </div>
-  <div>
-    <div className="font-medium text-sm sm:text-base">Contact Us</div>
-    <div className="text-xs text-gray-400">Get in touch</div>
-  </div>
-</Link>
+                      <Link 
+                        href="/contact" 
+                        className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
+                        onClick={() => setUserDropdownOpen(false)}
+                      >
+                        <div className="relative">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-300">
+                            <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm sm:text-base">Contact Us</div>
+                          <div className="text-xs text-gray-400">Get in touch</div>
+                        </div>
+                      </Link>
+                      
                       {/* Sign Out with elegant styling */}
                       <button
                         onClick={() => {
@@ -431,19 +426,7 @@ export default function Header() {
                           <div className="text-xs text-gray-400">End session</div>
                         </div>
                       </button>
-
                     </div>
-{/* Status footer with glass effect - Right aligned */}
-<div className="p-3 border-t border-white/10 bg-gradient-to-r from-gray-900/80 via-gray-900/80 to-black/80 backdrop-blur-sm">
-  <div className="flex items-center justify-right">
-    {isProvider && (
-      <div className="flex items-center gap-1">
-        <Star className="w-3 h-3 text-emerald-400" />
-        <span className="text-xs text-emerald-400">Provider</span>
-      </div>
-    )}
-  </div>
-</div>
                   </motion.div>
                 )}
               </AnimatePresence>

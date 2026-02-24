@@ -146,6 +146,7 @@ export default function Home() {
             {/* Search Bar with integrated Search Tips */}
             <div className="max-w-2xl mx-auto">
               <SearchBar 
+                mode="navigate"
                 value={searchTerm}
                 onChange={setSearchTerm}
                 placeholder="Search for: Painter, Engineer, Sandton, events..."

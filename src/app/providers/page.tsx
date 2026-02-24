@@ -1,19 +1,20 @@
-// File: src/app/providers/page.tsx - WITH LOGO COMPONENT IMPLEMENTATION
+// File: src/app/providers/page.tsx - WITH FIXED SEARCHBAR POSITIONING
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, getUserFavorites, toggleFavoriteSupabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Heart, MapPin, Star, Briefcase,
   Shield, Zap, Award, ChevronRight,
-  Calendar
+  Calendar, X
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
+import SearchBar from '@/components/SearchBar'
 
-// SOLUTION: Define the Provider type interface
+// Define the Provider type interface
 interface Provider {
   id: string
   business_name: string
@@ -43,7 +44,6 @@ export default function ProvidersPage() {
   const searchParams = useSearchParams()
   const { user, showAuthModal } = useAuth()
   
-  // SOLUTION: Add type annotations to useState
   const [providers, setProviders] = useState<Provider[]>([])
   const [filteredProviders, setFilteredProviders] = useState<Provider[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +51,12 @@ export default function ProvidersPage() {
   const [syncingFavoriteId, setSyncingFavoriteId] = useState<string | null>(null)
   const [favoritesLoaded, setFavoritesLoaded] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [categoryName, setCategoryName] = useState<string>('')
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
 
   // Load favorites
   useEffect(() => {
@@ -81,13 +86,34 @@ export default function ProvidersPage() {
     loadFavorites()
   }, [user])
 
-  // Check URL for category filter
+  // Check URL for category filter and get category name
   useEffect(() => {
     const categoryFromUrl = searchParams.get('category')
     if (categoryFromUrl) {
       setSelectedCategory(categoryFromUrl)
+      fetchCategoryName(categoryFromUrl)
+    } else {
+      setSelectedCategory('all')
+      setCategoryName('')
     }
   }, [searchParams])
+
+  // Fetch category name
+  const fetchCategoryName = async (categoryId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('name')
+        .eq('id', categoryId)
+        .single()
+
+      if (!error && data) {
+        setCategoryName(data.name)
+      }
+    } catch (error) {
+      console.error('Error fetching category name:', error)
+    }
+  }
 
   // Fetch accreditations from Supabase
   useEffect(() => {
@@ -136,7 +162,6 @@ export default function ProvidersPage() {
       if (error) throw error
       
       if (data && data.length > 0) {
-        // SOLUTION: Add type annotation to transformedData
         const transformedData: Provider[] = data.map(provider => {
           let formattedServiceAreas: string[] = []
           
@@ -195,12 +220,8 @@ export default function ProvidersPage() {
         
         setProviders(transformedData)
         
-        if (selectedCategory !== 'all') {
-          const filtered = transformedData.filter(p => p.main_service_id === selectedCategory)
-          setFilteredProviders(filtered)
-        } else {
-          setFilteredProviders(transformedData)
-        }
+        // Apply both category and search filters
+        applyFilters(transformedData, selectedCategory, searchQuery)
       } else {
         setProviders([])
         setFilteredProviders([])
@@ -214,17 +235,53 @@ export default function ProvidersPage() {
     }
   }
 
-  // Filter providers when category changes
+  // Apply both category and search filters
+  const applyFilters = (
+    providersList: Provider[], 
+    category: string, 
+    query: string
+  ) => {
+    let filtered = [...providersList]
+    
+    // Apply category filter
+    if (category !== 'all') {
+      filtered = filtered.filter(provider => provider.main_service_id === category)
+    }
+    
+    // Apply search filter if there's a query
+    if (query.trim()) {
+      setIsSearching(true)
+      const searchTerms = query.toLowerCase().trim().split(/\s+/)
+      
+      filtered = filtered.filter(provider => {
+        const searchableText = `
+          ${provider.business_name} 
+          ${provider.main_service} 
+          ${provider.all_other_services} 
+          ${provider.formatted_service_areas.join(' ')}
+        `.toLowerCase()
+        
+        // Check if all search terms match (AND condition)
+        return searchTerms.every(term => searchableText.includes(term))
+      })
+    } else {
+      setIsSearching(false)
+    }
+    
+    setFilteredProviders(filtered)
+  }
+
+  // Filter providers when category or search changes
   useEffect(() => {
     if (providers.length > 0) {
-      if (selectedCategory !== 'all') {
-        const filtered = providers.filter(provider => provider.main_service_id === selectedCategory)
-        setFilteredProviders(filtered)
-      } else {
-        setFilteredProviders(providers)
-      }
+      applyFilters(providers, selectedCategory, searchQuery)
     }
-  }, [selectedCategory, providers])
+  }, [selectedCategory, providers, searchQuery])
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery('')
+  }
 
   // Toggle favorite
   const toggleFavorite = async (providerId: string, e: React.MouseEvent) => {
@@ -251,7 +308,6 @@ export default function ProvidersPage() {
       setFavorites(newFavorites)
       localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
       
-      // SOLUTION: Add type annotations to setProviders callback
       setProviders((prev): Provider[] => prev.map(provider => 
         provider.id === providerId 
           ? { ...provider, is_favorite: !isCurrentlyFavorite }
@@ -306,7 +362,6 @@ export default function ProvidersPage() {
     router.push(`/providers/${providerId}`)
   }
 
-  // SOLUTION: Add type annotation to provider parameter
   const getPriceDisplay = (provider: Provider) => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
@@ -317,7 +372,6 @@ export default function ProvidersPage() {
     return 'Contact for rates'
   }
 
-  // SOLUTION: Add type annotation to provider parameter
   const getServiceAreasDisplay = (provider: Provider) => {
     try {
       if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
@@ -351,7 +405,6 @@ export default function ProvidersPage() {
     }
   }
 
-  // SOLUTION: Add type annotation to provider parameter
   const getAccreditationsDisplay = (provider: Provider) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
       const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
@@ -375,29 +428,111 @@ export default function ProvidersPage() {
     return null
   }
 
+  // Highlight matching text
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text
+    
+    const parts = text.split(new RegExp(`(${query})`, 'gi'))
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() ? 
+        <mark key={i} className="bg-yellow-500/30 text-white px-0.5 rounded">{part}</mark> : 
+        part
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
       <main className="relative container mx-auto px-4 py-8">
         
+{/* Search Bar Section - Centered below header */}
+<div className="mb-8 max-w-3xl mx-auto">
+  <SearchBar
+    value={searchQuery}
+    onChange={setSearchQuery}
+    onClear={clearSearch} // Optional: if you want to trigger additional logic on clear
+    placeholder={
+      selectedCategory !== 'all' && categoryName
+        ? `Search in ${categoryName}...`
+        : 'Search for professionals by name, service, or location...'
+    }
+    variant="compact"
+    className="w-full"
+    autoFocus={false}
+    showClearButton={true}
+  />
+  
+  {/* Live search results count and category indicator */}
+  <AnimatePresence mode="wait">
+    {!loading && (
+      <motion.div
+        key={searchQuery ? 'searching' : 'idle'}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 text-sm"
+      >
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          {selectedCategory !== 'all' && categoryName && (
+            <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium truncate max-w-[150px] sm:max-w-[200px]">
+              {categoryName}
+            </span>
+          )}
+          
+          {isSearching && (
+            <span className="text-gray-400 whitespace-nowrap">
+              {filteredProviders.length} {filteredProviders.length === 1 ? 'result' : 'results'}
+            </span>
+          )}
+        </div>
+        
+        {isSearching && filteredProviders.length === 0 && (
+          <span className="text-gray-500 text-sm">
+            No matches found
+          </span>
+        )}
+      </motion.div>
+    )}
+  </AnimatePresence>
+</div>
+
         {loading ? (
           <div className="text-center py-20">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             <p className="mt-4 text-gray-400">Loading professional service providers...</p>
           </div>
         ) : filteredProviders.length === 0 ? (
-          <div className="text-center py-20 bg-gray-800/30 rounded-2xl border border-gray-700">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20 bg-gray-800/30 rounded-2xl border border-gray-700"
+          >
             <div className="w-16 h-16 bg-gradient-to-r from-blue-500/20 to-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Briefcase className="w-8 h-8 text-gray-500" />
             </div>
             <h3 className="text-xl font-semibold text-gray-300 mb-2">
-              {selectedCategory !== 'all' ? 'No providers in this category' : 'No providers available yet'}
+              {searchQuery 
+                ? `No results for "${searchQuery}"`
+                : selectedCategory !== 'all' 
+                  ? 'No providers in this category' 
+                  : 'No providers available yet'}
             </h3>
             <p className="text-gray-500 mb-6">
-              {selectedCategory !== 'all' 
-                ? 'Try selecting a different category or check back soon'
-                : 'Check back soon for approved service providers!'}
+              {searchQuery
+                ? 'Try different keywords or clear your search'
+                : selectedCategory !== 'all' 
+                  ? 'Try selecting a different category or check back soon'
+                  : 'Check back soon for approved service providers!'}
             </p>
-          </div>
+            
+            {searchQuery && (
+              <button
+                onClick={clearSearch}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Clear Search
+              </button>
+            )}
+          </motion.div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProviders.map((provider, index) => {
@@ -434,10 +569,10 @@ export default function ProvidersPage() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors truncate">
-                                {provider.business_name}
+                                {searchQuery ? highlightText(provider.business_name, searchQuery) : provider.business_name}
                               </h3>
                               <p className="text-sm text-blue-400 mt-1 truncate">
-                                {provider.main_service}
+                                {searchQuery ? highlightText(provider.main_service, searchQuery) : provider.main_service}
                               </p>
                             </div>
                             
@@ -476,7 +611,10 @@ export default function ProvidersPage() {
                         </div>
                         <div className="min-h-[40px] flex items-center">
                           <p className="text-gray-300 font-semibold truncate md:line-clamp-2">
-                            {getServiceAreasDisplay(provider)}
+                            {searchQuery 
+                              ? highlightText(getServiceAreasDisplay(provider), searchQuery)
+                              : getServiceAreasDisplay(provider)
+                            }
                           </p>
                         </div>
                       </div>
@@ -528,7 +666,9 @@ export default function ProvidersPage() {
                                 {items.map((item: string, index: number) => (
                                   <li key={index} className="flex items-start text-gray-300">
                                     <span className="text-purple-400 mr-2 mt-0.5 text-xs">•</span>
-                                    <span className="line-clamp-1 text-sm">{item}</span>
+                                    <span className="line-clamp-1 text-sm">
+                                      {searchQuery ? highlightText(item, searchQuery) : item}
+                                    </span>
                                   </li>
                                 ))}
                                 {provider.all_other_services.split(/[\n,]+/).length > 3 && (
@@ -550,7 +690,7 @@ export default function ProvidersPage() {
                         <div className="min-h-[40px] flex items-center">
                           {accreditationsDisplay ? (
                             <p className="text-gray-300 truncate md:line-clamp-2 text-sm">
-                              {accreditationsDisplay}
+                              {searchQuery ? highlightText(accreditationsDisplay, searchQuery) : accreditationsDisplay}
                             </p>
                           ) : (
                             <p className="text-gray-500 italic text-sm">No accreditations listed</p>

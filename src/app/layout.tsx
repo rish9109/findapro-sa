@@ -29,9 +29,9 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'FindAPro - Find Trusted Service Providers in South Africa',
+  title: 'Find A Pro Connect (PTY) LTD',
   description:
-    'Connect with verified professionals for home services, repairs, maintenance, and more across South Africa',
+    'Community Focused service directory with verified professional services across South Africa 🟦⬜🟩🟨🟥 🇿🇦',
 
   // ── PWA / Manifest ─────────────────────────────────────────────
   manifest: '/manifest.webmanifest',

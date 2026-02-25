@@ -31,7 +31,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Find A Pro Connect (PTY) LTD',
   description:
-    'Community Focused service directory with verified professional services across South Africa 🟦⬜🟩🟨🟥 🇿🇦',
+    'Your go-to directory for verified professionals across Mzansi. Community-focused. Trust guaranteed. 🇿🇦',
 
   // ── PWA / Manifest ─────────────────────────────────────────────
   manifest: '/manifest.webmanifest',

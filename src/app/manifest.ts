@@ -3,18 +3,15 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'FindAPro - Trusted Service Providers SA',
+    name: 'Find A Pro Connect (PTY) LTD',
     short_name: 'FindAPro',
-    description: 'Connect with verified professionals for home services, repairs, maintenance across South Africa',
+    description: 'Community Focused service directory with verified professional services across South Africa 🟦⬜🟩🟨🟥 🇿🇦',
     start_url: '/',
-    scope: '/',                     // good to keep
+    scope: '/',                     // ← added this line (helps Android scope)
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
-    
-    // Updated colors – match your real dark background
-    background_color: '#0a0b0f',    // prevents white/light flash on load
-    theme_color: '#0a0b0f',         // status bar / title bar / task switcher – dark & consistent
-    
+    background_color: '#111827',
+    theme_color: '#ea580c',
     orientation: 'portrait-primary',
     icons: [
       {

@@ -10,9 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',                     // ← added this line (helps Android scope)
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
-    background_color: '#111827',
-    theme_color: '#ea580c',
-    orientation: 'portrait-primary',
+    background_color: '#111827', // gray-900 - matches your page background
+    theme_color: '#f59e0b', // amber-500 - matches your accent color    orientation: 'portrait-primary',
     icons: [
       {
         src: '/icons/icon-192.png',

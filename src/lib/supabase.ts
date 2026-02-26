@@ -334,8 +334,25 @@ export async function getFallbackEmailTemplate(): Promise<EmailTemplate | null> 
 }
 
 // ==================== CATEGORY FUNCTIONS ====================
-export async function getCategoriesWithProviderCounts(): Promise<CategoryWithCount[]> {
+// In src/lib/supabase.ts - update the function signature
+
+export async function getCategoriesWithProviderCounts(bypassCache = false): Promise<CategoryWithCount[]> {
   try {
+    // Check cache if not bypassing
+    if (!bypassCache) {
+      const cached = sessionStorage.getItem('cachedCategories');
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Use cache if less than 2 minutes old
+        if (Date.now() - timestamp < 2 * 60 * 1000) {
+          console.log('📦 Using cached categories from', new Date(timestamp).toLocaleTimeString());
+          return data;
+        }
+      }
+    }
+
+    console.log('🔄 Fetching fresh categories from Supabase...');
+    
     // Get all active categories
     const { data: categories, error: categoriesError } = await supabase
       .from('service_categories')
@@ -347,29 +364,27 @@ export async function getCategoriesWithProviderCounts(): Promise<CategoryWithCou
     if (categoriesError) throw categoriesError
     if (!categories || categories.length === 0) return []
 
-    // Get only approved providers (status = 'approved')
-    const { data: providerCounts, error: countsError } = await supabase
+    // Get ALL approved providers
+    const { data: providers, error: providersError } = await supabase
       .from('providers')
-      .select('main_service_id')
+      .select('id, main_service_id')
       .eq('status', 'approved')
 
-    if (countsError) {
-      console.error('Error fetching provider counts:', countsError)
-      // Continue with zero counts if query fails
+    if (providersError) {
+      console.error('Error fetching providers:', providersError);
+      return categories.map(cat => ({ ...cat, provider_count: 0 }));
     }
 
     // Count providers per category
     const countMap = new Map<string, number>()
-    if (providerCounts) {
-      providerCounts.forEach(provider => {
-        if (provider.main_service_id) {
-          countMap.set(
-            provider.main_service_id,
-            (countMap.get(provider.main_service_id) || 0) + 1
-          )
-        }
-      })
-    }
+    providers?.forEach(provider => {
+      if (provider.main_service_id) {
+        countMap.set(
+          provider.main_service_id,
+          (countMap.get(provider.main_service_id) || 0) + 1
+        )
+      }
+    })
 
     // Merge counts with categories
     const categoriesWithCounts = categories.map(category => ({

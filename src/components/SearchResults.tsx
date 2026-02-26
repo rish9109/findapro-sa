@@ -11,7 +11,7 @@ import {
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import { useState, useEffect } from 'react'
 import { supabase, toggleFavoriteSupabase } from '@/lib/supabase'
-import ProviderCard from '@/components/ProviderCard' // Import the new component
+import ProviderCard from '@/components/ProviderCard'
 
 interface SearchResultsProps {
   results: SearchResult[]
@@ -20,13 +20,15 @@ interface SearchResultsProps {
   className?: string
 }
 
-// Extend SearchResult to match Provider type
+// Extend SearchResult to match Provider type expected by ProviderCard
 interface Provider extends SearchResult {
   formatted_service_areas: string[]
   other_services: string[]
   all_other_services: string
   display_accreditations: any[]
   is_favorite: boolean
+  // Add missing accreditations property
+  accreditations?: any[] | null
 }
 
 export function SearchResults({ 
@@ -216,7 +218,7 @@ export function SearchResults({
 
   // Transform SearchResult to Provider format
   const transformToProvider = (result: SearchResult): Provider => {
-    // Format service areas (similar to how you do it in providers page)
+    // Format service areas
     let formattedServiceAreas: string[] = []
     if (result.service_areas && result.service_areas.length > 0) {
       formattedServiceAreas = result.service_areas.map((area: string) => {
@@ -247,7 +249,9 @@ export function SearchResults({
       other_services: otherServices,
       all_other_services: result.details || '',
       display_accreditations: result.provider_accreditations || [],
-      is_favorite: favorites.includes(result.id)
+      is_favorite: favorites.includes(result.id),
+      // Add accreditations property (mapping from provider_accreditations if needed)
+      accreditations: result.provider_accreditations || null
     }
   }
 

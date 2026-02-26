@@ -16,6 +16,7 @@ import {
   Languages, Fingerprint, Settings, CreditCard, Eye
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
+import WhatsAppButton from '@/components/WhatsAppButton'
 
 // Icon mapping function
 const getIconComponent = (iconName: string | null | undefined) => {
@@ -514,93 +515,155 @@ export default function ProviderDetailPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <div className="space-y-6">
-                  {/* Contact Information */}
-                  <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-                    <h3 className="text-lg font-bold text-white mb-4">Contact Information</h3>
-                    
-                    <div className="space-y-4">
-                      {provider.contact_person && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Contact Person</p>
-                          <div className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg">
-                            <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-white font-medium truncate">{provider.contact_person}</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {provider.contact_phone && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Primary Phone</p>
-                          <a
-                            href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
-                            className="block p-4 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/30 transition-all group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/40 transition-colors flex-shrink-0">
-                                <Phone className="w-6 h-6 text-emerald-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-emerald-400 mb-1">Tap to Call</p>
-                                <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
-                                  {provider.contact_phone}
-                                </p>
-                              </div>
-                              <PhoneCall className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                            </div>
-                          </a>
-                        </div>
-                      )}
-                      
-                      {provider.alternate_phone && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Alternate Phone</p>
-                          <a
-                            href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
-                            className="block p-4 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/30 transition-all group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/40 transition-colors flex-shrink-0">
-                                <Phone className="w-6 h-6 text-blue-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-blue-400 mb-1">Tap to Call</p>
-                                <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors truncate">
-                                  {provider.alternate_phone}
-                                </p>
-                              </div>
-                              <PhoneCall className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                            </div>
-                          </a>
-                        </div>
-                      )}
-                      
-                      {provider.contact_email && (
-                        <div>
-                          <p className="text-sm text-gray-400 mb-1">Email Address</p>
-                          <a
-                            href={`mailto:${provider.contact_email}`}
-                            className="block p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/30 transition-all group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center group-hover:bg-purple-500/40 transition-colors flex-shrink-0">
-                                <Mail className="w-6 h-6 text-purple-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-purple-400 mb-1">Tap to Email</p>
-                                <div className="relative">
-                                  <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
-                                    {provider.contact_email}
-                                  </p>
-                                </div>
-                              </div>
-                              <Mail className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                            </div>
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+        
+{/* Contact Information */}
+<div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+  <h3 className="text-lg font-bold text-white mb-4">Contact Information</h3>
+  
+  <div className="space-y-4">
+    {provider.contact_person && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Contact Person</p>
+        <div className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg">
+          <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <span className="text-white font-medium truncate">{provider.contact_person}</span>
+        </div>
+      </div>
+    )}
+    
+    {/* Primary Phone with WhatsApp */}
+    {provider.contact_phone && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Primary Phone</p>
+        <div className="space-y-3">
+          {/* Call Button - Full width */}
+          <a
+            href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
+            className="block w-full p-4 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/30 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/40 transition-colors flex-shrink-0">
+                <Phone className="w-6 h-6 text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-emerald-400 mb-1">Tap to Call</p>
+                <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
+                  {provider.contact_phone}
+                </p>
+              </div>
+              <PhoneCall className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            </div>
+          </a>
+          
+          {/* WhatsApp Button - Full width, single line, no phone number */}
+          {provider.primary_has_whatsapp && (
+            <a
+              href={`https://wa.me/${provider.contact_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${provider.business_name}, I'm interested in your ${provider.main_service || 'services'}.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 rounded-lg border border-green-500/30 hover:border-green-500/50 hover:bg-green-500/30 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors flex-shrink-0">
+                  <svg className="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2c-5.349 0-9.703 4.352-9.706 9.702 0 1.703.444 3.371 1.286 4.836L2 22l5.539-1.504c1.414.783 3.004 1.196 4.64 1.197h.004c5.347 0 9.701-4.353 9.704-9.703.001-2.598-1.01-5.041-2.897-6.928zM12.018 20.06h-.003c-1.446 0-2.864-.389-4.082-1.12l-.293-.174-3.288.875.88-3.2-.19-.305c-.758-1.215-1.158-2.617-1.158-4.064.003-4.445 3.619-8.06 8.067-8.06 2.153 0 4.178.841 5.699 2.368 1.521 1.527 2.358 3.553 2.357 5.71-.002 4.446-3.618 8.062-8.064 8.062zM16.247 14.28c-.245-.123-1.453-.717-1.678-.798-.225-.082-.388-.123-.552.122-.164.245-.636.798-.78.962-.143.164-.287.185-.532.062-.926-.403-1.719-.917-2.402-1.527-.901-.803-1.51-1.771-1.686-2.082-.164-.29-.018-.447.124-.592.128-.128.286-.334.429-.501.143-.167.191-.287.287-.479.095-.192.048-.36-.024-.503-.071-.143-.552-1.329-.756-1.818-.199-.479-.4-.414-.552-.422a9.96 9.96 0 0 0-.47-.008c-.166.005-.398.057-.608.287-.21.23-.802.784-.802 1.913 0 1.128.822 2.218.937 2.372.115.154 1.56 2.456 3.856 3.34 2.296.884 2.296.589 2.71.552.414-.037 1.337-.546 1.525-1.074.188-.528.188-.98.132-1.075-.057-.095-.21-.154-.456-.277z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg font-semibold text-white group-hover:text-green-300 transition-colors">
+                     WhatsApp
+                  </p>
+                </div>
+                <svg className="w-5 h-5 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
+              </div>
+            </a>
+          )}
+        </div>
+      </div>
+    )}
+    
+    {/* Alternate Phone with WhatsApp */}
+    {provider.alternate_phone && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Alternate Phone</p>
+        <div className="space-y-3">
+          {/* Call Button - Full width */}
+          <a
+            href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
+            className="block w-full p-4 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/30 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/40 transition-colors flex-shrink-0">
+                <Phone className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-blue-400 mb-1">Tap to Call</p>
+                <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors truncate">
+                  {provider.alternate_phone}
+                </p>
+              </div>
+              <PhoneCall className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            </div>
+          </a>
+          
+          {/* WhatsApp Button - Full width, single line, no phone number */}
+          {provider.alternate_has_whatsapp && (
+            <a
+              href={`https://wa.me/${provider.alternate_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${provider.business_name}, I'm interested in your ${provider.main_service || 'services'}.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 rounded-lg border border-green-500/30 hover:border-green-500/50 hover:bg-green-500/30 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-green-500/30 flex items-center justify-center group-hover:bg-green-500/40 transition-colors flex-shrink-0">
+                  <svg className="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2c-5.349 0-9.703 4.352-9.706 9.702 0 1.703.444 3.371 1.286 4.836L2 22l5.539-1.504c1.414.783 3.004 1.196 4.64 1.197h.004c5.347 0 9.701-4.353 9.704-9.703.001-2.598-1.01-5.041-2.897-6.928zM12.018 20.06h-.003c-1.446 0-2.864-.389-4.082-1.12l-.293-.174-3.288.875.88-3.2-.19-.305c-.758-1.215-1.158-2.617-1.158-4.064.003-4.445 3.619-8.06 8.067-8.06 2.153 0 4.178.841 5.699 2.368 1.521 1.527 2.358 3.553 2.357 5.71-.002 4.446-3.618 8.062-8.064 8.062zM16.247 14.28c-.245-.123-1.453-.717-1.678-.798-.225-.082-.388-.123-.552.122-.164.245-.636.798-.78.962-.143.164-.287.185-.532.062-.926-.403-1.719-.917-2.402-1.527-.901-.803-1.51-1.771-1.686-2.082-.164-.29-.018-.447.124-.592.128-.128.286-.334.429-.501.143-.167.191-.287.287-.479.095-.192.048-.36-.024-.503-.071-.143-.552-1.329-.756-1.818-.199-.479-.4-.414-.552-.422a9.96 9.96 0 0 0-.47-.008c-.166.005-.398.057-.608.287-.21.23-.802.784-.802 1.913 0 1.128.822 2.218.937 2.372.115.154 1.56 2.456 3.856 3.34 2.296.884 2.296.589 2.71.552.414-.037 1.337-.546 1.525-1.074.188-.528.188-.98.132-1.075-.057-.095-.21-.154-.456-.277z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg font-semibold text-white group-hover:text-green-300 transition-colors">
+                    WhatsApp
+                  </p>
+                </div>
+                <svg className="w-5 h-5 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
+              </div>
+            </a>
+          )}
+        </div>
+      </div>
+    )}
+    
+    {/* Email - unchanged */}
+    {provider.contact_email && (
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Email Address</p>
+        <a
+          href={`mailto:${provider.contact_email}`}
+          className="block w-full p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/30 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center group-hover:bg-purple-500/40 transition-colors flex-shrink-0">
+              <Mail className="w-6 h-6 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-purple-400 mb-1">Tap to Email</p>
+              <div className="relative">
+                <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                  {provider.contact_email}
+                </p>
+              </div>
+            </div>
+            <Mail className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </div>
+        </a>
+      </div>
+    )}
+  </div>
+</div>
 
                   {/* Service Areas */}
                   {serviceAreas.length > 0 && (
@@ -747,35 +810,6 @@ export default function ProviderDetailPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Availability & Pricing */}
-                  <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Clock className="w-5 h-5 text-cyan-400" />
-                      <h3 className="text-lg font-bold text-white">Pricing & Availability</h3>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                        <span className="text-gray-400">Response Time</span>
-                        <span className="text-white font-medium">Within 24 hours</span>
-                      </div>
-                      
-                      {provider.fees_pricing && (
-                        <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                          <span className="text-gray-400">Pricing</span>
-                          <span className="text-white font-medium">{provider.fees_pricing}</span>
-                        </div>
-                      )}
-                      
-                      {provider.callout_fee && (
-                        <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-400">Callout Fee</span>
-                          <span className="text-white font-medium">{provider.callout_fee}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             ) : (

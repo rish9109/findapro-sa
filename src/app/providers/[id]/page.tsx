@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import WhatsAppButton from '@/components/WhatsAppButton'
-import { createWhatsAppUrl } from '@/lib/whatsapp'
 
 // Icon mapping function
 const getIconComponent = (iconName: string | null | undefined) => {

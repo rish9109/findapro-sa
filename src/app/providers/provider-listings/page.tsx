@@ -3,13 +3,14 @@
 
 import { useState, useEffect, Suspense, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, saveProviderBusinessFeatures } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import AccreditationDrawer from '@/components/AccreditationDrawer'
 import ServiceAreaDrawer from '@/components/ServiceAreaDrawer'
 import ServiceCategoryDrawer from '@/components/ServiceCategoryDrawer'
 import FormSubmissionDrawer from '@/components/FormSubmissionDrawer'
-import ProviderForm, { ServiceCategory, SelectedAccreditation, ProviderFormData } from '@/components/ProviderForm'
+import BusinessFeatureDrawer from '@/components/BusinessFeatureDrawer'
+import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, ProviderFormData } from '@/components/ProviderForm'
 import { ArrowLeft, Save } from 'lucide-react'
 
 function ProviderListingsContent() {
@@ -19,6 +20,7 @@ function ProviderListingsContent() {
   const [showServiceDrawer, setShowServiceDrawer] = useState(false)
   const [showServiceAreaDrawer, setShowServiceAreaDrawer] = useState(false)
   const [showAccreditationDrawer, setShowAccreditationDrawer] = useState(false)
+  const [showBusinessFeatureDrawer, setShowBusinessFeatureDrawer] = useState(false)
   
   // Submission drawer state
   const [showSubmissionDrawer, setShowSubmissionDrawer] = useState(false)
@@ -39,6 +41,7 @@ function ProviderListingsContent() {
 
   // Selection states
   const [selectedAccreditations, setSelectedAccreditations] = useState<SelectedAccreditation[]>([])
+  const [selectedBusinessFeatures, setSelectedBusinessFeatures] = useState<SelectedBusinessFeature[]>([])
   const [serviceAreas, setServiceAreas] = useState<{
     primaryArea: string;
     additionalAreas: string[];
@@ -58,12 +61,8 @@ function ProviderListingsContent() {
     details: '',
     experience_years: '',
     fees_pricing: '',
-    accepts_card: false,
-    accepts_cash: true,
-    deposit_required: false,
-    emergency_service: false,
     callout_fee: '',
-    insurance: false,
+    // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
     accept_terms: false
   })
 
@@ -181,6 +180,13 @@ function ProviderListingsContent() {
     setSelectedAccreditations(accreditations)
   }, [])
 
+  const handleBusinessFeaturesSave = useCallback((features: SelectedBusinessFeature[]) => {
+    setSelectedBusinessFeatures(features)
+    if (formErrors.business_features) {
+      setFormErrors(prev => ({ ...prev, business_features: '' }))
+    }
+  }, [formErrors])
+
   // Handler for ServiceAreaDrawer (expects string array)
   const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
     setServiceAreas({
@@ -218,7 +224,7 @@ function ProviderListingsContent() {
     handleSubmit(new Event('submit') as any)
   }, [])
 
-  // Validate form
+  // Validate form - REMOVED old field validations
   const validateForm = useCallback(() => {
     const errors: Record<string, string> = {}
     
@@ -240,9 +246,7 @@ function ProviderListingsContent() {
     if (!serviceAreas.primaryArea.trim()) {
       errors.primaryArea = 'Primary service area is required'
     }
-    if (formData.emergency_service && !formData.callout_fee.trim()) {
-      errors.callout_fee = 'Emergency callout fee is required'
-    }
+    // Business features are optional - removed validation
     if (!formData.accept_terms) {
       errors.accept_terms = 'You must accept the terms'
     }
@@ -279,7 +283,7 @@ function ProviderListingsContent() {
     e.stopPropagation()
     
     if (!validateForm()) {
-      showIncompleteFormNotification() // Add this line
+      showIncompleteFormNotification()
       return
     }
     
@@ -319,15 +323,12 @@ function ProviderListingsContent() {
         experience_years: formData.experience_years,
         service_areas: JSON.stringify([serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])]),
         fees_pricing: formData.fees_pricing || null,
-        accepts_card: formData.accepts_card,
-        accepts_cash: formData.accepts_cash,
-        deposit_required: formData.deposit_required,
-        emergency_service: formData.emergency_service,
-        callout_fee: formData.emergency_service ? formData.callout_fee : null,
-        insurance: formData.insurance,
+        callout_fee: formData.callout_fee || null,
+        // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
         status: 'pending',
         verified: false,
         created_at: new Date().toISOString(),
+        submitted_at: new Date().toISOString(),
         launch_trial: true,
       }
       
@@ -351,6 +352,11 @@ function ProviderListingsContent() {
         }))
         
         await supabase.from('provider_accreditations').insert(accreditationsData)
+      }
+      
+      // Save business features (optional)
+      if (selectedBusinessFeatures.length > 0) {
+        await saveProviderBusinessFeatures(data.id, selectedBusinessFeatures)
       }
       
       // Send notification with full provider data (non-blocking)
@@ -395,6 +401,7 @@ function ProviderListingsContent() {
       setLoading(false)
     }
   }
+  
   if (loadingData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
@@ -479,14 +486,18 @@ function ProviderListingsContent() {
             existingBusinessName={existingBusinessName}
             selectedAccreditations={selectedAccreditations}
             onAccreditationsChange={handleAccreditationsSave}
+            selectedBusinessFeatures={selectedBusinessFeatures}
+            onBusinessFeaturesChange={handleBusinessFeaturesSave}
             serviceAreas={serviceAreas}
             onServiceAreasChange={handleServiceAreasChange}
             formData={formData}
             onFormChange={setFormData}
             formErrors={formErrors}
+            setFormErrors={setFormErrors}
             onOpenServiceDrawer={() => setShowServiceDrawer(true)}
             onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
             onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
+            onOpenBusinessFeatureDrawer={() => setShowBusinessFeatureDrawer(true)}
           />
           
           {/* Form Actions with Cancel Button at Bottom */}
@@ -553,6 +564,15 @@ function ProviderListingsContent() {
         onSave={handleAccreditationsSave}
         maxSelection={10}
         serviceCategoryId={formData.main_service_id}
+      />
+
+      <BusinessFeatureDrawer
+        isOpen={showBusinessFeatureDrawer}
+        onClose={() => setShowBusinessFeatureDrawer(false)}
+        providerId="new"
+        initialSelection={selectedBusinessFeatures}
+        onSave={handleBusinessFeaturesSave}
+        maxSelection={10} 
       />
 
       <ServiceAreaDrawer

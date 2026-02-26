@@ -2,7 +2,7 @@
 'use client'
 
 import { memo, useCallback } from 'react'
-import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle } from 'lucide-react'
+import { Award, MapPin, Shield, Clock, CreditCard, AlertCircle, FileText, CheckCircle, Star } from 'lucide-react'
 import Link from 'next/link'
 
 // Types
@@ -16,6 +16,16 @@ export interface ServiceCategory {
 export interface SelectedAccreditation {
   id: string
   accreditation_id?: string
+  custom_name?: string
+  custom_description?: string
+  is_custom: boolean
+  position: number
+}
+
+export interface SelectedBusinessFeature {
+  id: string
+  feature_id?: string
+  feature?: any
   custom_name?: string
   custom_description?: string
   is_custom: boolean
@@ -40,14 +50,9 @@ export interface ProviderFormData {
   
   // Pricing & Payment
   fees_pricing: string
-  accepts_card: boolean
-  accepts_cash: boolean
-  deposit_required: boolean
-  
-  // Business Details
-  emergency_service: boolean
   callout_fee: string
-  insurance: boolean
+  
+  // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
   
   // Terms (only for new listings)
   accept_terms?: boolean
@@ -67,6 +72,9 @@ interface ProviderFormProps {
   selectedAccreditations: SelectedAccreditation[]
   onAccreditationsChange: (accreditations: SelectedAccreditation[]) => void
   
+  selectedBusinessFeatures?: SelectedBusinessFeature[] // Optional
+  onBusinessFeaturesChange: (features: SelectedBusinessFeature[]) => void
+  
   serviceAreas: {
     primaryArea: string
     additionalAreas: string[]
@@ -78,10 +86,12 @@ interface ProviderFormProps {
   onFormChange: (data: ProviderFormData) => void
   formErrors: Record<string, string>
   setFormErrors?: React.Dispatch<React.SetStateAction<Record<string, string>>>  
+  
   // Drawer controls (passed from parent)
   onOpenServiceDrawer: () => void
   onOpenAreaDrawer: () => void
   onOpenAccreditationDrawer: () => void
+  onOpenBusinessFeatureDrawer: () => void // New drawer control
   
   // Mode
   mode: 'create' | 'edit'
@@ -106,6 +116,8 @@ function ProviderForm({
   existingBusinessName,
   selectedAccreditations,
   onAccreditationsChange,
+  selectedBusinessFeatures = [], // Default to empty array
+  onBusinessFeaturesChange,
   serviceAreas,
   onServiceAreasChange,
   formData,
@@ -115,6 +127,7 @@ function ProviderForm({
   onOpenServiceDrawer,
   onOpenAreaDrawer,
   onOpenAccreditationDrawer,
+  onOpenBusinessFeatureDrawer,
   mode,
   statusInfo,
   disabledFields = []
@@ -382,6 +395,7 @@ function ProviderForm({
           <div>
             <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
               Alternate Phone
+              <span className="text-xs text-gray-400 ml-2">(Optional)</span>
             </label>
             <input
               type="tel"
@@ -435,57 +449,60 @@ function ProviderForm({
             )}
           </div>
           
-        {/* Years of Experience */}
-<div>
-  <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-    <span>Years of Experience</span>
-    <span className="text-red-500">*</span>
-  </label>
-  <input
-    type="number"
-    name="experience_years"
-    value={formData.experience_years}
-    onChange={handleChange}
-    onKeyDown={(e) => {
-      // Prevent 'e', 'E', '+', '-', '.' from being entered
-      if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-' || e.key === '.') {
-        e.preventDefault();
-      }
-    }}
-    required
-    min="0"
-    max="100"
-    step="1"
-    disabled={disabledFields.includes('experience_years')}
-    className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('experience_years') ? 'opacity-70 cursor-not-allowed' : ''}`}
-    placeholder="e.g., 5"
-  />
-  {formErrors.experience_years && (
-    <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
-  )}
-</div>
-          {/* Details */}
+          {/* Years of Experience */}
           <div>
             <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-              Details
-              <span className="text-gray-300 text-xs ml-2"><span className="text-orange-400">💡</span>Enter services separated by commas or on separate lines. Will display as a bullet list.</span>
+              <span>Years of Experience</span>
+              <span className="text-red-500">*</span>
             </label>
-            <textarea
-              name="details"
-              value={formData.details}
+            <input
+              type="number"
+              name="experience_years"
+              value={formData.experience_years}
               onChange={handleChange}
-              rows={10}
-              disabled={disabledFields.includes('details')}
-              className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
-              placeholder="Enter your service details..."
+              onKeyDown={(e) => {
+                // Prevent 'e', 'E', '+', '-', '.' from being entered
+                if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-' || e.key === '.') {
+                  e.preventDefault();
+                }
+              }}
+              required
+              min="0"
+              max="100"
+              step="1"
+              disabled={disabledFields.includes('experience_years')}
+              className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.experience_years ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('experience_years') ? 'opacity-70 cursor-not-allowed' : ''}`}
+              placeholder="e.g., 5"
             />
+            {formErrors.experience_years && (
+              <p className="mt-1 text-sm text-red-400">{formErrors.experience_years}</p>
+            )}
           </div>
           
+          {/* Details */}
+          <div>
+  <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+    Details
+    <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+  </label>
+  <textarea
+    name="details"
+    value={formData.details}
+    onChange={handleChange}
+    rows={10}
+    disabled={disabledFields.includes('details')}
+    className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
+    placeholder="Enter your service details...(Enter services separated by commas or on separate lines. Will display as a bullet list.)"
+  />
+</div>
+
           {/* Accreditations */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
-                <span>Accreditations</span>
+                <span>Accreditations
+                <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+                </span>
               </label>
               <span className="text-xs text-gray-500">
                 {selectedAccreditations.length}/10 selected
@@ -515,7 +532,7 @@ function ProviderForm({
                 {selectedAccreditations.slice(0, 3).map(acc => (
                   <span key={acc.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
                     <Award className="w-3 h-3" />
-                    {acc.is_custom ? acc.custom_name?.substring(0, 20) : 'Certified'}
+                    {acc.is_custom ? acc.custom_name?.substring(0, 10) : 'Certified'}
                   </span>
                 ))}
                 {selectedAccreditations.length > 3 && (
@@ -603,6 +620,7 @@ function ProviderForm({
           <div>
             <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
               Fees & Pricing
+              <span className="text-xs text-gray-400 ml-2">(Optional)</span>
             </label>
             <div className="relative">
               <input
@@ -616,113 +634,54 @@ function ProviderForm({
               />
             </div>
           </div>
+
+  
           
-          {/* Checkboxes Grid */}
-          <div className="bg-gray-900/50 rounded-xl p-5 border border-gray-700">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Accepts Cash */}
-              <div className="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="accepts_cash"
-                  checked={formData.accepts_cash}
-                  onChange={handleChange}
-                  disabled={disabledFields.includes('accepts_cash')}
-                  className={`mr-3 accent-orange-500 w-5 h-5 ${disabledFields.includes('accepts_cash') ? 'opacity-70 cursor-not-allowed' : ''}`}
-                />
-                <div className="flex items-center gap-2">
-                  <label className="text-gray-300 text-sm font-medium">Accepts Cash</label>
-                </div>
+          {/* Business Features - New section (optional) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+                <span>Business Features</span>
+                <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+              </label>
+              <span className="text-xs text-gray-500">
+                {selectedBusinessFeatures.length}/10 selected
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenBusinessFeatureDrawer}
+              disabled={disabledFields.includes('business_features')}
+              className={`w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors ${disabledFields.includes('business_features') ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              <div className="flex-1">
+                <span className={selectedBusinessFeatures.length > 0 ? "text-white" : "text-gray-500"}>
+                  {selectedBusinessFeatures.length > 0 
+                    ? `${selectedBusinessFeatures.length} feature${selectedBusinessFeatures.length !== 1 ? 's' : ''} selected`
+                    : "Add business features (optional)"}
+                </span>
               </div>
-              
-              {/* Accepts Card */}
-              <div className="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="accepts_card"
-                  checked={formData.accepts_card}
-                  onChange={handleChange}
-                  disabled={disabledFields.includes('accepts_card')}
-                  className={`mr-3 accent-orange-500 w-5 h-5 ${disabledFields.includes('accepts_card') ? 'opacity-70 cursor-not-allowed' : ''}`}
-                />
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-gray-400" />
-                  <label className="text-gray-300 text-sm font-medium">Accepts Card</label>
-                </div>
-              </div>
-              
-              {/* Deposit Required */}
-              <div className="flex items-center p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="deposit_required"
-                  checked={formData.deposit_required}
-                  onChange={handleChange}
-                  disabled={disabledFields.includes('deposit_required')}
-                  className={`mr-3 accent-orange-500 w-5 h-5 ${disabledFields.includes('deposit_required') ? 'opacity-70 cursor-not-allowed' : ''}`}
-                />
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-gray-400" />
-                  <label className="text-gray-300 text-sm font-medium">Requires Deposit</label>
-                </div>
-              </div>
-              
-              {/* Emergency Service */}
-              <div className={`flex flex-col p-3 rounded-lg border transition-colors ${formData.emergency_service ? 'bg-orange-500/10 border-orange-500/30' : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'}`}>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="emergency_service"
-                    checked={formData.emergency_service}
-                    onChange={handleChange}
-                    disabled={disabledFields.includes('emergency_service')}
-                    className={`mr-3 accent-orange-500 w-5 h-5 ${disabledFields.includes('emergency_service') ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  />
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-gray-400" />
-                    <label className="text-gray-300 text-sm font-medium">Emergency Service</label>
-                  </div>
-                </div>
-                
-                {/* Callout fee appears below emergency service checkbox */}
-                {formData.emergency_service && (
-                  <div className="mt-3 pl-8">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        name="callout_fee"
-                        value={formData.callout_fee}
-                        onChange={handleChange}
-                        disabled={disabledFields.includes('callout_fee')}
-                        className={`w-full px-4 py-2 bg-gray-900 border ${formErrors.callout_fee ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-1 focus:ring-orange-500 focus:border-orange-500 transition-all text-sm ${disabledFields.includes('callout_fee') ? 'opacity-70 cursor-not-allowed' : ''}`}
-                        placeholder="Emergency callout fee (e.g., 300)"
-                      />
-                    </div>
-                    {formErrors.callout_fee && (
-                      <p className="mt-1 text-xs text-red-400">{formErrors.callout_fee}</p>
-                    )}
-                  </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            
+            {/* Selected business features preview */}
+            {selectedBusinessFeatures.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedBusinessFeatures.slice(0, 3).map(feat => (
+                  <span key={feat.id} className="px-3 py-1.5 bg-orange-500/20 text-orange-300 text-xs rounded-lg border border-orange-500/30 flex items-center gap-1">
+                    <Star className="w-3 h-3" />
+                    {feat.is_custom ? feat.custom_name?.substring(0, 10) : feat.feature?.name}
+                  </span>
+                ))}
+                {selectedBusinessFeatures.length > 3 && (
+                  <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
+                    +{selectedBusinessFeatures.length - 3} more
+                  </span>
                 )}
               </div>
-              
-              {/* Insurance */}
-              <div className={`flex flex-col p-3 rounded-lg border transition-colors ${formData.insurance ? 'bg-orange-500/10 border-orange-500/30' : 'bg-gray-800/50 border-gray-700 hover:border-gray-600'}`}>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="insurance"
-                    checked={formData.insurance}
-                    onChange={handleChange}
-                    disabled={disabledFields.includes('insurance')}
-                    className={`mr-3 accent-orange-500 w-5 h-5 ${disabledFields.includes('insurance') ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  />
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <label className="text-gray-300 text-sm font-medium">Insurance Approved</label>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -746,26 +705,26 @@ function ProviderForm({
                 required
                 className={`mt-1 mr-3 ${formErrors.accept_terms ? 'accent-red-500' : 'accent-orange-500'} w-5 h-5`}
               />
-<div>
-  <label className="text-sm text-gray-300 font-medium block">
-    <span className="block sm:inline">I agree to the </span>
-    <span className="block sm:inline space-x-1">
-      <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
-        Terms of Service
-      </Link>
-      <span> and </span>
-      <Link href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
-        Privacy Policy
-      </Link>
-    </span>
-  </label>
-  <p className="text-xs text-gray-500 mt-1">
-    By checking this box, you confirm all information provided is accurate
-  </p>
-  {formErrors.accept_terms && (
-    <p className="mt-1 text-xs text-red-400">{formErrors.accept_terms}</p>
-  )}
-</div>
+              <div>
+                <label className="text-sm text-gray-300 font-medium block">
+                  <span className="block sm:inline">I agree to the </span>
+                  <span className="block sm:inline space-x-1">
+                    <Link href="/terms" className="text-blue-400 hover:text-blue-300 underline">
+                      Terms of Service
+                    </Link>
+                    <span> and </span>
+                    <Link href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  By checking this box, you confirm all information provided is accurate
+                </p>
+                {formErrors.accept_terms && (
+                  <p className="mt-1 text-xs text-red-400">{formErrors.accept_terms}</p>
+                )}
+              </div>
             </div>
             
             {/* Review Info */}

@@ -36,6 +36,29 @@ if (!supabaseServiceKey) {
   console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY not set. Admin operations may be limited.')
 }
 
+// ==================== BUSINESS FEATURES TYPES ====================
+export interface BusinessFeature {
+  id: string
+  name: string
+  category: string | null
+  // Removed: description, icon, is_global, sort_order, created_at
+}
+
+export interface ProviderBusinessFeature {
+  id: string
+  provider_id: string
+  feature_id: string | null
+  custom_name: string | null
+  custom_description: string | null
+  is_custom: boolean
+  position: number
+  is_verified: boolean
+  created_at: string
+  updated_at: string
+  // Joined fields
+  feature?: BusinessFeature
+}
+
 // ==================== TYPE DEFINITIONS ====================
 export interface Provider {
   id: string
@@ -73,6 +96,8 @@ export interface Provider {
   pause_reason?: string
   deletion_reason?: string
   logo_url?: string
+  // Relations
+  business_features?: ProviderBusinessFeature[]
 }
 
 export interface EmailTemplate {
@@ -99,7 +124,7 @@ export interface CategoryWithCount extends ServiceCategory {
   provider_count: number
 }
 
-// ==================== SAFE PROVIDER HELPER (ADD THIS) ====================
+// ==================== SAFE PROVIDER HELPER ====================
 export type SafeProvider = {
   id: string
   business_name: string
@@ -115,6 +140,10 @@ export type SafeProvider = {
   rejection_reason?: string
   pause_reason?: string
   deletion_reason?: string
+  fees_pricing?: string
+  callout_fee?: string
+  // Relations
+  business_features?: ProviderBusinessFeature[]
 }
 
 export function extractProviderData(provider: any): SafeProvider {
@@ -132,7 +161,129 @@ export function extractProviderData(provider: any): SafeProvider {
     submitted_at: provider.submitted_at || provider.created_at || new Date().toISOString(),
     rejection_reason: provider.rejection_reason || '',
     pause_reason: provider.pause_reason || '',
-    deletion_reason: provider.deletion_reason || ''
+    deletion_reason: provider.deletion_reason || '',
+    fees_pricing: provider.fees_pricing || '',
+    callout_fee: provider.callout_fee || '',
+    business_features: provider.business_features || []
+  }
+}
+
+// ==================== BUSINESS FEATURES HELPER FUNCTIONS ====================
+export function getFeatureDisplayName(feature: ProviderBusinessFeature): string {
+  if (feature.is_custom) {
+    return feature.custom_name || 'Custom Feature'
+  }
+  return feature.feature?.name || 'Business Feature'
+}
+
+export function getFeatureDescription(feature: ProviderBusinessFeature): string {
+  if (feature.is_custom) {
+    return feature.custom_description || ''
+  }
+  return '' // No description for global features
+}
+
+// Fetch all business features (now sorted alphabetically by name)
+export async function getBusinessFeatures(category?: string): Promise<BusinessFeature[]> {
+  try {
+    let query = supabase
+      .from('business_features')
+      .select('*')
+      .order('name'); // Sort alphabetically
+    
+    if (category && category !== 'all') {
+      query = query.eq('category', category);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching business features:', error);
+    return [];
+  }
+}
+
+// Get all unique business feature categories
+export async function getBusinessFeatureCategories(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('business_features')
+      .select('category')
+      .not('category', 'is', null)
+      .order('category');
+    
+    if (error) throw error;
+    
+    // Get unique categories
+    const categories = [...new Set(data.map(item => item.category))];
+    return categories;
+  } catch (error) {
+    console.error('Error fetching business feature categories:', error);
+    return [];
+  }
+}
+
+// Get provider's business features
+export async function getProviderBusinessFeatures(providerId: string): Promise<ProviderBusinessFeature[]> {
+  try {
+    const { data, error } = await supabase
+      .from('provider_business_features')
+      .select(`
+        *,
+        feature:business_features(*)
+      `)
+      .eq('provider_id', providerId)
+      .order('position');
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching provider business features:', error);
+    return [];
+  }
+}
+
+// Save provider's business features
+export async function saveProviderBusinessFeatures(
+  providerId: string, 
+  features: any[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // First, delete existing features
+    const { error: deleteError } = await supabase
+      .from('provider_business_features')
+      .delete()
+      .eq('provider_id', providerId)
+    
+    if (deleteError) throw deleteError
+    
+    if (features.length === 0) {
+      return { success: true }
+    }
+    
+    // Prepare new features for insertion
+    const featuresToInsert = features.map((feat, index) => ({
+      provider_id: providerId,
+      feature_id: feat.is_custom ? null : feat.feature_id,
+      custom_name: feat.is_custom ? feat.custom_name : null,
+      custom_description: feat.is_custom ? feat.custom_description : null,
+      is_custom: feat.is_custom || false,
+      position: index,
+      is_verified: false
+    }))
+    
+    const { error: insertError } = await supabase
+      .from('provider_business_features')
+      .insert(featuresToInsert)
+    
+    if (insertError) throw insertError
+    
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error saving provider business features:', error)
+    return { success: false, error: error.message }
   }
 }
 
@@ -167,7 +318,6 @@ export async function getEmailTemplate(name: string): Promise<{
 
 export async function getFallbackEmailTemplate(): Promise<EmailTemplate | null> {
   try {
-    // Try to get a fallback template
     const { data } = await supabase
       .from('email_templates')
       .select('*')
@@ -267,13 +417,19 @@ export async function getCategoryByIdWithCount(id: string): Promise<CategoryWith
   }
 }
 
-// ==================== PROVIDER FUNCTIONS (ADDED from second file) ====================
+// ==================== PROVIDER FUNCTIONS ====================
 
 // Get ALL user listings including rejected, paused, etc.
 export const getUserListings = async (userId: string): Promise<Provider[]> => {
   const { data, error } = await supabase
     .from('providers')
-    .select('*')
+    .select(`
+      *,
+      business_features:provider_business_features(
+        *,
+        feature:business_features(*)
+      )
+    `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -287,12 +443,35 @@ export const getUserListings = async (userId: string): Promise<Provider[]> => {
     )
     .map(provider => ({
       ...provider,
-      // Optionally transform status if needed
       status: provider.status === 'deleted' ? 'pause' : provider.status,
     }));
 
   return validListings;
 };
+
+// Get single provider by ID with all relations
+export async function getProviderById(providerId: string): Promise<Provider | null> {
+  try {
+    const { data, error } = await supabase
+      .from('providers')
+      .select(`
+        *,
+        provider_accreditations(*),
+        business_features:provider_business_features(
+          *,
+          feature:business_features(*)
+        )
+      `)
+      .eq('id', providerId)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching provider:', error);
+    return null;
+  }
+}
 
 // Delete a provider listing
 export async function deleteProviderListing(listingId: string): Promise<{ success: boolean; error?: string }> {
@@ -310,7 +489,7 @@ export async function deleteProviderListing(listingId: string): Promise<{ succes
   }
 }
 
-// ==================== EMAIL UPDATE FUNCTIONS (ADDED from second file) ====================
+// ==================== EMAIL UPDATE FUNCTIONS ====================
 export async function updateUserEmailWithVerification(newEmail: string): Promise<{ 
   success: boolean; 
   error?: string; 
@@ -484,7 +663,13 @@ export async function getFavoriteProviders(userId: string): Promise<any[]> {
     
     const { data: providers, error: providerError } = await supabase
       .from('providers')
-      .select('*')
+      .select(`
+        *,
+        business_features:provider_business_features(
+          *,
+          feature:business_features(*)
+        )
+      `)
       .in('id', providerIds)
       .eq('status', 'approved')
 

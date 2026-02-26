@@ -22,7 +22,7 @@ interface SearchResultsProps {
   className?: string
 }
 
-// Define a type that matches what ProviderCard expects
+// Define a type that matches exactly what ProviderCard expects
 interface TransformedProvider {
   id: string
   business_name: string
@@ -42,7 +42,7 @@ interface TransformedProvider {
   accepts_card: boolean
   accepts_cash: boolean
   verified: boolean
-  accreditations: any[] | null
+  accreditations: any[]  // Must be array, not null
   display_accreditations: any[]
   is_favorite: boolean
   business_features?: any[]
@@ -283,7 +283,8 @@ export function SearchResults({
       accepts_card: result.accepts_card || false,
       accepts_cash: result.accepts_cash || false,
       verified: result.verified || false,
-      accreditations: result.provider_accreditations || null,
+      // Ensure accreditations is always an array, never null
+      accreditations: result.provider_accreditations || [],
       display_accreditations: result.provider_accreditations || [],
       is_favorite: favorites.includes(result.id),
       business_features: result.business_features || []

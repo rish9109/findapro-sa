@@ -1,432 +1,334 @@
-import { supabase } from '@/lib/supabase'
+import { supabase } from './supabase'
+import Fuse from 'fuse.js'
 
-// Types
-export interface Provider {
+export interface SearchResult {
   id: string
   business_name: string
-  contact_person: string | null
-  contact_phone: string | null
   main_service: string
-  main_service_id: string
+  main_service_id?: string
   service_areas: string[]
+  fees_pricing?: string | null
+  callout_fee?: string | null
   rating: number
-  logo_url: string | null
-  experience_years: number | null
-  fees_pricing: string | null
-  callout_fee: string | null
+  total_reviews: number
+  details?: string
+  experience_years: number
   emergency_service: boolean
-  details: string | null
-  certifications: string | null
-  contact_email?: string | null
-  verified: boolean
   insurance: boolean
-  insurance_details: string | null
   accepts_card: boolean
   accepts_cash: boolean
-  total_reviews: number
-  provider_accreditations?: Array<{
-    id: string
-    custom_name: string | null
-    is_custom: boolean
-    accreditation_id: string | null
-  }>
+  verified: boolean
+  provider_accreditations?: any[]
+  business_features?: any[]
 }
 
-export interface Accreditation {
-  id: string
-  name: string
-  description: string | null
-  sector: string
+export interface SearchFilters {
+  category?: string
+  city?: string
+  province?: string
+  verified?: boolean
+  emergency?: boolean
+  minRating?: number
 }
 
 export interface ServiceCategory {
   id: string
   name: string
-  icon: string
-  description?: string
+  icon?: string
 }
 
 export interface CityOption {
   city: string
   province: string
-  provinceCode: string
 }
 
-export interface SearchFilters {
-  categoryId?: string
-  city?: string
-  minRating?: number
-  emergencyOnly?: boolean
-  province?: string
-}
-
-export interface SearchResult extends Provider {
-  relevanceScore: number
-  matchedAccreditations?: Accreditation[] // Add this to track which accreditations matched
-}
-
-// Cache for filter options
-let categoriesCache: ServiceCategory[] | null = null
-let citiesCache: CityOption[] | null = null
-let provincesCache: string[] | null = null
+// Cache for providers data
 let providersCache: SearchResult[] | null = null
-let accreditationsCache: Accreditation[] | null = null // Add cache for accreditations
-let lastProviderFetch: number = 0
+let cacheTimestamp: number | null = null
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
-/**
- * Load all accreditations
- */
-async function loadAccreditations(): Promise<Accreditation[]> {
-  if (accreditationsCache) {
-    return accreditationsCache
-  }
-
-  const { data, error } = await supabase
-    .from('accreditations')
-    .select('id, name, description, sector')
-    .eq('is_global', true)
-
-  if (error) {
-    console.error('Error loading accreditations:', error)
-    return []
-  }
-
-  accreditationsCache = data || []
-  return accreditationsCache
-}
-
-/**
- * Helper function to parse service_areas which might be stored as JSON strings
- */
-function parseServiceAreas(serviceAreas: any): string[] {
-  if (!serviceAreas) return []
-  
-  if (Array.isArray(serviceAreas)) {
-    return serviceAreas
-  }
-  
-  if (typeof serviceAreas === 'string') {
-    try {
-      const parsed = JSON.parse(serviceAreas)
-      return Array.isArray(parsed) ? parsed : [serviceAreas]
-    } catch {
-      return [serviceAreas]
-    }
-  }
-  
-  return []
-}
-
-/**
- * Load all providers (with caching)
- */
-async function loadAllProviders(): Promise<SearchResult[]> {
-  const now = Date.now()
-  if (providersCache && (now - lastProviderFetch) < CACHE_DURATION) {
+// Load all approved providers (cached)
+export async function loadAllProviders(): Promise<SearchResult[]> {
+  // Check if cache is still valid
+  if (providersCache && cacheTimestamp && (Date.now() - cacheTimestamp) < CACHE_DURATION) {
+    console.log('Returning cached providers')
     return providersCache
   }
 
-  const { data, error } = await supabase
-    .from('providers')
-    .select(`
-      id,
-      business_name,
-      contact_person,
-      contact_phone,
-      contact_email,
-      main_service,
-      main_service_id,
-      service_areas,
-      rating,
-      logo_url,
-      experience_years,
-      fees_pricing,
-      callout_fee,
-      emergency_service,
-      details,
-      certifications,
-      verified,
-      insurance,
-      insurance_details,
-      accepts_card,
-      accepts_cash,
-      total_reviews,
-      provider_accreditations (
-        id,
-        custom_name,
-        is_custom,
-        accreditation_id
-      )
-    `)
-    .eq('status', 'approved')
-    .order('business_name')
+  try {
+    console.log('Fetching fresh providers data...')
+    
+    const { data, error } = await supabase
+      .from('providers')
+      .select(`
+        *,
+        provider_accreditations (
+          id, 
+          custom_name, 
+          is_custom, 
+          accreditation_id
+        ),
+        business_features:provider_business_features(
+          *,
+          feature:business_features(*)
+        )
+      `)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Supabase error details:', error)
+    if (error) {
+      console.error('Supabase error:', error)
+      throw error
+    }
+    
+    console.log(`Fetched ${data?.length || 0} providers`)
+    
+    const transformedData: SearchResult[] = (data || []).map(provider => ({
+      id: provider.id,
+      business_name: provider.business_name,
+      main_service: provider.main_service || '',
+      main_service_id: provider.main_service_id,
+      service_areas: provider.service_areas 
+        ? provider.service_areas.split(',').map((s: string) => s.trim())
+        : [],
+      fees_pricing: provider.fees_pricing,
+      callout_fee: provider.callout_fee,
+      rating: provider.rating || 4.5,
+      total_reviews: provider.total_reviews || 0,
+      details: provider.details,
+      experience_years: provider.experience_years || 0,
+      emergency_service: provider.emergency_service || false,
+      insurance: provider.insurance || false,
+      accepts_card: provider.accepts_card || false,
+      accepts_cash: provider.accepts_cash || true,
+      verified: provider.verified || false,
+      provider_accreditations: provider.provider_accreditations || [],
+      business_features: provider.business_features || []
+    }))
+    
+    // Update cache
+    providersCache = transformedData
+    cacheTimestamp = Date.now()
+    
+    return transformedData
+  } catch (error) {
+    console.error('Error loading providers:', error)
     return []
   }
-  
-  const parsedData: SearchResult[] = data?.map(provider => ({
-    ...provider,
-    service_areas: parseServiceAreas(provider.service_areas),
-    emergency_service: provider.emergency_service || false,
-    verified: provider.verified || false,
-    insurance: provider.insurance || false,
-    accepts_card: provider.accepts_card || false,
-    accepts_cash: provider.accepts_cash || true,
-    rating: provider.rating || 0,
-    total_reviews: provider.total_reviews || 0,
-    experience_years: provider.experience_years || 0,
-    provider_accreditations: provider.provider_accreditations || [],
-    relevanceScore: 0
-  })) || []
-
-  providersCache = parsedData
-  lastProviderFetch = now
-  return providersCache
 }
 
-/**
- * Search providers with filters - NOW INCLUDES ACCREDITATIONS
- */
-export async function searchProviders(
-  searchTerm: string = '',
-  filters: SearchFilters = {}
+// Database search function - for initial search
+export async function searchProvidersInDB(
+  query: string,
+  filters?: SearchFilters
 ): Promise<SearchResult[]> {
-  console.log('🔍 SEARCH CALLED WITH:', { searchTerm, filters })
-  
-  // Load all providers AND accreditations
-  const [allProviders, allAccreditations] = await Promise.all([
-    loadAllProviders(),
-    loadAccreditations()
-  ])
-  
-  if (allProviders.length === 0) {
+  try {
+    console.log('Searching in DB for:', query)
+    
+    let dbQuery = supabase
+      .from('providers')
+      .select(`
+        *,
+        provider_accreditations (
+          id, 
+          custom_name, 
+          is_custom, 
+          accreditation_id
+        ),
+        business_features:provider_business_features(
+          *,
+          feature:business_features(*)
+        )
+      `)
+      .eq('status', 'approved')
+
+    // Add text search if query exists
+    if (query && query.trim()) {
+      const searchTerm = query.trim()
+      dbQuery = dbQuery.or(
+        `business_name.ilike.%${searchTerm}%,` +
+        `main_service.ilike.%${searchTerm}%,` +
+        `details.ilike.%${searchTerm}%`
+      )
+    }
+
+    // Apply filters
+    if (filters) {
+      if (filters.category) {
+        dbQuery = dbQuery.eq('main_service_id', filters.category)
+      }
+      
+      if (filters.city) {
+        dbQuery = dbQuery.ilike('service_areas', `%${filters.city}%`)
+      }
+      
+      if (filters.province) {
+        dbQuery = dbQuery.ilike('service_areas', `%${filters.province}%`)
+      }
+      
+      if (filters.verified) {
+        dbQuery = dbQuery.eq('verified', true)
+      }
+      
+      if (filters.emergency) {
+        dbQuery = dbQuery.eq('emergency_service', true)
+      }
+      
+      if (filters.minRating) {
+        dbQuery = dbQuery.gte('rating', filters.minRating)
+      }
+    }
+
+    const { data, error } = await dbQuery
+
+    if (error) throw error
+
+    // Transform the data
+    return (data || []).map(provider => ({
+      id: provider.id,
+      business_name: provider.business_name,
+      main_service: provider.main_service || '',
+      main_service_id: provider.main_service_id,
+      service_areas: provider.service_areas 
+        ? provider.service_areas.split(',').map((s: string) => s.trim())
+        : [],
+      fees_pricing: provider.fees_pricing,
+      callout_fee: provider.callout_fee,
+      rating: provider.rating || 4.5,
+      total_reviews: provider.total_reviews || 0,
+      details: provider.details,
+      experience_years: provider.experience_years || 0,
+      emergency_service: provider.emergency_service || false,
+      insurance: provider.insurance || false,
+      accepts_card: provider.accepts_card || false,
+      accepts_cash: provider.accepts_cash || true,
+      verified: provider.verified || false,
+      provider_accreditations: provider.provider_accreditations || [],
+      business_features: provider.business_features || []
+    }))
+  } catch (error) {
+    console.error('Error searching providers in DB:', error)
     return []
   }
+}
 
-  const term = searchTerm.toLowerCase().trim()
+// Client-side filtering function (for live search)
+export function filterProvidersLocally(
+  providers: SearchResult[],
+  query: string
+): SearchResult[] {
+  if (!query.trim() || !providers.length) return providers
   
-  // Create a map of accreditation IDs to names for quick lookup
-  const accreditationMap = new Map(allAccreditations.map(acc => [acc.id, acc]))
+  const fuse = new Fuse(providers, {
+    keys: [
+      { name: 'business_name', weight: 2 },
+      { name: 'main_service', weight: 1.5 },
+      { name: 'details', weight: 1 },
+      { name: 'service_areas', weight: 1 }
+    ],
+    threshold: 0.4,
+    ignoreLocation: true,
+  })
   
-  // Filter providers based on search term and filters
-  const filtered = allProviders.filter(provider => {
-    // Apply category filter
-    if (filters.categoryId && provider.main_service_id !== filters.categoryId) {
-      return false
+  return fuse.search(query).map(result => result.item)
+}
+
+// Keep original searchProviders for backward compatibility
+export async function searchProviders(
+  query: string,
+  filters?: SearchFilters
+): Promise<SearchResult[]> {
+  return searchProvidersInDB(query, filters)
+}
+
+// Get unique service categories from providers
+export async function getServiceCategories(): Promise<ServiceCategory[]> {
+  try {
+    // First try to get from service_categories table
+    const { data: categoryData, error: categoryError } = await supabase
+      .from('service_categories')
+      .select('id, name, icon')
+      .order('name')
+    
+    if (!categoryError && categoryData && categoryData.length > 0) {
+      return categoryData
     }
+    
+    // Fallback: extract from providers
+    const providers = await loadAllProviders()
+    const categoryMap = new Map<string, ServiceCategory>()
+    
+    providers.forEach(provider => {
+      if (provider.main_service_id && !categoryMap.has(provider.main_service_id)) {
+        categoryMap.set(provider.main_service_id, {
+          id: provider.main_service_id,
+          name: provider.main_service
+        })
+      }
+    })
+    
+    return Array.from(categoryMap.values())
+  } catch (error) {
+    console.error('Error fetching categories:', error)
+    return []
+  }
+}
 
-    // Apply city filter
-    if (filters.city) {
-      const servesCity = provider.service_areas?.some(
-        area => area.toLowerCase() === filters.city!.toLowerCase()
-      )
-      if (!servesCity) return false
-    }
-
-    // Apply minimum rating
-    if (filters.minRating && (provider.rating || 0) < filters.minRating) {
-      return false
-    }
-
-    // Apply emergency only
-    if (filters.emergencyOnly && !provider.emergency_service) {
-      return false
-    }
-
-    // If no search term, include all filtered providers
-    if (!term) {
-      return true
-    }
-
-    // Build searchable fields array
-    const searchableFields = [
-      provider.business_name?.toLowerCase() || '',
-      provider.main_service?.toLowerCase() || '',
-      provider.details?.toLowerCase() || '',
-      provider.certifications?.toLowerCase() || '',
-      ...(provider.service_areas?.map(area => area.toLowerCase()) || [])
-    ]
-
-    // Add accreditation names from provider_accreditations
-    if (provider.provider_accreditations && provider.provider_accreditations.length > 0) {
-      provider.provider_accreditations.forEach(pa => {
-        if (pa.is_custom && pa.custom_name) {
-          searchableFields.push(pa.custom_name.toLowerCase())
-        } else if (pa.accreditation_id) {
-          const accreditation = accreditationMap.get(pa.accreditation_id)
-          if (accreditation) {
-            searchableFields.push(accreditation.name.toLowerCase())
-            if (accreditation.description) {
-              searchableFields.push(accreditation.description.toLowerCase())
-            }
+// Get unique cities from providers
+export async function getCities(): Promise<CityOption[]> {
+  try {
+    const providers = await loadAllProviders()
+    const cityMap = new Map<string, string>()
+    
+    providers.forEach(provider => {
+      provider.service_areas.forEach(area => {
+        const parts = area.split(',').map(s => s.trim())
+        if (parts.length >= 1) {
+          const city = parts[0]
+          const province = parts.length >= 2 ? parts[1] : 'Unknown'
+          
+          if (!cityMap.has(city)) {
+            cityMap.set(city, province)
           }
         }
       })
-    }
-
-    // Check if any field contains the search term
-    return searchableFields.some(field => field.includes(term))
-  })
-
-  // Calculate relevance scores including accreditation matches
-  const results: SearchResult[] = filtered.map(provider => {
-    let score = 0
-    const matchedAccreditations: Accreditation[] = []
-    
-    if (term) {
-      const name = provider.business_name?.toLowerCase() || ''
-      const service = provider.main_service?.toLowerCase() || ''
-      
-      // Business name matches
-      if (name === term) score += 100
-      else if (name.startsWith(term)) score += 80
-      else if (name.includes(term)) score += 60
-      
-      // Service category match
-      if (service.includes(term)) score += 40
-      
-      // Details match
-      if (provider.details?.toLowerCase().includes(term)) score += 30
-      
-      // Service areas match
-      if (provider.service_areas?.some(area => area.toLowerCase().includes(term))) {
-        score += 25
-      }
-      
-      // Certifications text match
-      if (provider.certifications?.toLowerCase().includes(term)) score += 20
-      
-      // Accreditation matches - check each accreditation the provider has
-      if (provider.provider_accreditations && provider.provider_accreditations.length > 0) {
-        provider.provider_accreditations.forEach(pa => {
-          if (pa.is_custom && pa.custom_name) {
-            if (pa.custom_name.toLowerCase().includes(term)) {
-              score += 35 // Higher score for custom accreditation match
-              matchedAccreditations.push({
-                id: pa.id,
-                name: pa.custom_name,
-                description: null,
-                sector: 'Custom'
-              })
-            }
-          } else if (pa.accreditation_id) {
-            const accreditation = accreditationMap.get(pa.accreditation_id)
-            if (accreditation) {
-              const nameMatch = accreditation.name.toLowerCase().includes(term)
-              const descMatch = accreditation.description?.toLowerCase().includes(term)
-              
-              if (nameMatch || descMatch) {
-                score += 35 // Higher score for accreditation match
-                matchedAccreditations.push(accreditation)
-              }
-            }
-          }
-        })
-      }
-    }
-
-    return {
-      ...provider,
-      relevanceScore: score,
-      matchedAccreditations: matchedAccreditations.length > 0 ? matchedAccreditations : undefined
-    }
-  })
-
-  // Sort by relevance score (if search term), then by rating
-  if (term) {
-    results.sort((a, b) => {
-      if (a.relevanceScore !== b.relevanceScore) {
-        return b.relevanceScore - a.relevanceScore
-      }
-      return (b.rating || 0) - (a.rating || 0)
     })
-  } else {
-    results.sort((a, b) => (b.rating || 0) - (a.rating || 0))
-  }
-
-  return results
-}
-
-// Keep all your existing helper functions (getServiceCategories, getCities, getProvinces, clearCaches)
-export async function getServiceCategories(): Promise<ServiceCategory[]> {
-  if (categoriesCache) {
-    return categoriesCache
-  }
-
-  const { data, error } = await supabase
-    .from('service_categories')
-    .select('id, name, icon, description')
-    .eq('is_active', true)
-    .order('sort_order')
-
-  if (error) {
-    console.error('Error loading categories:', error)
+    
+    return Array.from(cityMap.entries()).map(([city, province]) => ({
+      city,
+      province
+    })).sort((a, b) => a.city.localeCompare(b.city))
+  } catch (error) {
+    console.error('Error fetching cities:', error)
     return []
   }
-
-  categoriesCache = data || []
-  return categoriesCache
 }
 
-export async function getCities(): Promise<CityOption[]> {
-  if (citiesCache) {
-    return citiesCache
-  }
-
-  const { data, error } = await supabase
-    .from('provinces')
-    .select('name, code, cities')
-
-  if (error) {
-    console.error('Error loading cities:', error)
-    return []
-  }
-
-  const allCities: CityOption[] = []
-  data?.forEach(province => {
-    if (province.cities && Array.isArray(province.cities)) {
-      province.cities.forEach(city => {
-        allCities.push({
-          city,
-          province: province.name,
-          provinceCode: province.code
-        })
-      })
-    }
-  })
-
-  allCities.sort((a, b) => a.city.localeCompare(b.city))
-  citiesCache = allCities
-  return citiesCache
-}
-
+// Get unique provinces from providers
 export async function getProvinces(): Promise<string[]> {
-  if (provincesCache) {
-    return provincesCache
-  }
-
-  const { data, error } = await supabase
-    .from('provinces')
-    .select('name')
-    .order('name')
-
-  if (error) {
-    console.error('Error loading provinces:', error)
+  try {
+    const providers = await loadAllProviders()
+    const provinceSet = new Set<string>()
+    
+    providers.forEach(provider => {
+      provider.service_areas.forEach(area => {
+        const parts = area.split(',').map(s => s.trim())
+        if (parts.length >= 2) {
+          provinceSet.add(parts[1])
+        }
+      })
+    })
+    
+    return Array.from(provinceSet).sort()
+  } catch (error) {
+    console.error('Error fetching provinces:', error)
     return []
   }
-
-  provincesCache = data?.map(p => p.name) || []
-  return provincesCache
 }
 
-export function clearCaches() {
-  categoriesCache = null
-  citiesCache = null
-  provincesCache = null
+// Clear cache
+export function clearProviderCache() {
   providersCache = null
-  accreditationsCache = null
-  lastProviderFetch = 0
+  cacheTimestamp = null
+  console.log('Provider cache cleared')
 }

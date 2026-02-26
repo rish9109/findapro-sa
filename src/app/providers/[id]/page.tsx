@@ -1,19 +1,38 @@
-// File: src/app/providers/[id]/page.tsx - FIXED SERVICE AREAS
+// File: src/app/providers/[id]/page.tsx
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { supabase, isProviderFavorited, addFavorite, removeFavorite } from '@/lib/supabase'
+import { supabase, isProviderFavorited, addFavorite, removeFavorite, getProviderById } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, Heart, Share2, Phone, Mail, MapPin, 
-  Star, Clock, Shield, Zap, Award, 
-  CheckCircle, Calendar, Briefcase, Users, Globe,
-  ExternalLink, ShieldCheck, PhoneCall,
-  Building, AlertCircle, MessageCircle
+  Star, Clock, Shield, Award, 
+  CheckCircle, Calendar, Briefcase, Users, 
+  ShieldCheck, PhoneCall,
+  Building, AlertCircle, MessageCircle, Tag, FileText,
+  ThumbsUp, Zap, Leaf, Gift, Percent, Truck,
+  Languages, Fingerprint, Settings, CreditCard, Eye
 } from 'lucide-react'
-import ProviderLogoDisplay from '@/components/ProviderLogoDisplay' // Added import
+import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
+
+// Icon mapping function
+const getIconComponent = (iconName: string | null | undefined) => {
+  if (!iconName) return Tag;
+  
+  const iconMap: Record<string, any> = {
+    'FileText': FileText, 'Tag': Tag, 'Eye': Eye, 'CreditCard': CreditCard,
+    'ThumbsUp': ThumbsUp, 'Shield': Shield, 'Clock': Clock, 'Calendar': Calendar,
+    'Zap': Zap, 'AlertCircle': AlertCircle, 'Building': Building, 'Percent': Percent,
+     'Award': Award, 'MessageCircle': MessageCircle,
+    'Clipboard': FileText, 'Truck': Truck, 'Languages': Languages,
+    'Heart': Heart, 'Gift': Gift, 'Users': Users, 'ShieldCheck': ShieldCheck,
+    'Fingerprint': Fingerprint, 'Leaf': Leaf, 'Settings': Settings,
+  };
+  
+  return iconMap[iconName] || Tag;
+};
 
 export default function ProviderDetailPage() {
   const params = useParams()
@@ -27,12 +46,12 @@ export default function ProviderDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [syncingFavorite, setSyncingFavorite] = useState(false)
   const [accreditations, setAccreditations] = useState<any[]>([])
+  const [businessFeatures, setBusinessFeatures] = useState<any[]>([])
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details')
   const [notification, setNotification] = useState<{show: boolean; message: string}>({show: false, message: ''})
 
   const providerId = params.id as string
-  const categoryParam = searchParams.get('category')
 
   // Fetch provider details
   useEffect(() => {
@@ -86,12 +105,16 @@ export default function ProviderDetailPage() {
       setLoading(true)
       setError('')
 
-      // UPDATED: Removed provider_service_areas join, using providers.service_areas text field
+      // Fetch provider with all relations
       const { data, error: providerError } = await supabase
         .from('providers')
         .select(`
           *,
-          provider_accreditations (*)
+          provider_accreditations (*),
+          business_features:provider_business_features(
+            *,
+            feature:business_features(*)
+          )
         `)
         .eq('id', providerId)
         .eq('status', 'approved')
@@ -100,27 +123,23 @@ export default function ProviderDetailPage() {
       if (providerError) throw providerError
 
       if (data) {
-        // FIXED: Properly parse service areas (handles both JSON and comma strings)
+        // Parse service areas
         let formattedServiceAreas = []
         if (data.service_areas) {
           const serviceAreasStr = data.service_areas.trim();
           
-          // Check if it's a JSON array
           if (serviceAreasStr.startsWith('[') && serviceAreasStr.endsWith(']')) {
             try {
               formattedServiceAreas = JSON.parse(serviceAreasStr)
                 .map((area: any) => String(area).trim())
                 .filter((area: string) => area !== '');
             } catch (error) {
-              console.error('Error parsing JSON service areas:', error);
-              // Fallback to comma splitting
               formattedServiceAreas = serviceAreasStr
                 .split(',')
                 .map((area: string) => area.trim())
                 .filter((area: string) => area !== '');
             }
           } else {
-            // Regular comma-separated string
             formattedServiceAreas = serviceAreasStr
               .split(',')
               .map((area: string) => area.trim())
@@ -128,11 +147,14 @@ export default function ProviderDetailPage() {
           }
         }
 
-        // Store formatted service areas on provider object
         data.formatted_service_areas = formattedServiceAreas;
 
         if (data.provider_accreditations && data.provider_accreditations.length > 0) {
           setAccreditations(data.provider_accreditations)
+        }
+
+        if (data.business_features && data.business_features.length > 0) {
+          setBusinessFeatures(data.business_features)
         }
 
         setProvider(data)
@@ -194,7 +216,6 @@ export default function ProviderDetailPage() {
     }
   }
 
-  // Enhanced share function with Web Share API and fallbacks
   const handleShare = async () => {
     if (!provider) return
     
@@ -205,29 +226,22 @@ export default function ProviderDetailPage() {
     }
     
     try {
-      // Try Web Share API first (works on mobile and modern desktop browsers)
       if (navigator.share) {
         await navigator.share(shareData)
-      } 
-      // Try navigator.clipboard API (modern browsers)
-      else if (navigator.clipboard) {
+      } else if (navigator.clipboard) {
         await navigator.clipboard.writeText(window.location.href)
         showNotification('Link copied to clipboard!')
-      }
-      // Fallback for older browsers
-      else {
+      } else {
         fallbackCopyToClipboard(window.location.href)
       }
     } catch (error: any) {
       console.error('Error sharing:', error)
-      // Don't show error if user cancelled the share
       if (error.name !== 'AbortError') {
         showNotification('Failed to share. Try copying the link manually.')
       }
     }
   }
 
-  // Fallback copy function for older browsers
   const fallbackCopyToClipboard = (text: string) => {
     const textArea = document.createElement('textarea')
     textArea.value = text
@@ -243,7 +257,6 @@ export default function ProviderDetailPage() {
     document.body.removeChild(textArea)
   }
 
-  // Show notification
   const showNotification = (message: string) => {
     setNotification({ show: true, message })
     setTimeout(() => {
@@ -251,7 +264,6 @@ export default function ProviderDetailPage() {
     }, 3000)
   }
 
-  // UPDATED: Get price display using fees_pricing instead of hourly_rate
   const getPriceDisplay = () => {
     if (provider?.fees_pricing) {
       return provider.fees_pricing
@@ -262,41 +274,14 @@ export default function ProviderDetailPage() {
     return 'Contact for rates'
   }
 
-  // REMOVED: getBusinessColor and getBusinessInitials functions since they're now in ProviderLogoDisplay
-
-  // UPDATED: Get other services from details field
   const getOtherServices = () => {
     if (!provider?.details) return []
     return provider.details
       .split(/[\n,]+/)
       .map((s: string) => s.trim())
-      .map((s: string) => s.replace(/^[•\-*\s]+/, '')) // Remove bullet points if present
-      .filter((s: string) => s) // Remove empty strings
+      .map((s: string) => s.replace(/^[•\-*\s]+/, ''))
+      .filter((s: string) => s)
   }
-
-/*
-  const renderStarRating = (rating: number) => {
-    return (
-      <div className="flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`w-5 h-5 ${
-              star <= Math.floor(rating)
-                ? 'text-yellow-400 fill-yellow-400'
-                : star === Math.ceil(rating) && rating % 1 !== 0
-                ? 'text-yellow-400 fill-yellow-400 fill-opacity-50'
-                : 'text-gray-600'
-            }`}
-          />
-        ))}
-        <span className="ml-2 font-medium text-white">
-          {rating.toFixed(1)}
-        </span>
-      </div>
-    )
-  }
-*/
 
   if (loading) {
     return (
@@ -331,7 +316,6 @@ export default function ProviderDetailPage() {
   }
 
   const otherServices = getOtherServices()
-  // FIXED: Use the already-parsed formatted_service_areas
   const serviceAreas = provider.formatted_service_areas || [];
 
   return (
@@ -371,7 +355,6 @@ export default function ProviderDetailPage() {
           <div className="p-6 border-b border-gray-700/50">
             {/* Mobile Layout */}
             <div className="flex items-start justify-between mb-6 md:mb-0 md:hidden">
-              {/* Logo - UPDATED: Using ProviderLogoDisplay component */}
               <ProviderLogoDisplay
                 providerId={provider.id}
                 businessName={provider.business_name}
@@ -383,7 +366,6 @@ export default function ProviderDetailPage() {
                 clickToZoom={false}
               />
               
-              {/* CTA buttons */}
               <div className="flex gap-2">
                 <button
                   onClick={toggleFavorite}
@@ -410,9 +392,7 @@ export default function ProviderDetailPage() {
 
             {/* Desktop Layout */}
             <div className="hidden md:flex md:flex-row md:items-start gap-6">
-              {/* Left side: Logo and Business Info */}
               <div className="flex items-start gap-4 flex-1 min-w-0">
-                {/* Business Logo - UPDATED: Using ProviderLogoDisplay component */}
                 <ProviderLogoDisplay
                   providerId={provider.id}
                   businessName={provider.business_name}
@@ -424,14 +404,12 @@ export default function ProviderDetailPage() {
                   clickToZoom={false}
                 />
 
-                {/* Business Info */}
                 <div className="flex-1 min-w-0">
                   <div className="mb-4">
                     <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
                       {provider.business_name}
                     </h1>
                     
-                    {/* Rating and Price - UPDATED: Uses fees_pricing */}
                     <div className="flex flex-wrap items-center gap-4 mb-3">
                       <div className="flex items-center gap-1.5">
                         <span className="font-bold text-emerald-400">
@@ -440,7 +418,6 @@ export default function ProviderDetailPage() {
                       </div>
                     </div>
 
-                    {/* Experience */}
                     {provider.experience_years && (
                       <div className="flex items-center gap-2 text-gray-300 text-sm">
                         <Calendar className="w-4 h-4" />
@@ -451,7 +428,6 @@ export default function ProviderDetailPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-3 md:flex-col md:items-end md:justify-start md:mt-0">
                 <button
                   onClick={toggleFavorite}
@@ -476,13 +452,11 @@ export default function ProviderDetailPage() {
               </div>
             </div>
 
-            {/* Business Info Below Logo (Mobile only) */}
             <div className="md:hidden mt-4">
               <h1 className="text-2xl font-bold text-white mb-2">
                 {provider.business_name}
               </h1>
               
-              {/* Rating and Price - UPDATED: Uses fees_pricing */}
               <div className="flex flex-wrap items-center gap-4 mb-3">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-emerald-400">
@@ -491,7 +465,6 @@ export default function ProviderDetailPage() {
                 </div>
               </div>
 
-              {/* Experience */}
               {provider.experience_years && (
                 <div className="flex items-center gap-2 text-gray-300 text-sm">
                   <Calendar className="w-4 h-4" />
@@ -500,7 +473,6 @@ export default function ProviderDetailPage() {
               )}
             </div>
 
-            {/* Tabs */}
             <div className="mt-6 flex border-b border-gray-700">
               <button
                 onClick={() => setActiveTab('details')}
@@ -544,101 +516,93 @@ export default function ProviderDetailPage() {
                 <div className="space-y-6">
                   {/* Contact Information */}
                   <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-  <h3 className="text-lg font-bold text-white mb-4">Contact Information</h3>
-  
-  <div className="space-y-4">
-    {provider.contact_person && (
-      <div>
-        <p className="text-sm text-gray-400 mb-1">Contact Person</p>
-        <div className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg">
-          <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
-          <span className="text-white font-medium truncate">{provider.contact_person}</span>
-        </div>
-      </div>
-    )}
-    
-    {/* Primary Phone */}
-    {provider.contact_phone && (
-      <div>
-        <p className="text-sm text-gray-400 mb-1">Primary Phone</p>
-        <a
-          href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
-          className="block p-4 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/30 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/40 transition-colors flex-shrink-0">
-              <Phone className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-emerald-400 mb-1">Tap to Call</p>
-              <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
-                {provider.contact_phone}
-              </p>
-            </div>
-            <PhoneCall className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-          </div>
-        </a>
-      </div>
-    )}
-    
-    {/* Alternate Phone */}
-    {provider.alternate_phone && (
-      <div>
-        <p className="text-sm text-gray-400 mb-1">Alternate Phone</p>
-        <a
-          href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
-          className="block p-4 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/30 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/40 transition-colors flex-shrink-0">
-              <Phone className="w-6 h-6 text-blue-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-blue-400 mb-1">Tap to Call</p>
-              <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors truncate">
-                {provider.alternate_phone}
-              </p>
-            </div>
-            <PhoneCall className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-          </div>
-        </a>
-      </div>
-    )}
-    
-    {/* Email - IMPROVED VERSION */}
-    {provider.contact_email && (
-      <div>
-        <p className="text-sm text-gray-400 mb-1">Email Address</p>
-        <a
-          href={`mailto:${provider.contact_email}`}
-          className="block p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/30 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center group-hover:bg-purple-500/40 transition-colors flex-shrink-0">
-              <Mail className="w-6 h-6 text-purple-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-purple-400 mb-1">Tap to Email</p>
-              <div className="relative">
-                <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
-                  {provider.contact_email}
-                </p>
-                {/* Optional: Show full email on hover for desktop */}
-                <div className="hidden group-hover:block absolute bottom-full left-0 mb-2 p-2 bg-gray-900 rounded-lg border border-purple-500/30 text-sm text-white whitespace-nowrap z-10 shadow-xl">
-                  {provider.contact_email}
-                </div>
-              </div>
-            </div>
-            <Mail className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-          </div>
-        </a>
-      </div>
-    )}
-    
-  </div>
-</div>
+                    <h3 className="text-lg font-bold text-white mb-4">Contact Information</h3>
+                    
+                    <div className="space-y-4">
+                      {provider.contact_person && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Contact Person</p>
+                          <div className="flex items-center gap-2 p-3 bg-gray-800/50 rounded-lg">
+                            <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-white font-medium truncate">{provider.contact_person}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {provider.contact_phone && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Primary Phone</p>
+                          <a
+                            href={`tel:${provider.contact_phone.replace(/[^\d+]/g, '')}`}
+                            className="block p-4 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 rounded-lg border border-emerald-500/30 hover:border-emerald-500/50 hover:bg-emerald-500/30 transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-lg bg-emerald-500/30 flex items-center justify-center group-hover:bg-emerald-500/40 transition-colors flex-shrink-0">
+                                <Phone className="w-6 h-6 text-emerald-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-emerald-400 mb-1">Tap to Call</p>
+                                <p className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
+                                  {provider.contact_phone}
+                                </p>
+                              </div>
+                              <PhoneCall className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            </div>
+                          </a>
+                        </div>
+                      )}
+                      
+                      {provider.alternate_phone && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Alternate Phone</p>
+                          <a
+                            href={`tel:${provider.alternate_phone.replace(/[^\d+]/g, '')}`}
+                            className="block p-4 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-lg border border-blue-500/30 hover:border-blue-500/50 hover:bg-blue-500/30 transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-lg bg-blue-500/30 flex items-center justify-center group-hover:bg-blue-500/40 transition-colors flex-shrink-0">
+                                <Phone className="w-6 h-6 text-blue-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-blue-400 mb-1">Tap to Call</p>
+                                <p className="text-lg font-bold text-white group-hover:text-blue-300 transition-colors truncate">
+                                  {provider.alternate_phone}
+                                </p>
+                              </div>
+                              <PhoneCall className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            </div>
+                          </a>
+                        </div>
+                      )}
+                      
+                      {provider.contact_email && (
+                        <div>
+                          <p className="text-sm text-gray-400 mb-1">Email Address</p>
+                          <a
+                            href={`mailto:${provider.contact_email}`}
+                            className="block p-4 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-lg border border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/30 transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-lg bg-purple-500/30 flex items-center justify-center group-hover:bg-purple-500/40 transition-colors flex-shrink-0">
+                                <Mail className="w-6 h-6 text-purple-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-purple-400 mb-1">Tap to Email</p>
+                                <div className="relative">
+                                  <p className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors truncate">
+                                    {provider.contact_email}
+                                  </p>
+                                </div>
+                              </div>
+                              <Mail className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            </div>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                  {/* Service Areas - FIXED: Shows parsed data correctly */}
+                  {/* Service Areas */}
                   {serviceAreas.length > 0 && (
                     <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
                       <div className="flex items-center gap-2 mb-4">
@@ -659,7 +623,7 @@ export default function ProviderDetailPage() {
                     </div>
                   )}
 
-                  {/* Details & Services - UPDATED: Uses providers.details field */}
+                  {/* Details & Services */}
                   {provider.details && (
                     <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
                       <div className="flex items-center gap-2 mb-4">
@@ -700,46 +664,48 @@ export default function ProviderDetailPage() {
                     </div>
                   )}
 
-                  {/* Business Features */}
-                  <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-                    <h3 className="text-lg font-bold text-white mb-4">Business Features</h3>
-                    
-                    <div className="space-y-3">
-                      {provider.emergency_service && (
-                        <div className="flex items-center gap-3 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                          <Zap className="w-4 h-4 text-red-400" />
-                          <div>
-                            <p className="font-medium text-white">Emergency Service</p>
-                            {provider.callout_fee && (
-                              <p className="text-sm text-red-400">{provider.callout_fee} callout fee</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                  {/* Business Features - NEW SECTION */}
+                  {businessFeatures.length > 0 && (
+                    <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Star className="w-5 h-5 text-amber-400" />
+                        <h3 className="text-lg font-bold text-white">Business Features</h3>
+                      </div>
                       
-                      {provider.insurance && (
-                        <div className="flex items-center gap-3 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                          <Shield className="w-4 h-4 text-blue-400" />
-                          <div>
-                            <p className="font-medium text-white">Insured</p>
-                            {provider.insurance_details && (
-                              <p className="text-sm text-blue-400">{provider.insurance_details}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {provider.verified && (
-                        <div className="flex items-center gap-3 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                          <div>
-                            <p className="font-medium text-white">Verified Professional</p>
-                            <p className="text-sm text-emerald-400">FindAPro verified</p>
-                          </div>
-                        </div>
-                      )}
+                      <div className="grid grid-cols-1 gap-3">
+                        {businessFeatures.map((feat: any) => {
+                          const IconComponent = feat.is_custom 
+                            ? Tag 
+                            : getIconComponent(feat.feature?.icon);
+                          
+                          return (
+                            <div
+                              key={feat.id}
+                              className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 flex items-start gap-3"
+                            >
+                              <IconComponent className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <h4 className="font-medium text-white">
+                                  {feat.is_custom ? feat.custom_name : feat.feature?.name}
+                                </h4>
+                                {(feat.custom_description || feat.feature?.description) && (
+                                  <p className="text-sm text-gray-400">
+                                    {feat.is_custom ? feat.custom_description : feat.feature?.description}
+                                  </p>
+                                )}
+                                {feat.is_verified && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-emerald-400 mt-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Verified
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Accreditations */}
                   {accreditations.length > 0 && (
@@ -782,11 +748,11 @@ export default function ProviderDetailPage() {
                     </div>
                   )}
 
-                  {/* Availability */}
+                  {/* Availability & Pricing */}
                   <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
                     <div className="flex items-center gap-2 mb-4">
                       <Clock className="w-5 h-5 text-cyan-400" />
-                      <h3 className="text-lg font-bold text-white">Availability</h3>
+                      <h3 className="text-lg font-bold text-white">Pricing & Availability</h3>
                     </div>
                     
                     <div className="space-y-2">
@@ -795,10 +761,17 @@ export default function ProviderDetailPage() {
                         <span className="text-white font-medium">Within 24 hours</span>
                       </div>
                       
-                      {provider.emergency_service && (
+                      {provider.fees_pricing && (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                          <span className="text-gray-400">Pricing</span>
+                          <span className="text-white font-medium">{provider.fees_pricing}</span>
+                        </div>
+                      )}
+                      
+                      {provider.callout_fee && (
                         <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-400">Emergency Service</span>
-                          <span className="text-red-400 font-medium">24/7 Available</span>
+                          <span className="text-gray-400">Callout Fee</span>
+                          <span className="text-white font-medium">{provider.callout_fee}</span>
                         </div>
                       )}
                     </div>
@@ -827,13 +800,13 @@ export default function ProviderDetailPage() {
                       <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
                         <div className="flex items-center justify-center gap-2 mb-2">
                           <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                          <span className="text-xl font-bold text-white">{provider.rating.toFixed(1)}</span>
+                          <span className="text-xl font-bold text-white">{provider.rating?.toFixed(1) || '0.0'}</span>
                         </div>
                         <p className="text-sm text-gray-400">Current Rating</p>
                       </div>
                       
                       <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-                        <div className="text-xl font-bold text-white mb-2">{provider.total_reviews}</div>
+                        <div className="text-xl font-bold text-white mb-2">{provider.total_reviews || 0}</div>
                         <p className="text-sm text-gray-400">Total Reviews</p>
                       </div>
                       

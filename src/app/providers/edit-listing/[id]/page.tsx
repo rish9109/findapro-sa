@@ -4,22 +4,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase, Provider } from '@/lib/supabase'
+import { supabase, Provider, saveProviderBusinessFeatures } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import AccreditationDrawer from '@/components/AccreditationDrawer'
 import ServiceAreaDrawer from '@/components/ServiceAreaDrawer'
 import ServiceCategoryDrawer from '@/components/ServiceCategoryDrawer'
 import FormSubmissionDrawer from '@/components/FormSubmissionDrawer'
-import ProviderForm, { ServiceCategory, SelectedAccreditation, ProviderFormData } from '@/components/ProviderForm'
+import BusinessFeatureDrawer from '@/components/BusinessFeatureDrawer'
+import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, ProviderFormData } from '@/components/ProviderForm'
 import { 
-  ArrowLeft, 
-  Save, 
-  AlertCircle, 
-  CheckCircle,
-  Clock,
-  XCircle,
-  Shield,
-  Loader2
+  ArrowLeft, Heart, Share2, Phone, Mail, MapPin, 
+  Star, Clock, Shield, Award, 
+  CheckCircle, Calendar, Briefcase, Users, Globe,
+  ExternalLink, ShieldCheck, PhoneCall,
+  Building, AlertCircle, MessageCircle, Tag, FileText,
+  ThumbsUp, Zap, Leaf, Gift, Percent, Truck, Wrench, 
+  Languages, Fingerprint, Settings, CreditCard, Eye, XCircle, Loader2, Save  
 } from 'lucide-react'
 
 // Status configuration
@@ -87,6 +87,7 @@ function EditListingContent() {
   const [showServiceDrawer, setShowServiceDrawer] = useState(false)
   const [showServiceAreaDrawer, setShowServiceAreaDrawer] = useState(false)
   const [showAccreditationDrawer, setShowAccreditationDrawer] = useState(false)
+  const [showBusinessFeatureDrawer, setShowBusinessFeatureDrawer] = useState(false)
   
   // Form errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -97,6 +98,7 @@ function EditListingContent() {
   // Existing data
   const [listing, setListing] = useState<Provider | null>(null)
   const [selectedAccreditations, setSelectedAccreditations] = useState<SelectedAccreditation[]>([])
+  const [selectedBusinessFeatures, setSelectedBusinessFeatures] = useState<SelectedBusinessFeature[]>([])
   const [serviceAreas, setServiceAreas] = useState<{
     primaryArea: string;
     additionalAreas: string[];
@@ -109,7 +111,7 @@ function EditListingContent() {
   const [existingBusinessName, setExistingBusinessName] = useState<string>('')
   const [lockedFields, setLockedFields] = useState<string[]>([])
   
-  // Form state
+  // Form state - REMOVED old fields
   const [formData, setFormData] = useState<ProviderFormData>({
     business_name: '',
     contact_person: '',
@@ -121,12 +123,8 @@ function EditListingContent() {
     details: '',
     experience_years: '',
     fees_pricing: '',
-    accepts_card: false,
-    accepts_cash: true,
-    deposit_required: false,
-    emergency_service: false,
     callout_fee: '',
-    insurance: false,
+    // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
     status: ''
   })
 
@@ -199,8 +197,7 @@ function EditListingContent() {
         
         setListing(listingData)
         
-        // FIX: Business name should ALWAYS be locked, just like email
-        // No conditions needed - once a user has ANY listing, business name is locked forever
+        // Business name should ALWAYS be locked, just like email
         setExistingBusinessName(listingData.business_name)
         setLockedFields(['business_name', 'contact_email'])
         
@@ -227,12 +224,8 @@ function EditListingContent() {
           details: listingData.details || '',
           experience_years: listingData.experience_years || '',
           fees_pricing: listingData.fees_pricing || '',
-          accepts_card: listingData.accepts_card || false,
-          accepts_cash: listingData.accepts_cash ?? true,
-          deposit_required: listingData.deposit_required || false,
-          emergency_service: listingData.emergency_service || false,
           callout_fee: listingData.callout_fee || '',
-          insurance: listingData.insurance || false,
+          // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
           status: listingData.status || ''
         })
         
@@ -261,6 +254,29 @@ function EditListingContent() {
           }))
           setSelectedAccreditations(formattedAccreditations)
         }
+
+        // Load business features
+        const { data: featuresData } = await supabase
+          .from('provider_business_features')
+          .select(`
+            *,
+            feature:business_features(*)
+          `)
+          .eq('provider_id', listingId)
+          .order('position')
+        
+        if (featuresData) {
+          const formattedFeatures: SelectedBusinessFeature[] = featuresData.map(item => ({
+            id: item.id,
+            feature_id: item.feature_id,
+            feature: item.feature,
+            custom_name: item.custom_name,
+            custom_description: item.custom_description,
+            is_custom: item.is_custom,
+            position: item.position
+          }))
+          setSelectedBusinessFeatures(formattedFeatures)
+        }
         
         const { data: servicesData } = await supabase
           .from('service_categories')
@@ -280,65 +296,68 @@ function EditListingContent() {
     loadData()
   }, [router, listingId])
 
-// Memoized handlers
-const handleServiceSelect = useCallback((service: ServiceCategory) => {
-  setFormData(prev => ({ 
-    ...prev, 
-    main_service: service.name,
-    main_service_id: service.id 
-  }))
-  if (formErrors.main_service) {
-    setFormErrors(prev => ({ ...prev, main_service: '' }))
-  }
-}, [formErrors])
+  // Memoized handlers
+  const handleServiceSelect = useCallback((service: ServiceCategory) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      main_service: service.name,
+      main_service_id: service.id 
+    }))
+    if (formErrors.main_service) {
+      setFormErrors(prev => ({ ...prev, main_service: '' }))
+    }
+  }, [formErrors])
 
-const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
-  setSelectedAccreditations(accreditations)
-}, [])
+  const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
+    setSelectedAccreditations(accreditations)
+  }, [])
 
-// Handler for ServiceAreaDrawer (expects string array)
-const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
-  setServiceAreas({
-    primaryArea: areas[0] || '',
-    additionalAreas: areas.slice(1) || []
-  })
-  if (formErrors.primaryArea) {
-    setFormErrors(prev => ({ ...prev, primaryArea: '' }))
-  }
-}, [formErrors])
+  const handleBusinessFeaturesSave = useCallback((features: SelectedBusinessFeature[]) => {
+    setSelectedBusinessFeatures(features)
+    if (formErrors.business_features) {
+      setFormErrors(prev => ({ ...prev, business_features: '' }))
+    }
+  }, [formErrors])
 
-// Handler for ProviderForm (expects object with primaryArea/additionalAreas)
-const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
-  setServiceAreas(areas)
-  if (formErrors.primaryArea) {
-    setFormErrors(prev => ({ ...prev, primaryArea: '' }))
-  }
-}, [formErrors])
+  // Handler for ServiceAreaDrawer (expects string array)
+  const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
+    setServiceAreas({
+      primaryArea: areas[0] || '',
+      additionalAreas: areas.slice(1) || []
+    })
+    if (formErrors.primaryArea) {
+      setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+    }
+  }, [formErrors])
 
-// Add this after handleServiceAreasChange (around line 200)
-const showIncompleteFormNotification = useCallback(() => {
-  // Create a temporary notification element
-  const notification = document.createElement('div');
-  notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in';
-  notification.innerHTML = `
-    <div class="flex items-center gap-3">
-      <span>⚠️</span>
-      <div>
-        <p class="font-semibold">Incomplete Form</p>
-        <p class="text-sm opacity-90">Please fill in all required fields</p>
+  // Handler for ProviderForm (expects object with primaryArea/additionalAreas)
+  const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
+    setServiceAreas(areas)
+    if (formErrors.primaryArea) {
+      setFormErrors(prev => ({ ...prev, primaryArea: '' }))
+    }
+  }, [formErrors])
+
+  const showIncompleteFormNotification = useCallback(() => {
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in';
+    notification.innerHTML = `
+      <div class="flex items-center gap-3">
+        <span>⚠️</span>
+        <div>
+          <p class="font-semibold">Incomplete Form</p>
+          <p class="text-sm opacity-90">Please fill in all required fields</p>
+        </div>
       </div>
-    </div>
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Remove after 3 seconds
-  setTimeout(() => {
-    notification.classList.add('animate-slide-out');
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}, []);
-
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.classList.add('animate-slide-out');
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }, []);
 
   const handleCancel = useCallback(() => {
     if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
@@ -358,7 +377,7 @@ const showIncompleteFormNotification = useCallback(() => {
     handleSubmit(new Event('submit') as any)
   }, [])
 
-  // Validate form
+  // Validate form - REMOVED old field validations
   const validateForm = useCallback(() => {
     const errors: Record<string, string> = {}
     
@@ -380,9 +399,7 @@ const showIncompleteFormNotification = useCallback(() => {
     if (!serviceAreas.primaryArea.trim()) {
       errors.primaryArea = 'Primary service area is required'
     }
-    if (formData.emergency_service && !formData.callout_fee.trim()) {
-      errors.callout_fee = 'Emergency callout fee is required'
-    }
+    // Business features are optional - removed validation
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -428,7 +445,7 @@ const showIncompleteFormNotification = useCallback(() => {
     e.stopPropagation()
     
     if (!validateForm() || !listing) {
-      showIncompleteFormNotification() // ADD THIS LINE
+      showIncompleteFormNotification()
       return
     }
     
@@ -453,12 +470,8 @@ const showIncompleteFormNotification = useCallback(() => {
         experience_years: formData.experience_years,
         service_areas: JSON.stringify([serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])]),
         fees_pricing: formData.fees_pricing || null,
-        accepts_card: formData.accepts_card,
-        accepts_cash: formData.accepts_cash,
-        deposit_required: formData.deposit_required,
-        emergency_service: formData.emergency_service,
-        callout_fee: formData.emergency_service ? formData.callout_fee : null,
-        insurance: formData.insurance,
+        callout_fee: formData.callout_fee || null,
+        // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
         updated_at: new Date().toISOString(),
       }
       
@@ -498,6 +511,11 @@ const showIncompleteFormNotification = useCallback(() => {
         }))
         
         await supabase.from('provider_accreditations').insert(accreditationsData)
+      }
+
+      // Handle business features
+      if (selectedBusinessFeatures.length > 0) {
+        await saveProviderBusinessFeatures(listing.id, selectedBusinessFeatures)
       }
       
       await sendEmailNotifications(
@@ -613,15 +631,7 @@ const showIncompleteFormNotification = useCallback(() => {
             </button>
           </div>
 
-          {/* Status Alerts */}
-          {listing.status === 'pending' && (
-            <div className="mb-6 sm:mb-8 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-gray-300">Listing under review. Changes will need re-approval.</p>
-              </div>
-            </div>
-          )}
+    
           
           {listing.status === 'rejected' && listing.rejection_reason && (
             <div className="mb-6 sm:mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
@@ -645,14 +655,18 @@ const showIncompleteFormNotification = useCallback(() => {
             existingBusinessName={existingBusinessName}
             selectedAccreditations={selectedAccreditations}
             onAccreditationsChange={handleAccreditationsSave}
+            selectedBusinessFeatures={selectedBusinessFeatures}
+            onBusinessFeaturesChange={handleBusinessFeaturesSave}
             serviceAreas={serviceAreas}
             onServiceAreasChange={handleServiceAreasChange}
             formData={formData}
             onFormChange={setFormData}
             formErrors={formErrors}
+            setFormErrors={setFormErrors}
             onOpenServiceDrawer={() => setShowServiceDrawer(true)}
             onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
             onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
+            onOpenBusinessFeatureDrawer={() => setShowBusinessFeatureDrawer(true)}
             statusInfo={statusInfo}
             disabledFields={[...lockedFields, ...(listing.status === 'deleted' ? ['all'] : [])]}
           />
@@ -726,12 +740,21 @@ const showIncompleteFormNotification = useCallback(() => {
         serviceCategoryId={formData.main_service_id}
       />
 
+      <BusinessFeatureDrawer
+        isOpen={showBusinessFeatureDrawer}
+        onClose={() => setShowBusinessFeatureDrawer(false)}
+        providerId={listing?.id || "new"}
+        initialSelection={selectedBusinessFeatures}
+        onSave={handleBusinessFeaturesSave}
+        maxSelection={10}
+      />
+
       <ServiceAreaDrawer
         isOpen={showServiceAreaDrawer}
         onClose={() => setShowServiceAreaDrawer(false)}
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : []}
-          onSave={handleServiceAreaDrawerSave} 
+        onSave={handleServiceAreaDrawerSave} 
         maxAreas={10}
       />
 

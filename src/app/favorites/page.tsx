@@ -1,20 +1,19 @@
-// File: src/app/favorites/page.tsx - UPDATED WITH NO SERVICE AREA FILTERING
+// File: src/app/favorites/page.tsx - WITH BUSINESS FEATURES
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, toggleFavoriteSupabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { 
-  Heart, MapPin, Star, Briefcase,
-  Shield, Zap, Award, ChevronRight,
-  Calendar, Sparkles
+  Heart, Briefcase,
+  Sparkles, ChevronRight
 } from 'lucide-react'
-import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
+import ProviderCard from '@/components/ProviderCard'
 
-// SOLUTION: Define the FavoriteProvider type interface
-interface FavoriteProvider {
+// Define the Provider type interface with business_features
+interface Provider {
   id: string
   business_name: string
   main_service: string
@@ -36,16 +35,17 @@ interface FavoriteProvider {
   accreditations: any[]
   display_accreditations: any[]
   is_favorite: boolean
+  business_features?: any[] // Added business features
 }
 
 export default function FavoritesPage() {
   const router = useRouter()
   const { user, showAuthModal } = useAuth()
   
-  // SOLUTION: Add type annotation to useState
-  const [favoriteProviders, setFavoriteProviders] = useState<FavoriteProvider[]>([])
+  const [favoriteProviders, setFavoriteProviders] = useState<Provider[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [syncingFavoriteId, setSyncingFavoriteId] = useState<string | null>(null)
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
 
   // Redirect if not logged in
@@ -105,11 +105,16 @@ export default function FavoritesPage() {
         
         const providerIds = favoritesData.map(fav => fav.provider_id)
         
+        // Updated query to include business_features with nested feature data
         const { data, error } = await supabase
           .from('providers')
           .select(`
             *,
-            provider_accreditations (id, custom_name, is_custom, accreditation_id)
+            provider_accreditations (id, custom_name, is_custom, accreditation_id),
+            business_features:provider_business_features(
+              *,
+              feature:business_features(*)
+            )
           `)
           .in('id', providerIds)
           .eq('status', 'approved')
@@ -118,16 +123,27 @@ export default function FavoritesPage() {
         if (error) throw error
         
         if (data && data.length > 0) {
-          // SOLUTION: Add type annotation to transformedData
-          const transformedData: FavoriteProvider[] = data.map(provider => {
+          const transformedData: Provider[] = data.map(provider => {
+            // Format service areas
             let formattedServiceAreas: string[] = []
             if (provider.service_areas) {
               formattedServiceAreas = provider.service_areas
                 .split(',')
                 .map((area: string) => area.trim())
-                .filter((area: string) => area !== '');
+                .map((area: string) => {
+                  return area
+                    .split(' ')
+                    .map((word: string) => {
+                      const trimmedWord = word.trim()
+                      if (trimmedWord.length === 0) return ''
+                      return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()
+                    })
+                    .join(' ')
+                })
+                .filter((area: string) => area.length > 0)
             }
             
+            // Get other services
             let otherServices: string[] = []
             if (provider.details) {
               otherServices = provider.details
@@ -160,7 +176,8 @@ export default function FavoritesPage() {
               verified: provider.verified || false,
               accreditations: provider.provider_accreditations || [],
               display_accreditations: displayAccreditations,
-              is_favorite: true
+              is_favorite: true, // These are favorites by definition
+              business_features: provider.business_features || [] // Include business features
             }
           })
           
@@ -187,8 +204,114 @@ export default function FavoritesPage() {
     router.push(`/providers/${providerId}?ref=favorites`)
   }
 
-  // SOLUTION: Add type annotation to provider parameter
-  const getPriceDisplay = (provider: FavoriteProvider) => {
+  // Toggle favorite (remove from favorites)
+  const toggleFavorite = async (providerId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    if (!user) {
+      showAuthModal('login')
+      return
+    }
+    
+    try {
+      setSyncingFavoriteId(providerId)
+      
+      // Optimistically update UI
+      setFavoriteProviders(prev => prev.filter(p => p.id !== providerId))
+      
+      // Update localStorage
+      const savedFavorites = localStorage.getItem('provider_favorites')
+      if (savedFavorites) {
+        const favorites = JSON.parse(savedFavorites)
+        const newFavorites = favorites.filter((id: string) => id !== providerId)
+        localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
+      }
+      
+      // Sync with Supabase
+      const success = await toggleFavoriteSupabase(user.id, providerId)
+      
+      if (!success) {
+        console.error('Failed to remove favorite from Supabase')
+        // Reload favorites to restore state
+        const { data } = await supabase
+          .from('providers')
+          .select(`
+            *,
+            provider_accreditations (id, custom_name, is_custom, accreditation_id),
+            business_features:provider_business_features(
+              *,
+              feature:business_features(*)
+            )
+          `)
+          .eq('id', providerId)
+          .single()
+        
+        if (data) {
+          // Transform the data before adding back
+          const formattedServiceAreas = data.service_areas
+            ? data.service_areas
+                .split(',')
+                .map((area: string) => area.trim())
+                .map((area: string) => {
+                  return area
+                    .split(' ')
+                    .map((word: string) => {
+                      const trimmedWord = word.trim()
+                      if (trimmedWord.length === 0) return ''
+                      return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()
+                    })
+                    .join(' ')
+                })
+                .filter((area: string) => area.length > 0)
+            : []
+            
+          const otherServices = data.details
+            ? data.details
+                .split(/[\n,]+/)
+                .map((s: string) => s.trim())
+                .filter((s: string) => s && s.length > 0)
+                .slice(0, 3)
+            : []
+            
+          const restoredProvider: Provider = {
+            id: data.id,
+            business_name: data.business_name,
+            main_service: data.main_service || 'Professional Service',
+            main_service_id: data.main_service_id,
+            service_areas: data.service_areas || '',
+            formatted_service_areas: formattedServiceAreas,
+            fees_pricing: data.fees_pricing,
+            callout_fee: data.callout_fee,
+            rating: data.rating || 4.5,
+            total_reviews: data.total_reviews || 0,
+            other_services: otherServices,
+            all_other_services: data.details || '',
+            experience_years: data.experience_years || 0,
+            emergency_service: data.emergency_service || false,
+            insurance: data.insurance || false,
+            accepts_card: data.accepts_card || false,
+            accepts_cash: data.accepts_cash || true,
+            verified: data.verified || false,
+            accreditations: data.provider_accreditations || [],
+            display_accreditations: data.provider_accreditations || [],
+            is_favorite: true,
+            business_features: data.business_features || []
+          }
+          
+          setFavoriteProviders(prev => [...prev, restoredProvider])
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+    } finally {
+      setSyncingFavoriteId(null)
+    }
+  }
+
+  // Helper functions for display
+  const getPriceDisplay = (provider: Provider) => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
     }
@@ -198,8 +321,7 @@ export default function FavoritesPage() {
     return 'Contact for rates'
   }
   
-  // SOLUTION: Add type annotation to provider parameter
-  const getServiceAreasDisplay = (provider: FavoriteProvider) => {
+  const getServiceAreasDisplay = (provider: Provider) => {
     try {
       if (provider.formatted_service_areas && provider.formatted_service_areas.length > 0) {
         const cleanedAreas = provider.formatted_service_areas
@@ -232,15 +354,14 @@ export default function FavoritesPage() {
     }
   }
   
-  // SOLUTION: Add type annotation to provider parameter
-  const getAccreditationsDisplay = (provider: FavoriteProvider) => {
+  const getAccreditationsDisplay = (provider: Provider) => {
     if (provider.display_accreditations && provider.display_accreditations.length > 0) {
       const accreditationNames = provider.display_accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
-          return acc.custom_name?.substring(0, 12) || 'Custom'
+          return acc.custom_name?.substring(0, 15) || 'Custom'
         } else if (acc.accreditation_id) {
           const accreditation = accreditationsMap.get(acc.accreditation_id)
-          return accreditation?.name?.substring(0, 12) || 'Certified'
+          return accreditation?.name?.substring(0, 15) || 'Certified'
         }
         return 'Certified'
       })
@@ -249,7 +370,7 @@ export default function FavoritesPage() {
       const additionalCount = provider.accreditations.length - 2
       
       if (additionalCount > 0) {
-        return `${display} +${additionalCount}`
+        return `${display} +${additionalCount} more`
       }
       return display
     }
@@ -301,7 +422,7 @@ export default function FavoritesPage() {
             <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500"></div>
             <p className="mt-4 text-gray-400 text-sm sm:text-base">Loading your favorites...</p>
           </div>
-        ) : error ? (
+        ) : error && favoriteProviders.length === 0 ? (
           <div className="text-center py-12 sm:py-20 bg-gray-800/30 rounded-xl sm:rounded-2xl border border-gray-700 mx-2 sm:mx-0">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500" />
@@ -320,243 +441,60 @@ export default function FavoritesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {favoriteProviders.map((provider, index) => {
-              const accreditationsDisplay = getAccreditationsDisplay(provider)
-              
-              return (
-                <motion.div
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {favoriteProviders.map((provider, index) => (
+                <ProviderCard
                   key={provider.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                  className="group cursor-pointer"
-                >
-                  <div 
-                    onClick={() => handleProviderClick(provider.id)}
-                    className="h-full bg-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-purple-500/30 overflow-hidden hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(139,92,246,0.15)] sm:hover:shadow-[0_20px_40px_rgba(139,92,246,0.15)] flex flex-col"
-                  >
-                    <div className="p-4 sm:p-6 border-b border-gray-700/50">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="relative flex-shrink-0">
-                          <ProviderLogoDisplay
-                            providerId={provider.id}
-                            businessName={provider.business_name}
-                            size="md"
-                            showBorder={true}
-                            showVerified={true}
-                            verified={provider.verified}
-                            clickToZoom={true}
-                            className="flex-shrink-0"
-                          />
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between">
-                            <div className="min-w-0">
-                              <h3 className="text-lg sm:text-xl font-bold text-white group-hover:text-purple-300 transition-colors truncate">
-                                {provider.business_name}
-                              </h3>
-                              <p className="text-xs sm:text-sm text-purple-400 mt-0.5 sm:mt-1 truncate">
-                                {provider.main_service}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-3">
-                        
-                            
-                            <div className="flex items-center gap-1 sm:gap-1.5">
-                              <span className="font-semibold text-emerald-400 text-sm sm:text-base">
-                                {getPriceDisplay(provider)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  provider={provider}
+                  index={index}
+                  syncingFavoriteId={syncingFavoriteId}
+                  user={user}
+                  showAuthModal={showAuthModal}
+                  onToggleFavorite={toggleFavorite}
+                  onProviderClick={handleProviderClick}
+                  getPriceDisplay={getPriceDisplay}
+                  getServiceAreasDisplay={getServiceAreasDisplay}
+                  getAccreditationsDisplay={getAccreditationsDisplay}
+                />
+              ))}
+            </div>
+
+            {favoriteProviders.length === 0 && (
+              <div className="mt-6 sm:mt-8 bg-gray-800/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-700 mx-2 sm:mx-0">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-3">How to save favorites</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-purple-400 font-bold text-sm sm:text-base">1</span>
                     </div>
-                    
-                    <div className="p-4 sm:p-6 flex-1 flex flex-col">
-                      <div className="mb-4 sm:mb-6">
-                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm font-medium text-blue-400">Service Areas</span>
-                        </div>
-                        <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
-                          <p className="text-gray-300 font-semibold text-sm sm:text-base truncate md:line-clamp-2">
-                            {getServiceAreasDisplay(provider)}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4 sm:mb-6">
-                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm font-medium text-emerald-400">Experience</span>
-                        </div>
-                        <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
-                          <p className="text-gray-300 font-semibold text-sm sm:text-base">
-                            {provider.experience_years ? 
-                              `${provider.experience_years} years` : 
-                              'Not specified'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4 sm:mb-6">
-                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                          <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm font-medium text-purple-400">Details & Services</span>
-                        </div>
-                        <div className="min-h-[36px] sm:min-h-[44px]">
-                          {(() => {
-                            const detailsText = provider.all_other_services;
-                            
-                            if (!detailsText?.trim()) {
-                              return (
-                                <p className="text-gray-500 italic text-xs sm:text-sm">No details provided</p>
-                              );
-                            }
-                            
-                            const items = detailsText
-                            .split(/[\n,]+/)
-                            .map((item: string) => item.trim())
-                            .filter((item: string) => item)
-                            .map((item: string) => item.replace(/^[•\-*\s]+/, ''));
-                            
-                            if (items.length === 0) {
-                              return (
-                                <p className="text-gray-500 italic text-xs sm:text-sm">No details provided</p>
-                              );
-                            }
-                            
-                            const displayItems = items.slice(0, 2);
-                            
-                            return (
-                              <ul className="space-y-0.5 sm:space-y-1">
-                                {displayItems.map((item: string, index: number) => (
-                                  <li key={index} className="flex items-start text-gray-300 text-xs sm:text-sm">
-                                    <span className="text-purple-400 mr-1.5 sm:mr-2 mt-0.5">•</span>
-                                    <span className="line-clamp-1">{item}</span>
-                                  </li>
-                                ))}
-                                {items.length > 2 && (
-                                  <li className="text-gray-400 text-xs sm:text-sm italic">
-                                    +{items.length - 2} more
-                                  </li>
-                                )}
-                              </ul>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4 sm:mb-6">
-                        <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                          <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm font-medium text-amber-400">Accreditations</span>
-                        </div>
-                        <div className="min-h-[36px] sm:min-h-[44px] flex items-center">
-                          {accreditationsDisplay ? (
-                            <p className="text-gray-300 text-sm sm:text-base truncate sm:line-clamp-2">
-                              {accreditationsDisplay}
-                            </p>
-                          ) : (
-                            <p className="text-gray-500 italic text-xs sm:text-sm">No accreditations listed</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-700/50">
-                        <div className="flex gap-1.5 sm:gap-2 min-h-[32px] sm:min-h-[40px] items-center overflow-x-auto pb-1 sm:pb-0">
-                          {provider.emergency_service || provider.insurance || provider.accepts_card || provider.accepts_cash ? (
-                            <div className="flex gap-1.5 sm:gap-2 flex-nowrap">
-                              {provider.emergency_service && (
-                                <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 min-w-[60px] sm:min-w-[70px] justify-center flex-shrink-0">
-                                  <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
-                                  <span className="text-xs font-medium text-red-400">24/7</span>
-                                </div>
-                              )}
-                              
-                              {provider.insurance && (
-                                <div className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 min-w-[60px] sm:min-w-[70px] justify-center flex-shrink-0">
-                                  <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-400" />
-                                  <span className="text-xs font-medium text-blue-400">Insured</span>
-                                </div>
-                              )}
-                              
-                              {provider.accepts_card && (
-                                <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[50px] sm:min-w-[60px] flex items-center justify-center flex-shrink-0">
-                                  <span className="text-xs font-medium text-emerald-400">Card</span>
-                                </div>
-                              )}
-                              
-                              {provider.accepts_cash && (
-                                <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 min-w-[50px] sm:min-w-[60px] flex items-center justify-center flex-shrink-0">
-                                  <span className="text-xs font-medium text-emerald-400">Cash</span>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="min-h-[32px] sm:min-h-[40px] flex items-center">
-                              <p className="text-gray-500 text-xs sm:text-sm italic">No features specified</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="pt-3 sm:pt-4 border-t border-gray-700/50 flex items-center justify-between mt-3 sm:mt-4">
-                        <span className="text-gray-400 text-xs sm:text-sm">
-                          Click for full details
-                        </span>
-                        <div className="flex items-center gap-0.5 sm:gap-1 text-purple-400 group-hover:text-purple-300 transition-colors">
-                          <span className="text-xs sm:text-sm font-medium">View</span>
-                          <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </div>
-                      </div>
+                    <div>
+                      <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Browse professionals</p>
+                      <p className="text-gray-400 text-xs sm:text-sm">Find service providers</p>
                     </div>
                   </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        )}
-
-        {!loading && favoriteProviders.length === 0 && (
-          <div className="mt-6 sm:mt-8 bg-gray-800/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-700 mx-2 sm:mx-0">
-            <h3 className="text-base sm:text-lg font-semibold text-white mb-3">How to save favorites</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-purple-400 font-bold text-sm sm:text-base">1</span>
-                </div>
-                <div>
-                  <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Browse professionals</p>
-                  <p className="text-gray-400 text-xs sm:text-sm">Find service providers</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-purple-400 font-bold text-sm sm:text-base">2</span>
-                </div>
-                <div>
-                  <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Click heart icon</p>
-                  <p className="text-gray-400 text-xs sm:text-sm">On any provider card</p>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-purple-400 font-bold text-sm sm:text-base">2</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Click heart icon</p>
+                      <p className="text-gray-400 text-xs sm:text-sm">On any provider card</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 sm:gap-3">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-purple-400 font-bold text-sm sm:text-base">3</span>
+                    </div>
+                    <div>
+                      <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Access anytime</p>
+                      <p className="text-gray-400 text-xs sm:text-sm">View saved favorites here</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-purple-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-purple-400 font-bold text-sm sm:text-base">3</span>
-                </div>
-                <div>
-                  <p className="text-white font-medium mb-0.5 sm:mb-1 text-sm sm:text-base">Access anytime</p>
-                  <p className="text-gray-400 text-xs sm:text-sm">View saved favorites here</p>
-                </div>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </main>
     </div>

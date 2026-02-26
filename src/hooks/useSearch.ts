@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Fuse from 'fuse.js'
 import { 
-  searchProviders, 
+  searchProvidersInDB, // Use DB search for initial
+  filterProvidersLocally, // Use local filter for live search
   getServiceCategories, 
   getCities,
   getProvinces,
@@ -13,15 +15,16 @@ import {
 
 export function useSearch() {
   const searchParams = useSearchParams()
-  const [searchTerm, setSearchTerm] = useState('') // Keep this empty initially
+  const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState<SearchFilters>({})
   const [results, setResults] = useState<SearchResult[]>([])
+  const [initialResults, setInitialResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<ServiceCategory[]>([])
   const [cities, setCities] = useState<CityOption[]>([])
   const [provinces, setProvinces] = useState<string[]>([])
   const [loadingFilters, setLoadingFilters] = useState(true)
-  const [initialSearchPerformed, setInitialSearchPerformed] = useState(false) // Track if we've done the initial search
+  const [initialSearchPerformed, setInitialSearchPerformed] = useState(false)
 
   // Load filter options on mount
   useEffect(() => {
@@ -47,23 +50,25 @@ export function useSearch() {
     loadFilters()
   }, [])
 
-  // Perform initial search based on URL param WITHOUT setting the search term
+  // Perform initial search based on URL param - USING DATABASE SEARCH
   useEffect(() => {
     const q = searchParams.get('q')
     
-    // Only perform the initial search once
     if (q && !initialSearchPerformed) {
-      console.log('Initial search with term:', q) // Debug log
+      console.log('Initial DB search with term:', q)
       
-      // Perform search directly with the URL term
       const performInitialSearch = async () => {
         setLoading(true)
         try {
-          const searchResults = await searchProviders(q, filters)
+          // Use DATABASE search for initial query
+          const searchResults = await searchProvidersInDB(q, filters)
+          console.log(`Found ${searchResults.length} results from DB`)
           setResults(searchResults)
+          setInitialResults(searchResults)
         } catch (error) {
           console.error('Search error:', error)
           setResults([])
+          setInitialResults([])
         } finally {
           setLoading(false)
           setInitialSearchPerformed(true)
@@ -74,53 +79,64 @@ export function useSearch() {
     }
   }, [searchParams, filters, initialSearchPerformed])
 
-  // Perform search based on user typing in search bar
-  const performSearch = useCallback(async () => {
-    // Don't search if empty
-    if (!searchTerm.trim()) {
-      setResults([])
-      return
-    }
+  // Local filtering for live search
+  const filterResults = useCallback((query: string) => {
+    if (!initialResults.length) return
     
-    setLoading(true)
-    try {
-      console.log('User search with term:', searchTerm)
-      const searchResults = await searchProviders(searchTerm, filters)
-      setResults(searchResults)
-    } catch (error) {
-      console.error('Search error:', error)
-      setResults([])
-    } finally {
-      setLoading(false)
-    }
-  }, [searchTerm, filters])
-
-  // Debounced search for user typing
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setResults([])
+    if (!query.trim()) {
+      setResults(initialResults)
       return
     }
+
+    // Use the local filter function
+    const filtered = filterProvidersLocally(initialResults, query)
+    setResults(filtered)
+  }, [initialResults])
+
+  // Debounced filtering for user typing
+  useEffect(() => {
+    if (!initialSearchPerformed) return
     
     const timer = setTimeout(() => {
-      performSearch()
+      filterResults(searchTerm)
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchTerm, performSearch])
+  }, [searchTerm, filterResults, initialSearchPerformed])
 
-  // Update filters
+  // Update filters and re-run DB search
   const updateFilter = (key: keyof SearchFilters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }))
+    setFilters(prev => {
+      const newFilters = { ...prev, [key]: value }
+      
+      const q = searchParams.get('q')
+      if (q) {
+        setLoading(true)
+        searchProvidersInDB(q, newFilters).then(newResults => {
+          setResults(newResults)
+          setInitialResults(newResults)
+          setLoading(false)
+        })
+      }
+      
+      return newFilters
+    })
   }
 
   // Clear all filters
   const clearFilters = () => {
     setFilters({})
     setSearchTerm('')
+    
+    const q = searchParams.get('q')
+    if (q) {
+      setLoading(true)
+      searchProvidersInDB(q, {}).then(newResults => {
+        setResults(newResults)
+        setInitialResults(newResults)
+        setLoading(false)
+      })
+    }
   }
 
   // Remove a specific filter
@@ -128,12 +144,22 @@ export function useSearch() {
     setFilters(prev => {
       const newFilters = { ...prev }
       delete newFilters[key]
+      
+      const q = searchParams.get('q')
+      if (q) {
+        setLoading(true)
+        searchProvidersInDB(q, newFilters).then(newResults => {
+          setResults(newResults)
+          setInitialResults(newResults)
+          setLoading(false)
+        })
+      }
+      
       return newFilters
     })
   }
 
   return {
-    // State
     searchTerm,
     setSearchTerm,
     filters,
@@ -143,11 +169,8 @@ export function useSearch() {
     cities,
     provinces,
     loadingFilters,
-    
-    // Actions
     updateFilter,
     clearFilters,
-    removeFilter,
-    refresh: performSearch
+    removeFilter
   }
 }

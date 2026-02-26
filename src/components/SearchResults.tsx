@@ -1,3 +1,5 @@
+// File: src/components/SearchResults.tsx
+
 import React from 'react'
 import { SearchResult } from '../lib/search'
 import { motion } from 'framer-motion'
@@ -10,13 +12,43 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, toggleFavoriteSupabase } from '@/lib/supabase'
+import ProviderCard from '@/components/ProviderCard'
 
 interface SearchResultsProps {
   results: SearchResult[]
   loading: boolean
   searchTerm: string
   className?: string
+}
+
+// Define a type that matches exactly what ProviderCard expects
+interface TransformedProvider {
+  id: string
+  business_name: string
+  main_service: string
+  main_service_id?: string
+  service_areas: string
+  formatted_service_areas: string[]
+  fees_pricing?: string | null
+  callout_fee?: string | null
+  rating: number
+  total_reviews: number
+  other_services: string[]
+  all_other_services: string
+  experience_years: number
+  emergency_service: boolean
+  insurance: boolean
+  accepts_card: boolean
+  accepts_cash: boolean
+  verified: boolean
+  accreditations: any[]
+  display_accreditations: any[]
+  is_favorite: boolean
+  business_features?: any[]
+  // Keep original data for reference if needed
+  originalServiceAreas?: string[]
+  originalProviderAccreditations?: any[]
 }
 
 export function SearchResults({ 
@@ -36,7 +68,6 @@ export function SearchResults({
     const loadFavorites = async () => {
       try {
         if (user) {
-          // You can add Supabase favorites loading here if needed
           const savedFavorites = localStorage.getItem('provider_favorites')
           if (savedFavorites) {
             setFavorites(JSON.parse(savedFavorites))
@@ -107,7 +138,20 @@ export function SearchResults({
       setFavorites(newFavorites)
       localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
       
-      // You can add Supabase sync here if needed
+      // Sync with Supabase
+      const success = await toggleFavoriteSupabase(user.id, providerId)
+      
+      if (!success) {
+        console.error('Failed to sync favorite with Supabase')
+        // Revert on failure
+        if (isCurrentlyFavorite) {
+          newFavorites = [...newFavorites, providerId]
+        } else {
+          newFavorites = newFavorites.filter(id => id !== providerId)
+        }
+        setFavorites(newFavorites)
+        localStorage.setItem('provider_favorites', JSON.stringify(newFavorites))
+      }
       
     } catch (error) {
       console.error('Error toggling favorite:', error)
@@ -125,7 +169,8 @@ export function SearchResults({
     router.push(`/providers/${providerId}`)
   }
 
-  const getPriceDisplay = (provider: SearchResult) => {
+  // Updated to accept TransformedProvider type
+  const getPriceDisplay = (provider: TransformedProvider): string => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
     }
@@ -135,10 +180,15 @@ export function SearchResults({
     return 'Contact for rates'
   }
 
-  const getServiceAreasDisplay = (provider: SearchResult) => {
+  // Updated to accept TransformedProvider type and use the stored original data
+  const getServiceAreasDisplay = (provider: TransformedProvider): string => {
     try {
-      if (provider.service_areas && provider.service_areas.length > 0) {
-        const cleanedAreas = provider.service_areas
+      // Use originalServiceAreas if available, otherwise use formatted_service_areas
+      const serviceAreas = provider.originalServiceAreas || 
+        (provider.formatted_service_areas.length > 0 ? provider.formatted_service_areas : []);
+      
+      if (serviceAreas && serviceAreas.length > 0) {
+        const cleanedAreas = serviceAreas
           .map((area: string) => {
             return area
               .trim()
@@ -168,9 +218,13 @@ export function SearchResults({
     }
   }
 
-  const getAccreditationsDisplay = (provider: SearchResult) => {
-    if (provider.provider_accreditations && provider.provider_accreditations.length > 0) {
-      const accreditationNames = provider.provider_accreditations.slice(0, 2).map((acc: any) => {
+  // Updated to accept TransformedProvider type
+  const getAccreditationsDisplay = (provider: TransformedProvider): string | null => {
+    // Use originalProviderAccreditations if available, otherwise use display_accreditations
+    const accreditations = provider.originalProviderAccreditations || provider.display_accreditations;
+    
+    if (accreditations && accreditations.length > 0) {
+      const accreditationNames = accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
           return acc.custom_name?.substring(0, 15) || 'Custom'
         } else if (acc.accreditation_id) {
@@ -181,7 +235,7 @@ export function SearchResults({
       })
       
       const display = accreditationNames.join(', ')
-      const additionalCount = provider.provider_accreditations.length - 2
+      const additionalCount = accreditations.length - 2
       
       if (additionalCount > 0) {
         return `${display} +${additionalCount} more`
@@ -189,6 +243,79 @@ export function SearchResults({
       return display
     }
     return null
+  }
+
+  // Transform SearchResult to match ProviderCard's expected format
+  const transformToProvider = (result: SearchResult): TransformedProvider => {
+    // Format service areas for display as an array
+    let formattedServiceAreas: string[] = []
+    if (result.service_areas && result.service_areas.length > 0) {
+      formattedServiceAreas = result.service_areas.map((area: string) => {
+        return area
+          .split(' ')
+          .map((word: string) => {
+            const trimmedWord = word.trim()
+            if (trimmedWord.length === 0) return ''
+            return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()
+          })
+          .join(' ')
+      })
+    }
+
+    // Create a string version of service areas for the service_areas field
+    const serviceAreasString = result.service_areas && result.service_areas.length > 0
+      ? result.service_areas.join(', ')
+      : ''
+
+    // Get other services from details
+    let otherServices: string[] = []
+    if (result.details) {
+      otherServices = result.details
+        .split(/[\n,]+/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => s && s.length > 0)
+        .slice(0, 3)
+    }
+
+    return {
+      id: result.id,
+      business_name: result.business_name,
+      main_service: result.main_service,
+      main_service_id: result.main_service_id,
+      service_areas: serviceAreasString,
+      formatted_service_areas: formattedServiceAreas,
+      fees_pricing: result.fees_pricing,
+      callout_fee: result.callout_fee,
+      rating: result.rating || 0,
+      total_reviews: result.total_reviews || 0,
+      other_services: otherServices,
+      all_other_services: result.details || '',
+      experience_years: result.experience_years || 0,
+      emergency_service: result.emergency_service || false,
+      insurance: result.insurance || false,
+      accepts_card: result.accepts_card || false,
+      accepts_cash: result.accepts_cash || false,
+      verified: result.verified || false,
+      accreditations: result.provider_accreditations || [],
+      display_accreditations: result.provider_accreditations || [],
+      is_favorite: favorites.includes(result.id),
+      business_features: result.business_features || [],
+      // Store original data for display functions
+      originalServiceAreas: result.service_areas,
+      originalProviderAccreditations: result.provider_accreditations
+    }
+  }
+
+  // Highlight matching text
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text
+    
+    const parts = text.split(new RegExp(`(${query})`, 'gi'))
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() ? 
+        <mark key={i} className="bg-yellow-500/30 text-white px-0.5 rounded">{part}</mark> : 
+        part
+    )
   }
 
   if (loading) {
@@ -218,216 +345,27 @@ export function SearchResults({
     )
   }
 
+  const providers = results.map(transformToProvider)
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {results.map((provider, index) => {
-        const accreditationsDisplay = getAccreditationsDisplay(provider)
-        
-        return (
-          <motion.div
-            key={provider.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="group cursor-pointer"
-          >
-            <div 
-              onClick={() => handleProviderClick(provider.id)}
-              className="h-full bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden hover:border-blue-500/50 transition-all duration-300 hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] flex flex-col"
-            >
-              <div className="p-6 border-b border-gray-700/50">
-                <div className="flex items-center gap-4">
-                  <div className="relative flex-shrink-0">
-                    <ProviderLogoDisplay
-                      providerId={provider.id}
-                      businessName={provider.business_name}
-                      size="md"
-                      showBorder={true}
-                      showVerified={true}
-                      verified={provider.verified || false}
-                      className="flex-shrink-0"
-                    />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors truncate">
-                          {provider.business_name}
-                        </h3>
-                        <p className="text-sm text-blue-400 mt-1 truncate">
-                          {provider.main_service}
-                        </p>
-                      </div>
-                      
-                      <button
-                        onClick={(e) => toggleFavorite(provider.id, e)}
-                        disabled={syncingFavoriteId !== null}
-                        className="flex-shrink-0 p-2 rounded-full hover:bg-gray-700/50 transition-colors ml-2"
-                        title={favorites.includes(provider.id) ? 'Remove from favorites' : 'Add to favorites'}
-                      >
-                        {syncingFavoriteId === provider.id ? (
-                          <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Heart
-                            className={`w-5 h-5 ${favorites.includes(provider.id) ? 'fill-purple-500 text-purple-500' : 'text-gray-400 hover:text-blue-400'}`}
-                          />
-                        )}
-                      </button>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-emerald-400">
-                          {getPriceDisplay(provider)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-6 flex-1 flex flex-col">
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MapPin className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                    <span className="text-sm font-medium text-blue-400">Service Areas</span>
-                  </div>
-                  <div className="min-h-[40px] flex items-center">
-                    <p className="text-gray-300 font-semibold truncate md:line-clamp-2">
-                      {getServiceAreasDisplay(provider)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    <span className="text-sm font-medium text-emerald-400">Experience</span>
-                  </div>
-                  <div className="min-h-[40px] flex items-center">
-                    <p className="text-gray-300 font-semibold">
-                      {provider.experience_years ? 
-                        `${provider.experience_years} years` : 
-                        'Not specified'
-                      }
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Briefcase className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                    <span className="text-sm font-medium text-purple-400">Details & Services</span>
-                  </div>
-                  <div className="min-h-[40px]">
-                    {(() => {
-                      const detailsText = provider.details;
-                      
-                      if (!detailsText?.trim()) {
-                        return (
-                          <p className="text-gray-500 italic text-sm">No details provided</p>
-                        );
-                      }
-                      
-                      const items = detailsText
-                        .split(/[\n,]+/)
-                        .map((item: string) => item.trim())
-                        .filter((item: string) => item)
-                        .slice(0, 3);
-                      
-                      if (items.length === 0) {
-                        return (
-                          <p className="text-gray-500 italic text-sm">No details provided</p>
-                        );
-                      }
-                      
-                      return (
-                        <ul className="space-y-0.5">
-                          {items.map((item: string, index: number) => (
-                            <li key={index} className="flex items-start text-gray-300">
-                              <span className="text-purple-400 mr-2 mt-0.5 text-xs">•</span>
-                              <span className="line-clamp-1 text-sm">{item}</span>
-                            </li>
-                          ))}
-                          {detailsText.split(/[\n,]+/).length > 3 && (
-                            <li className="text-gray-400 text-xs italic">
-                              +{detailsText.split(/[\n,]+/).length - 3} more
-                            </li>
-                          )}
-                        </ul>
-                      );
-                    })()}
-                  </div>
-                </div>
-                
-                <div className="mb-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Award className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                    <span className="text-sm font-medium text-amber-400">Accreditations</span>
-                  </div>
-                  <div className="min-h-[40px] flex items-center">
-                    {accreditationsDisplay ? (
-                      <p className="text-gray-300 truncate md:line-clamp-2 text-sm">
-                        {accreditationsDisplay}
-                      </p>
-                    ) : (
-                      <p className="text-gray-500 italic text-sm">No accreditations listed</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="mt-auto pt-4 border-t border-gray-700/50">
-                  {provider.emergency_service || provider.insurance || provider.accepts_card || provider.accepts_cash ? (
-                    <div className="flex gap-2 min-h-[36px] items-center overflow-x-auto no-scrollbar">
-                      {provider.emergency_service && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 flex-shrink-0">
-                          <Zap className="w-3 h-3 text-red-400" />
-                          <span className="text-xs font-medium text-red-400">24/7</span>
-                        </div>
-                      )}
-                      
-                      {provider.insurance && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 flex-shrink-0">
-                          <Shield className="w-3 h-3 text-blue-400" />
-                          <span className="text-xs font-medium text-blue-400">Insured</span>
-                        </div>
-                      )}
-                      
-                      {provider.accepts_card && (
-                        <div className="px-3 py-1 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 flex-shrink-0">
-                          <span className="text-xs font-medium text-emerald-400">Card</span>
-                        </div>
-                      )}
-                      
-                      {provider.accepts_cash && (
-                        <div className="px-3 py-1 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 rounded-lg border border-emerald-500/20 flex-shrink-0">
-                          <span className="text-xs font-medium text-emerald-400">Cash</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="min-h-[36px] flex items-center">
-                      <p className="text-gray-500 text-xs italic">No features specified</p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="pt-4 border-t border-gray-700/50 flex items-center justify-between mt-4">
-                  <span className="text-xs text-gray-400">
-                    {user ? 'Click for details & contact' : 'Sign in to view details'}
-                  </span>
-                  <div className="flex items-center gap-1 text-blue-400 group-hover:text-blue-300 transition-colors">
-                    <span className="text-xs font-medium">View</span>
-                    <ChevronRight className="w-3 h-3" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )
-      })}
+    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${className}`}>
+      {providers.map((provider, index) => (
+        <ProviderCard
+          key={provider.id}
+          provider={provider}
+          index={index}
+          searchQuery={searchTerm}
+          syncingFavoriteId={syncingFavoriteId}
+          user={user}
+          showAuthModal={showAuthModal}
+          onToggleFavorite={toggleFavorite}
+          onProviderClick={handleProviderClick}
+          getPriceDisplay={getPriceDisplay}
+          getServiceAreasDisplay={getServiceAreasDisplay}
+          getAccreditationsDisplay={getAccreditationsDisplay}
+          highlightText={highlightText}
+        />
+      ))}
     </div>
   )
 }

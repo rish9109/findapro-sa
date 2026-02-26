@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import WhatsAppButton from '@/components/WhatsAppButton'
+import { createWhatsAppUrl } from '@/lib/whatsapp'
 
 // Icon mapping function
 const getIconComponent = (iconName: string | null | undefined) => {
@@ -555,10 +556,24 @@ export default function ProviderDetailPage() {
             </div>
           </a>
           
-          {/* WhatsApp Button - Full width, single line, no phone number */}
+          {/* WhatsApp Button - Primary */}
           {provider.primary_has_whatsapp && (
             <a
-              href={`https://wa.me/${provider.contact_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${provider.business_name}, I'm interested in your ${provider.main_service || 'services'}.`)}`}
+              href={`https://wa.me/${(function(phone) {
+                // Format phone number for WhatsApp
+                const digitsOnly = phone.replace(/\D/g, '');
+                // Handle South African numbers
+                if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+                  return '27' + digitsOnly.substring(1);
+                }
+                if (digitsOnly.length === 9) {
+                  return '27' + digitsOnly;
+                }
+                if (digitsOnly.startsWith('27') && digitsOnly.length >= 11) {
+                  return digitsOnly;
+                }
+                return digitsOnly;
+              })(provider.contact_phone)}?text=${encodeURIComponent(`Hi ${provider.business_name}, I'm interested in your ${provider.main_service || 'services'}.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 rounded-lg border border-green-500/30 hover:border-green-500/50 hover:bg-green-500/30 transition-all group"
@@ -571,7 +586,7 @@ export default function ProviderDetailPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-lg font-semibold text-white group-hover:text-green-300 transition-colors">
-                     WhatsApp
+                    WhatsApp
                   </p>
                 </div>
                 <svg className="w-5 h-5 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -608,10 +623,24 @@ export default function ProviderDetailPage() {
             </div>
           </a>
           
-          {/* WhatsApp Button - Full width, single line, no phone number */}
+          {/* WhatsApp Button - Alternate */}
           {provider.alternate_has_whatsapp && (
             <a
-              href={`https://wa.me/${provider.alternate_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${provider.business_name}, I'm interested in your ${provider.main_service || 'services'}.`)}`}
+              href={`https://wa.me/${(function(phone) {
+                // Format phone number for WhatsApp
+                const digitsOnly = phone.replace(/\D/g, '');
+                // Handle South African numbers
+                if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+                  return '27' + digitsOnly.substring(1);
+                }
+                if (digitsOnly.length === 9) {
+                  return '27' + digitsOnly;
+                }
+                if (digitsOnly.startsWith('27') && digitsOnly.length >= 11) {
+                  return digitsOnly;
+                }
+                return digitsOnly;
+              })(provider.alternate_phone)}?text=${encodeURIComponent(`Hi ${provider.business_name}, I'm interested in your ${provider.main_service || 'services'}.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full p-4 bg-gradient-to-r from-green-500/20 to-green-600/20 rounded-lg border border-green-500/30 hover:border-green-500/50 hover:bg-green-500/30 transition-all group"
@@ -637,7 +666,7 @@ export default function ProviderDetailPage() {
       </div>
     )}
     
-    {/* Email - unchanged */}
+    {/* Email */}
     {provider.contact_email && (
       <div>
         <p className="text-sm text-gray-400 mb-1">Email Address</p>

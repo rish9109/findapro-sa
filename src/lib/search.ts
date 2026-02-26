@@ -117,7 +117,7 @@ export async function loadAllProviders(): Promise<SearchResult[]> {
   }
 }
 
-// Database search function - for initial search
+// Database search function - BALANCED
 export async function searchProvidersInDB(
   query: string,
   filters?: SearchFilters
@@ -142,49 +142,47 @@ export async function searchProvidersInDB(
       `)
       .eq('status', 'approved')
 
-    // Add text search if query exists
+    // Text search with good balance
     if (query && query.trim()) {
       const searchTerm = query.trim()
-      dbQuery = dbQuery.or(
-        `business_name.ilike.%${searchTerm}%,` +
-        `main_service.ilike.%${searchTerm}%,` +
-        `details.ilike.%${searchTerm}%`
-      )
+      const words = searchTerm.split(/\s+/).filter(word => word.length > 1)
+      
+      if (words.length > 1) {
+        // OR condition for multi-word (more flexible)
+        const conditions = words.map(word => 
+          `business_name.ilike.%${word}%,` +
+          `main_service.ilike.%${word}%,` +
+          `details.ilike.%${word}%,` +
+          `service_areas.ilike.%${word}%`
+        ).join(',')
+        
+        dbQuery = dbQuery.or(conditions)
+      } else {
+        const singleWord = words[0] || searchTerm
+        dbQuery = dbQuery.or(
+          `business_name.ilike.%${singleWord}%,` +
+          `main_service.ilike.%${singleWord}%,` +
+          `details.ilike.%${singleWord}%,` +
+          `service_areas.ilike.%${singleWord}%`
+        )
+      }
     }
 
     // Apply filters
     if (filters) {
-      if (filters.category) {
-        dbQuery = dbQuery.eq('main_service_id', filters.category)
-      }
-      
-      if (filters.city) {
-        dbQuery = dbQuery.ilike('service_areas', `%${filters.city}%`)
-      }
-      
-      if (filters.province) {
-        dbQuery = dbQuery.ilike('service_areas', `%${filters.province}%`)
-      }
-      
-      if (filters.verified) {
-        dbQuery = dbQuery.eq('verified', true)
-      }
-      
-      if (filters.emergency) {
-        dbQuery = dbQuery.eq('emergency_service', true)
-      }
-      
-      if (filters.minRating) {
-        dbQuery = dbQuery.gte('rating', filters.minRating)
-      }
+      if (filters.category) dbQuery = dbQuery.eq('main_service_id', filters.category)
+      if (filters.city) dbQuery = dbQuery.ilike('service_areas', `%${filters.city}%`)
+      if (filters.province) dbQuery = dbQuery.ilike('service_areas', `%${filters.province}%`)
+      if (filters.verified) dbQuery = dbQuery.eq('verified', true)
+      if (filters.emergency) dbQuery = dbQuery.eq('emergency_service', true)
+      if (filters.minRating) dbQuery = dbQuery.gte('rating', filters.minRating)
     }
 
     const { data, error } = await dbQuery
-
     if (error) throw error
 
-    // Transform the data
-    return (data || []).map(provider => ({
+    // Transform and score results
+    let results = (data || []).map(provider => ({
       id: provider.id,
       business_name: provider.business_name,
       main_service: provider.main_service || '',
@@ -206,31 +204,167 @@ export async function searchProvidersInDB(
       provider_accreditations: provider.provider_accreditations || [],
       business_features: provider.business_features || []
     }))
+
+    // Score and sort for relevance
+    if (query && query.trim() && results.length > 0) {
+      const searchTerm = query.trim().toLowerCase()
+      const searchWords = searchTerm.split(/\s+/)
+      
+      results = results
+        .map(provider => {
+          let score = 0
+          const name = provider.business_name.toLowerCase()
+          const service = provider.main_service.toLowerCase()
+          const details = (provider.details || '').toLowerCase()
+          const areas = provider.service_areas.join(' ').toLowerCase()
+          
+          let nameMatches = 0, serviceMatches = 0, detailsMatches = 0, areasMatches = 0
+          
+          for (const word of searchWords) {
+            if (name.includes(word)) nameMatches++
+            if (service.includes(word)) serviceMatches++
+            if (details.includes(word)) detailsMatches++
+            if (areas.includes(word)) areasMatches++
+          }
+          
+          const wordCount = searchWords.length
+          score += (nameMatches / wordCount) * 40
+          score += (serviceMatches / wordCount) * 25
+          score += (areasMatches / wordCount) * 20
+          score += (detailsMatches / wordCount) * 15
+          
+          if (name.includes(searchTerm)) score += 15
+          if (provider.verified) score += 5
+          if (nameMatches + serviceMatches + areasMatches >= wordCount) score += 10
+          
+          return { ...provider, _score: Math.round(score) }
+        })
+        .filter(provider => provider._score > (searchTerm.length <= 3 ? 10 : 15))
+        .sort((a, b) => (b._score || 0) - (a._score || 0))
+        .map(({ _score, ...provider }) => provider)
+    }
+
+    return results
   } catch (error) {
     console.error('Error searching providers in DB:', error)
     return []
   }
 }
-
-// Client-side filtering function (for live search)
+// Client-side filtering function (for live search) - BALANCED
 export function filterProvidersLocally(
   providers: SearchResult[],
   query: string
 ): SearchResult[] {
   if (!query.trim() || !providers.length) return providers
   
-  const fuse = new Fuse(providers, {
-    keys: [
-      { name: 'business_name', weight: 2 },
-      { name: 'main_service', weight: 1.5 },
-      { name: 'details', weight: 1 },
-      { name: 'service_areas', weight: 1 }
-    ],
-    threshold: 0.4,
-    ignoreLocation: true,
+  const searchTerm = query.trim().toLowerCase()
+  const searchWords = searchTerm.split(/\s+/).filter(word => word.length > 0)
+  
+  if (searchWords.length === 0) return providers
+  
+  const scoredResults = providers.map(provider => {
+    let score = 0
+    const name = provider.business_name.toLowerCase()
+    const service = provider.main_service.toLowerCase()
+    const details = (provider.details || '').toLowerCase()
+    const areas = provider.service_areas.join(' ').toLowerCase()
+    
+    // Additional fields for better coverage
+    const feesInfo = (provider.fees_pricing || provider.callout_fee || '').toLowerCase()
+    const accreditationInfo = provider.provider_accreditations
+      ?.map(a => a.custom_name || '')
+      .join(' ')
+      .toLowerCase() || ''
+    
+    let nameMatches = 0
+    let serviceMatches = 0
+    let detailsMatches = 0
+    let areasMatches = 0
+    let otherMatches = 0
+    
+    // Count matches for each word
+    for (const word of searchWords) {
+      if (name.includes(word)) {
+        nameMatches++
+        if (name.startsWith(word) || name.includes(' ' + word)) {
+          score += 4 // Word boundary bonus
+        }
+      }
+      if (service.includes(word)) {
+        serviceMatches++
+        if (service.startsWith(word) || service.includes(' ' + word)) {
+          score += 3
+        }
+      }
+      if (areas.includes(word)) {
+        areasMatches++
+        score += 2
+      }
+      if (details.includes(word)) {
+        detailsMatches++
+        score += 1.5
+      }
+      if (feesInfo.includes(word) || accreditationInfo.includes(word)) {
+        otherMatches++
+        score += 1
+      }
+    }
+    
+    const wordCount = searchWords.length
+    
+    // Base score from matches (more weight on meaningful matches)
+    if (nameMatches > 0) score += (nameMatches / wordCount) * 35
+    if (serviceMatches > 0) score += (serviceMatches / wordCount) * 25
+    if (areasMatches > 0) score += (areasMatches / wordCount) * 20
+    if (detailsMatches > 0) score += (detailsMatches / wordCount) * 12
+    if (otherMatches > 0) score += (otherMatches / wordCount) * 8
+    
+    // Bonus for exact matches or good coverage
+    if (nameMatches === wordCount) score += 20
+    if (serviceMatches === wordCount) score += 15
+    if (areasMatches === wordCount) score += 10
+    
+    // For short queries (2-4 chars), be helpful but not overwhelming
+    if (searchTerm.length >= 2 && searchTerm.length <= 4) {
+      // Prioritize name and area matches for short queries
+      if (name.startsWith(searchTerm)) score += 15
+      if (areas.includes(searchTerm)) score += 10
+      if (service.startsWith(searchTerm)) score += 8
+      
+      // Ensure some results show for short queries
+      if (name.includes(searchTerm) || areas.includes(searchTerm)) {
+        score += 10 // Boost to ensure visibility
+      }
+    }
+    
+    // For longer queries (5+ chars), be more precise
+    if (searchTerm.length >= 5) {
+      if (name.includes(searchTerm)) score += 10
+      if (areas.includes(searchTerm)) score += 8
+      
+      // Higher standard for longer queries
+      if (nameMatches + serviceMatches + areasMatches === 0) {
+        score *= 0.5 // Reduce score if no main field matches
+      }
+    }
+    
+    return { provider, score: Math.round(score) }
   })
   
-  return fuse.search(query).map(result => result.item)
+  // Dynamic threshold based on query length
+  // - 2-3 chars: lower threshold to show suggestions
+  // - 4+ chars: higher threshold for relevance
+  let threshold = 12 // default
+  if (searchTerm.length <= 3) {
+    threshold = 8 // Show more for very short queries
+  } else if (searchTerm.length >= 5) {
+    threshold = 15 // Stricter for longer queries
+  }
+  
+  return scoredResults
+    .filter(item => item.score > threshold)
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.provider)
 }
 
 // Keep original searchProviders for backward compatibility

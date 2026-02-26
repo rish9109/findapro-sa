@@ -12,7 +12,7 @@ import {
   CheckCircle, Calendar, Briefcase, Users, 
   ShieldCheck, PhoneCall,
   Building, AlertCircle, MessageCircle, Tag, FileText,
-  ThumbsUp, Zap, Leaf, Gift, Percent, Truck, Tool,
+  ThumbsUp, Zap, Leaf, Gift, Percent, Truck,
   Languages, Fingerprint, Settings, CreditCard, Eye
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
@@ -25,8 +25,8 @@ const getIconComponent = (iconName: string | null | undefined) => {
     'FileText': FileText, 'Tag': Tag, 'Eye': Eye, 'CreditCard': CreditCard,
     'ThumbsUp': ThumbsUp, 'Shield': Shield, 'Clock': Clock, 'Calendar': Calendar,
     'Zap': Zap, 'AlertCircle': AlertCircle, 'Building': Building, 'Percent': Percent,
-    'FileCheck': FileCheck, 'Award': Award, 'MessageCircle': MessageCircle,
-    'Clipboard': FileText, 'Truck': Truck, 'Tool': Tool, 'Languages': Languages,
+     'Award': Award, 'MessageCircle': MessageCircle,
+    'Clipboard': FileText, 'Truck': Truck, 'Languages': Languages,
     'Heart': Heart, 'Gift': Gift, 'Users': Users, 'ShieldCheck': ShieldCheck,
     'Fingerprint': Fingerprint, 'Leaf': Leaf, 'Settings': Settings,
   };

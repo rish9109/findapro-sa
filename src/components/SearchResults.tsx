@@ -1,3 +1,5 @@
+// File: src/components/SearchResults.tsx
+
 import React from 'react'
 import { SearchResult } from '../lib/search'
 import { motion } from 'framer-motion'
@@ -20,15 +22,30 @@ interface SearchResultsProps {
   className?: string
 }
 
-// Extend SearchResult to match Provider type expected by ProviderCard
-interface Provider extends SearchResult {
+// Define a type that matches what ProviderCard expects
+interface TransformedProvider {
+  id: string
+  business_name: string
+  main_service: string
+  main_service_id?: string
+  service_areas: string  // This should be a string, not an array
   formatted_service_areas: string[]
+  fees_pricing?: string | null
+  callout_fee?: string | null
+  rating: number
+  total_reviews: number
   other_services: string[]
   all_other_services: string
+  experience_years: number
+  emergency_service: boolean
+  insurance: boolean
+  accepts_card: boolean
+  accepts_cash: boolean
+  verified: boolean
+  accreditations: any[] | null
   display_accreditations: any[]
   is_favorite: boolean
-  // Add missing accreditations property
-  accreditations?: any[] | null
+  business_features?: any[]
 }
 
 export function SearchResults({ 
@@ -48,7 +65,6 @@ export function SearchResults({
     const loadFavorites = async () => {
       try {
         if (user) {
-          // You can add Supabase favorites loading here if needed
           const savedFavorites = localStorage.getItem('provider_favorites')
           if (savedFavorites) {
             setFavorites(JSON.parse(savedFavorites))
@@ -216,9 +232,9 @@ export function SearchResults({
     return null
   }
 
-  // Transform SearchResult to Provider format
-  const transformToProvider = (result: SearchResult): Provider => {
-    // Format service areas
+  // Transform SearchResult to match ProviderCard's expected format
+  const transformToProvider = (result: SearchResult): TransformedProvider => {
+    // Format service areas for display as an array
     let formattedServiceAreas: string[] = []
     if (result.service_areas && result.service_areas.length > 0) {
       formattedServiceAreas = result.service_areas.map((area: string) => {
@@ -233,6 +249,11 @@ export function SearchResults({
       })
     }
 
+    // Create a string version of service areas for the service_areas field
+    const serviceAreasString = result.service_areas && result.service_areas.length > 0
+      ? result.service_areas.join(', ')
+      : ''
+
     // Get other services from details
     let otherServices: string[] = []
     if (result.details) {
@@ -244,14 +265,28 @@ export function SearchResults({
     }
 
     return {
-      ...result,
+      id: result.id,
+      business_name: result.business_name,
+      main_service: result.main_service,
+      main_service_id: result.main_service_id,
+      service_areas: serviceAreasString, // This is now a string, not an array
       formatted_service_areas: formattedServiceAreas,
+      fees_pricing: result.fees_pricing,
+      callout_fee: result.callout_fee,
+      rating: result.rating || 0,
+      total_reviews: result.total_reviews || 0,
       other_services: otherServices,
       all_other_services: result.details || '',
+      experience_years: result.experience_years || 0,
+      emergency_service: result.emergency_service || false,
+      insurance: result.insurance || false,
+      accepts_card: result.accepts_card || false,
+      accepts_cash: result.accepts_cash || false,
+      verified: result.verified || false,
+      accreditations: result.provider_accreditations || null,
       display_accreditations: result.provider_accreditations || [],
       is_favorite: favorites.includes(result.id),
-      // Add accreditations property (mapping from provider_accreditations if needed)
-      accreditations: result.provider_accreditations || null
+      business_features: result.business_features || []
     }
   }
 

@@ -205,6 +205,8 @@ export async function getBusinessFeatures(category?: string): Promise<BusinessFe
   }
 }
 
+// src/lib/supabase.ts - Update the getBusinessFeatureCategories function
+
 // Get all unique business feature categories
 export async function getBusinessFeatureCategories(): Promise<string[]> {
   try {
@@ -216,8 +218,8 @@ export async function getBusinessFeatureCategories(): Promise<string[]> {
     
     if (error) throw error;
     
-    // Get unique categories
-    const categories = [...new Set(data.map(item => item.category))];
+    // Get unique categories - FIXED: Use Array.from instead of spread operator
+    const categories = Array.from(new Set(data.map(item => item.category)));
     return categories;
   } catch (error) {
     console.error('Error fetching business feature categories:', error);

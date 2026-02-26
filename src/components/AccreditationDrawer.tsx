@@ -1,4 +1,4 @@
-// File: src/components/AccreditationDrawer.tsx - EXACT MATCH OF SERVICE AREA DRAWER
+// File: src/components/AccreditationDrawer.tsx
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -413,6 +413,7 @@ export default function AccreditationDrawer({
       setIsLoading(false);
     }
   }, [selected, onSave, onClose]);
+  
   const clearAllAccreditations = useCallback(() => {
     setSelected([]);
     setError('');
@@ -669,20 +670,20 @@ export default function AccreditationDrawer({
                 />
                 <button
                   onClick={addCustomAccreditation}
-                  disabled={!customName.trim() || selected.length >= maxSelection}
+                  disabled={selected.length >= maxSelection}
                   style={{
                     padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
-                    background: !customName.trim() || selected.length >= maxSelection
+                    background: selected.length >= maxSelection
                       ? '#374151'
                       : 'linear-gradient(to right, #ea580c, #f97316)',
                     border: 'none',
                     borderRadius: '0.75rem',
-                    color: !customName.trim() || selected.length >= maxSelection
+                    color: selected.length >= maxSelection
                       ? '#6b7280'
                       : 'white',
                     fontWeight: '500',
                     fontSize: '0.875rem',
-                    cursor: !customName.trim() || selected.length >= maxSelection
+                    cursor: selected.length >= maxSelection
                       ? 'not-allowed'
                       : 'pointer',
                     display: 'flex',
@@ -877,53 +878,53 @@ export default function AccreditationDrawer({
                 Cancel
               </button>
               <button
-  onClick={handleSave}
-  disabled={isLoading}
-  style={{
-    flex: 1,
-    padding: isMobile ? '0.875rem 0.75rem' : '0.75rem',
-    background: isLoading
-      ? '#374151'
-      : 'linear-gradient(to right, #ea580c, #f97316)',
-    border: 'none',
-    borderRadius: '0.75rem',
-    color: isLoading ? '#6b7280' : 'white',
-    fontWeight: '600',
-    fontSize: '0.9375rem',
-    cursor: isLoading ? 'not-allowed' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.5rem',
-    minHeight: isMobile ? '48px' : 'auto',
-  }}
-  onMouseEnter={(e) => {
-    if (!isLoading) {
-      e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
-    }
-  }}
-  onMouseLeave={(e) => {
-    if (!isLoading) {
-      e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
-    }
-  }}
->
-  {isLoading ? (
-    <>
-      <div style={{
-        width: '1rem',
-        height: '1rem',
-        border: '2px solid white',
-        borderTopColor: 'transparent',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-      }} />
-      Saving...
-    </>
-  ) : (
-    `Save ${selected.length} Accreditation${selected.length !== 1 ? 's' : ''}`
-  )}
-</button>
+                onClick={handleSave}
+                disabled={isLoading}
+                style={{
+                  flex: 1,
+                  padding: isMobile ? '0.875rem 0.75rem' : '0.75rem',
+                  background: isLoading
+                    ? '#374151'
+                    : 'linear-gradient(to right, #ea580c, #f97316)',
+                  border: 'none',
+                  borderRadius: '0.75rem',
+                  color: isLoading ? '#6b7280' : 'white',
+                  fontWeight: '600',
+                  fontSize: '0.9375rem',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  minHeight: isMobile ? '48px' : 'auto',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoading) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #f97316, #fb923c)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isLoading) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, #ea580c, #f97316)';
+                  }
+                }}
+              >
+                {isLoading ? (
+                  <>
+                    <div style={{
+                      width: '1rem',
+                      height: '1rem',
+                      border: '2px solid white',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                    }} />
+                    Saving...
+                  </>
+                ) : (
+                  `Save ${selected.length} Accreditation${selected.length !== 1 ? 's' : ''}`
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1147,21 +1148,17 @@ export default function AccreditationDrawer({
                       const industryAccreditations = accreditations.filter(acc => 
                         acc.sector?.toLowerCase().includes(industry.name.toLowerCase())
                       );
-                      const someAccreditationsSelected = industryAccreditations.some(acc => 
-                        selected.some(s => !s.is_custom && s.accreditation_id === acc.id)
-                      );
                       
                       return (
                         <div key={industry.id}>
-                          {/* Industry Header */}
+                          {/* Industry Header - REMOVED selected count */}
                           <button
                             onClick={() => toggleIndustry(industry.id)}
                             style={{
                               width: '100%',
                               padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
                               backgroundColor: isExpanded ? '#1f2937' : '#111827',
-                              border: '1px solid',
-                              borderColor: someAccreditationsSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151',
+                              border: '1px solid #374151',
                               borderRadius: '0.75rem',
                               display: 'flex',
                               alignItems: 'center',
@@ -1178,7 +1175,7 @@ export default function AccreditationDrawer({
                             }}
                             onMouseLeave={(e) => {
                               if (!isExpanded) e.currentTarget.style.backgroundColor = '#111827';
-                              e.currentTarget.style.borderColor = someAccreditationsSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151';
+                              e.currentTarget.style.borderColor = '#374151';
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1188,19 +1185,6 @@ export default function AccreditationDrawer({
                                 <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
                               )}
                               <span style={{ fontWeight: '500' }}>{industry.name}</span>
-                              {someAccreditationsSelected && (
-                                <span style={{ 
-                                  fontSize: '0.75rem',
-                                  padding: '0.125rem 0.5rem',
-                                  backgroundColor: 'rgba(249, 115, 22, 0.2)',
-                                  color: '#fdba74',
-                                  borderRadius: '9999px',
-                                }}>
-                                  {industryAccreditations.filter(acc => 
-                                    selected.some(s => !s.is_custom && s.accreditation_id === acc.id)
-                                  ).length} selected
-                                </span>
-                              )}
                             </div>
                             <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                               {industry.count} {industry.count === 1 ? 'accreditation' : 'accreditations'}

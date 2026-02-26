@@ -111,22 +111,23 @@ function EditListingContent() {
   const [existingBusinessName, setExistingBusinessName] = useState<string>('')
   const [lockedFields, setLockedFields] = useState<string[]>([])
   
-  // Form state - REMOVED old fields
-  const [formData, setFormData] = useState<ProviderFormData>({
-    business_name: '',
-    contact_person: '',
-    contact_email: '',
-    contact_phone: '',
-    alternate_phone: '',
-    main_service: '',
-    main_service_id: '',
-    details: '',
-    experience_years: '',
-    fees_pricing: '',
-    callout_fee: '',
-    // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
-    status: ''
-  })
+// Form state
+const [formData, setFormData] = useState<ProviderFormData>({
+  business_name: '',
+  contact_person: '',
+  contact_email: '',
+  contact_phone: '',
+  alternate_phone: '',
+  primary_has_whatsapp: false,  // Add this
+  alternate_has_whatsapp: false, // Add this
+  main_service: '',
+  main_service_id: '',
+  details: '',
+  experience_years: '',
+  fees_pricing: '',
+  callout_fee: '',
+  status: ''
+})
 
   // Add CSS to prevent scroll on focus
   useEffect(() => {
@@ -219,13 +220,14 @@ function EditListingContent() {
           contact_email: listingData.contact_email || '',
           contact_phone: listingData.contact_phone || '',
           alternate_phone: listingData.alternate_phone || '',
+          primary_has_whatsapp: listingData.primary_has_whatsapp || false,  // Add this
+          alternate_has_whatsapp: listingData.alternate_has_whatsapp || false, // Add this
           main_service: listingData.main_service || '',
           main_service_id: listingData.main_service_id || '',
           details: listingData.details || '',
           experience_years: listingData.experience_years || '',
           fees_pricing: listingData.fees_pricing || '',
           callout_fee: listingData.callout_fee || '',
-          // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
           status: listingData.status || ''
         })
         
@@ -464,6 +466,8 @@ function EditListingContent() {
         contact_person: formData.contact_person,
         contact_phone: formData.contact_phone,
         alternate_phone: formData.alternate_phone,
+        primary_has_whatsapp: formData.primary_has_whatsapp || false,  // Add this
+        alternate_has_whatsapp: formData.alternate_has_whatsapp || false, // Add this
         main_service: formData.main_service,
         main_service_id: formData.main_service_id,
         details: formData.details,
@@ -471,7 +475,6 @@ function EditListingContent() {
         service_areas: JSON.stringify([serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])]),
         fees_pricing: formData.fees_pricing || null,
         callout_fee: formData.callout_fee || null,
-        // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
         updated_at: new Date().toISOString(),
       }
       

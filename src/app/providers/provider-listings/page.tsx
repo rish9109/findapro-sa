@@ -56,13 +56,14 @@ function ProviderListingsContent() {
     contact_email: '',
     contact_phone: '',
     alternate_phone: '',
+    primary_has_whatsapp: false,  // Add this
+    alternate_has_whatsapp: false, // Add this
     main_service: '',
     main_service_id: '',
     details: '',
     experience_years: '',
     fees_pricing: '',
     callout_fee: '',
-    // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
     accept_terms: false
   })
 
@@ -317,6 +318,8 @@ function ProviderListingsContent() {
         contact_email: userEmail,
         contact_phone: formData.contact_phone,
         alternate_phone: formData.alternate_phone,
+        primary_has_whatsapp: formData.primary_has_whatsapp || false,  // Add this
+        alternate_has_whatsapp: formData.alternate_has_whatsapp || false, // Add this
         main_service: formData.main_service,
         main_service_id: formData.main_service_id,
         details: formData.details,
@@ -324,7 +327,6 @@ function ProviderListingsContent() {
         service_areas: JSON.stringify([serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])]),
         fees_pricing: formData.fees_pricing || null,
         callout_fee: formData.callout_fee || null,
-        // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
         status: 'pending',
         verified: false,
         created_at: new Date().toISOString(),

@@ -355,9 +355,9 @@ export function filterProvidersLocally(
   // - 2-3 chars: lower threshold to show suggestions
   // - 4+ chars: higher threshold for relevance
   let threshold = 12 // default
-  if (searchTerm.length <= 3) {
+  if (searchTerm.length <= 4) {
     threshold = 8 // Show more for very short queries
-  } else if (searchTerm.length >= 5) {
+  } else if (searchTerm.length >= 6) {
     threshold = 15 // Stricter for longer queries
   }
   

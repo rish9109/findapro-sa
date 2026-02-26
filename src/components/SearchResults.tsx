@@ -28,7 +28,7 @@ interface TransformedProvider {
   business_name: string
   main_service: string
   main_service_id?: string
-  service_areas: string  // This should be a string, not an array
+  service_areas: string
   formatted_service_areas: string[]
   fees_pricing?: string | null
   callout_fee?: string | null
@@ -42,10 +42,13 @@ interface TransformedProvider {
   accepts_card: boolean
   accepts_cash: boolean
   verified: boolean
-  accreditations: any[]  // Must be array, not null
+  accreditations: any[]
   display_accreditations: any[]
   is_favorite: boolean
   business_features?: any[]
+  // Keep original data for reference if needed
+  originalServiceAreas?: string[]
+  originalProviderAccreditations?: any[]
 }
 
 export function SearchResults({ 
@@ -166,7 +169,8 @@ export function SearchResults({
     router.push(`/providers/${providerId}`)
   }
 
-  const getPriceDisplay = (provider: SearchResult) => {
+  // Updated to accept TransformedProvider type
+  const getPriceDisplay = (provider: TransformedProvider): string => {
     if (provider.fees_pricing) {
       return provider.fees_pricing
     }
@@ -176,10 +180,15 @@ export function SearchResults({
     return 'Contact for rates'
   }
 
-  const getServiceAreasDisplay = (provider: SearchResult) => {
+  // Updated to accept TransformedProvider type and use the stored original data
+  const getServiceAreasDisplay = (provider: TransformedProvider): string => {
     try {
-      if (provider.service_areas && provider.service_areas.length > 0) {
-        const cleanedAreas = provider.service_areas
+      // Use originalServiceAreas if available, otherwise use formatted_service_areas
+      const serviceAreas = provider.originalServiceAreas || 
+        (provider.formatted_service_areas.length > 0 ? provider.formatted_service_areas : []);
+      
+      if (serviceAreas && serviceAreas.length > 0) {
+        const cleanedAreas = serviceAreas
           .map((area: string) => {
             return area
               .trim()
@@ -209,9 +218,13 @@ export function SearchResults({
     }
   }
 
-  const getAccreditationsDisplay = (provider: SearchResult) => {
-    if (provider.provider_accreditations && provider.provider_accreditations.length > 0) {
-      const accreditationNames = provider.provider_accreditations.slice(0, 2).map((acc: any) => {
+  // Updated to accept TransformedProvider type
+  const getAccreditationsDisplay = (provider: TransformedProvider): string | null => {
+    // Use originalProviderAccreditations if available, otherwise use display_accreditations
+    const accreditations = provider.originalProviderAccreditations || provider.display_accreditations;
+    
+    if (accreditations && accreditations.length > 0) {
+      const accreditationNames = accreditations.slice(0, 2).map((acc: any) => {
         if (acc.is_custom) {
           return acc.custom_name?.substring(0, 15) || 'Custom'
         } else if (acc.accreditation_id) {
@@ -222,7 +235,7 @@ export function SearchResults({
       })
       
       const display = accreditationNames.join(', ')
-      const additionalCount = provider.provider_accreditations.length - 2
+      const additionalCount = accreditations.length - 2
       
       if (additionalCount > 0) {
         return `${display} +${additionalCount} more`
@@ -269,7 +282,7 @@ export function SearchResults({
       business_name: result.business_name,
       main_service: result.main_service,
       main_service_id: result.main_service_id,
-      service_areas: serviceAreasString, // This is now a string, not an array
+      service_areas: serviceAreasString,
       formatted_service_areas: formattedServiceAreas,
       fees_pricing: result.fees_pricing,
       callout_fee: result.callout_fee,
@@ -283,11 +296,13 @@ export function SearchResults({
       accepts_card: result.accepts_card || false,
       accepts_cash: result.accepts_cash || false,
       verified: result.verified || false,
-      // Ensure accreditations is always an array, never null
       accreditations: result.provider_accreditations || [],
       display_accreditations: result.provider_accreditations || [],
       is_favorite: favorites.includes(result.id),
-      business_features: result.business_features || []
+      business_features: result.business_features || [],
+      // Store original data for display functions
+      originalServiceAreas: result.service_areas,
+      originalProviderAccreditations: result.provider_accreditations
     }
   }
 

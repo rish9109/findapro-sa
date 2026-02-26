@@ -1,4 +1,4 @@
-// File: src/app/favorites/page.tsx - USING PROVIDER CARD COMPONENT
+// File: src/app/favorites/page.tsx - WITH BUSINESS FEATURES
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import ProviderCard from '@/components/ProviderCard'
 
-// Define the Provider type interface (matching what ProviderCard expects)
+// Define the Provider type interface with business_features
 interface Provider {
   id: string
   business_name: string
@@ -35,6 +35,7 @@ interface Provider {
   accreditations: any[]
   display_accreditations: any[]
   is_favorite: boolean
+  business_features?: any[] // Added business features
 }
 
 export default function FavoritesPage() {
@@ -104,11 +105,16 @@ export default function FavoritesPage() {
         
         const providerIds = favoritesData.map(fav => fav.provider_id)
         
+        // Updated query to include business_features with nested feature data
         const { data, error } = await supabase
           .from('providers')
           .select(`
             *,
-            provider_accreditations (id, custom_name, is_custom, accreditation_id)
+            provider_accreditations (id, custom_name, is_custom, accreditation_id),
+            business_features:provider_business_features(
+              *,
+              feature:business_features(*)
+            )
           `)
           .in('id', providerIds)
           .eq('status', 'approved')
@@ -170,7 +176,8 @@ export default function FavoritesPage() {
               verified: provider.verified || false,
               accreditations: provider.provider_accreditations || [],
               display_accreditations: displayAccreditations,
-              is_favorite: true // These are favorites by definition
+              is_favorite: true, // These are favorites by definition
+              business_features: provider.business_features || [] // Include business features
             }
           })
           
@@ -231,14 +238,68 @@ export default function FavoritesPage() {
           .from('providers')
           .select(`
             *,
-            provider_accreditations (id, custom_name, is_custom, accreditation_id)
+            provider_accreditations (id, custom_name, is_custom, accreditation_id),
+            business_features:provider_business_features(
+              *,
+              feature:business_features(*)
+            )
           `)
           .eq('id', providerId)
           .single()
         
         if (data) {
-          // Re-add the provider to the list
-          setFavoriteProviders(prev => [...prev, data as Provider])
+          // Transform the data before adding back
+          const formattedServiceAreas = data.service_areas
+            ? data.service_areas
+                .split(',')
+                .map((area: string) => area.trim())
+                .map((area: string) => {
+                  return area
+                    .split(' ')
+                    .map((word: string) => {
+                      const trimmedWord = word.trim()
+                      if (trimmedWord.length === 0) return ''
+                      return trimmedWord.charAt(0).toUpperCase() + trimmedWord.slice(1).toLowerCase()
+                    })
+                    .join(' ')
+                })
+                .filter((area: string) => area.length > 0)
+            : []
+            
+          const otherServices = data.details
+            ? data.details
+                .split(/[\n,]+/)
+                .map((s: string) => s.trim())
+                .filter((s: string) => s && s.length > 0)
+                .slice(0, 3)
+            : []
+            
+          const restoredProvider: Provider = {
+            id: data.id,
+            business_name: data.business_name,
+            main_service: data.main_service || 'Professional Service',
+            main_service_id: data.main_service_id,
+            service_areas: data.service_areas || '',
+            formatted_service_areas: formattedServiceAreas,
+            fees_pricing: data.fees_pricing,
+            callout_fee: data.callout_fee,
+            rating: data.rating || 4.5,
+            total_reviews: data.total_reviews || 0,
+            other_services: otherServices,
+            all_other_services: data.details || '',
+            experience_years: data.experience_years || 0,
+            emergency_service: data.emergency_service || false,
+            insurance: data.insurance || false,
+            accepts_card: data.accepts_card || false,
+            accepts_cash: data.accepts_cash || true,
+            verified: data.verified || false,
+            accreditations: data.provider_accreditations || [],
+            display_accreditations: data.provider_accreditations || [],
+            is_favorite: true,
+            business_features: data.business_features || []
+          }
+          
+          setFavoriteProviders(prev => [...prev, restoredProvider])
         }
       }
       

@@ -1,4 +1,4 @@
-// File: src/app/providers/page.tsx - WITH FIXED SEARCHBAR POSITIONING
+// File: src/app/providers/page.tsx - WITH BUSINESS FEATURES
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -13,9 +13,9 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import SearchBar from '@/components/SearchBar'
-import ProviderCard from '@/components/ProviderCard' // Import the new component
+import ProviderCard from '@/components/ProviderCard'
 
-// Define the Provider type interface
+// Define the Provider type interface with business_features
 interface Provider {
   id: string
   business_name: string
@@ -38,6 +38,7 @@ interface Provider {
   accreditations: any[]
   display_accreditations: any[]
   is_favorite: boolean
+  business_features?: any[] // Added business features
 }
 
 export default function ProvidersPage() {
@@ -151,11 +152,16 @@ export default function ProvidersPage() {
     try {
       setLoading(true)
       
+      // Updated query to include business_features with nested feature data
       const { data, error } = await supabase
         .from('providers')
         .select(`
           *,
-          provider_accreditations (id, custom_name, is_custom, accreditation_id)
+          provider_accreditations (id, custom_name, is_custom, accreditation_id),
+          business_features:provider_business_features(
+            *,
+            feature:business_features(*)
+          )
         `)
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
@@ -215,7 +221,8 @@ export default function ProvidersPage() {
             verified: provider.verified || false,
             accreditations: provider.provider_accreditations || [],
             display_accreditations: displayAccreditations,
-            is_favorite: favorites.includes(provider.id)
+            is_favorite: favorites.includes(provider.id),
+            business_features: provider.business_features || [] // Include business features
           }
         })
         

@@ -521,14 +521,14 @@ export default function ProvidersPage() {
               {searchQuery 
                 ? `No results for "${searchQuery}"`
                 : selectedCategory !== 'all' 
-                  ? 'No providers in this category' 
+                  ? 'No providers available yet' 
                   : 'No providers available yet'}
             </h3>
             <p className="text-gray-500 mb-6">
               {searchQuery
                 ? 'Try different keywords or clear your search'
                 : selectedCategory !== 'all' 
-                  ? 'Try selecting a different category or check back soon'
+                  ? 'Share the platform with business that fit a category and together lets grow our databse'
                   : 'Check back soon for approved service providers!'}
             </p>
             

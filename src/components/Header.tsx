@@ -1,4 +1,4 @@
-// File: src/components/Header.tsx - WITH HOME ICON & CLASSY DROPDOWN
+// src/components/Header.tsx - original design + only click blocking when onboarding open
 'use client'
 
 import Link from 'next/link'
@@ -17,7 +17,8 @@ import {
   Heart,
   Star,
   Briefcase,
-  MessageCircle
+  MessageCircle,
+  Store // Added Store icon for business listing
 } from 'lucide-react'
 import OnboardingDrawer from '@/components/OnboardingDrawer'
 
@@ -29,16 +30,11 @@ export default function Header() {
   const [loading, setLoading] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   
-  // Get current pathname
   const pathname = usePathname()
-  
-  // Check if it's an admin route
   const isAdminRoute = pathname?.startsWith('/admin')
   
-  // If admin route, don't render anything (no header)
   if (isAdminRoute) return null
   
-  // Only continue if NOT an admin route
   const searchParams = useSearchParams()
   const params = useParams()
   const { user, logout, showAuthModal, isProvider } = useAuth()
@@ -49,7 +45,6 @@ export default function Header() {
   const categoryParam = searchParams.get('category')
   const providerId = params.id as string
 
-  // Fetch category name from Supabase when categoryParam changes
   useEffect(() => {
     const fetchCategoryName = async () => {
       if (categoryParam && pathname === '/providers') {
@@ -80,7 +75,6 @@ export default function Header() {
     fetchCategoryName()
   }, [categoryParam, pathname])
 
-  // Fetch provider name when on provider details page
   useEffect(() => {
     const fetchProviderName = async () => {
       if (isProviderPage && providerId) {
@@ -111,7 +105,6 @@ export default function Header() {
     fetchProviderName()
   }, [isProviderPage, providerId])
 
-  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10)
@@ -120,7 +113,6 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -132,22 +124,44 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Close dropdown on route change
   useEffect(() => {
     setUserDropdownOpen(false)
   }, [pathname])
 
-  // Check if onboarding should show when user signs in
   useEffect(() => {
-    if (user) {
-      // Check if user has seen onboarding before
-      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding')
-      if (!hasSeenOnboarding) {
-        // Small delay to let the header render first
-        setTimeout(() => setShowOnboarding(true), 500)
+    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding')
+    if (!hasSeenOnboarding) {
+      const timer = setTimeout(() => setShowOnboarding(true), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+
+  // ─── ONLY CLICK BLOCKING ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!showOnboarding) return
+
+    const blockHeaderClicks = (e: MouseEvent | TouchEvent) => {
+      const clientY = 'touches' in e ? e.touches[0]?.clientY : (e as MouseEvent).clientY
+      if (clientY && clientY < 100) {  // adjust if your header is taller/shorter
+        e.preventDefault()
+        e.stopPropagation()
+        if ('stopImmediatePropagation' in e) {
+          e.stopImmediatePropagation()
+        }
       }
     }
-  }, [user])
+
+    document.addEventListener('mousedown', blockHeaderClicks, true)
+    document.addEventListener('click', blockHeaderClicks, true)
+    document.addEventListener('touchstart', blockHeaderClicks, true)
+
+    return () => {
+      document.removeEventListener('mousedown', blockHeaderClicks, true)
+      document.removeEventListener('click', blockHeaderClicks, true)
+      document.removeEventListener('touchstart', blockHeaderClicks, true)
+    }
+  }, [showOnboarding])
+  // ────────────────────────────────────────────────────────────────────────
 
   const handleAuthClick = () => {
     showAuthModal('login')
@@ -159,18 +173,16 @@ export default function Header() {
 
   const handleDontShowAgain = () => {
     localStorage.setItem('hasSeenOnboarding', 'true')
+    setShowOnboarding(false)
   }
 
   const userInitial = user?.user_metadata?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'
 
-  // Function to get page title based on current route
   const getPageTitle = () => {
-    // Provider details page
     if (isProviderPage) {
       return providerName || 'Professional Details'
     }
     
-    // Providers list page with category
     if (pathname === '/providers') {
       if (categoryParam && !loading) {
         return categoryName || 'Category'
@@ -178,12 +190,10 @@ export default function Header() {
       return 'Find Professionals'
     }
     
-    // Other specific pages
     if (pathname === '/favorites') return 'My Favorites'
     if (pathname === '/profile') return 'My Profile'
     if (pathname === '/providers/dashboard') return 'Provider Dashboard'
     
-    // Generic page name extraction
     if (pathname !== '/') {
       const pageName = pathname.split('/').pop() || ''
       if (pageName) {
@@ -211,7 +221,6 @@ export default function Header() {
             {/* Left Section - Logo on Home, Home Icon on Other Pages */}
             <div className={`flex items-center ${isHomePage ? 'flex-shrink-0' : 'flex-shrink-0 min-w-0 max-w-[120px] sm:max-w-[180px]'}`}>
               {isHomePage ? (
-                // Home page - Show Logo on left (FULL DISPLAY - NO TRUNCATION)
                 <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
                   <div className="flex flex-col">
                     <div className="text-lg sm:text-2xl font-black bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent group-hover:from-amber-500 group-hover:via-yellow-400 group-hover:to-amber-500 transition-all duration-300 whitespace-nowrap">
@@ -223,7 +232,6 @@ export default function Header() {
                   </div>
                 </Link>
               ) : (
-                // Other pages - Show Home icon with limited space
                 <Link 
                   href="/" 
                   className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors duration-300 group flex-shrink-0"
@@ -247,8 +255,26 @@ export default function Header() {
 
             {/* Right Section - User Authentication */}
             <div className="relative flex-shrink-0" ref={dropdownRef}>
-              {user ? (
-                // Logged in state - Classy trigger button
+              {!user ? (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleAuthClick}
+                  className={`
+                    flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl 
+                    bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold 
+                    hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all duration-300 group
+                    ${showOnboarding 
+                      ? 'ring-2 ring-cyan-400/70 ring-offset-2 ring-offset-black animate-neon-pulse' 
+                      : ''
+                    }
+                  `}
+                >
+                  <UserCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">Sign In</span>
+                  <span className="sm:hidden">Login</span>
+                </motion.button>
+              ) : (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -265,7 +291,6 @@ export default function Header() {
                   `}
                 >
                   <div className="relative">
-                    {/* User avatar with classy border */}
                     <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-900/30 via-purple-900/30 to-cyan-900/30 flex items-center justify-center border border-white/10 overflow-hidden group-hover/user-trigger:border-white/20 transition-all duration-300">
                       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-cyan-500/10 opacity-0 group-hover/user-trigger:opacity-100 transition-opacity duration-300" />
                       
@@ -275,14 +300,12 @@ export default function Header() {
                     </div>
                   </div>
                   
-                  {/* User info - hidden on mobile */}
                   <div className="text-left hidden sm:block">
                     <div className="text-white font-semibold text-xs sm:text-sm truncate max-w-[120px]">
                       {user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0]}
                     </div>
                   </div>
                   
-                  {/* Animated chevron */}
                   <motion.div
                     animate={{ rotate: userDropdownOpen ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
@@ -291,21 +314,8 @@ export default function Header() {
                     <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                   </motion.div>
                 </motion.button>
-              ) : (
-                // Not logged in state
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleAuthClick}
-                  className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all duration-300 group"
-                >
-                  <UserCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="hidden sm:inline">Sign In</span>
-                  <span className="sm:hidden">Login</span>
-                </motion.button>
               )}
               
-              {/* Classy User Dropdown */}
               <AnimatePresence>
                 {user && userDropdownOpen && (
                   <motion.div
@@ -318,13 +328,10 @@ export default function Header() {
                       boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05) inset'
                     }}
                   >
-                    {/* User info header with elegant gradient */}
                     <div className="relative p-4 sm:p-6 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
-                      {/* Subtle pattern overlay */}
                       <div className="absolute inset-0 opacity-[0.02] bg-[radial-gradient(circle_at_1px_1px,#ffffff_1px,transparent_0)] bg-[length:20px_20px]" />
                       
                       <div className="relative flex items-center gap-3">
-                        {/* Premium avatar with glass effect */}
                         <div className="relative">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-cyan-500/20 flex items-center justify-center border border-white/20 backdrop-blur-sm">
                             <span className="text-white font-bold text-lg sm:text-xl">{userInitial}</span>
@@ -340,9 +347,24 @@ export default function Header() {
                       </div>
                     </div>
                     
-                    {/* Dropdown items with elegant styling */}
                     <div className="p-2 sm:p-3">
-                      {/* Favorites */}
+                      {/* List Your Business - Added to dropdown */}
+                      <Link 
+                        href="/providers/provider-listings" 
+                        className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
+                        onClick={() => setUserDropdownOpen(false)}
+                      >
+                        <div className="relative">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-300">
+                            <Store className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm sm:text-base">List Your Business</div>
+                          <div className="text-xs text-gray-400">Get discovered by clients</div>
+                        </div>
+                      </Link>
+
                       <Link 
                         href="/favorites" 
                         className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
@@ -359,7 +381,6 @@ export default function Header() {
                         </div>
                       </Link>
 
-                      {/* Provider Dashboard */}
                       {isProvider && (
                         <Link 
                           href="/providers/dashboard" 
@@ -378,7 +399,6 @@ export default function Header() {
                         </Link>
                       )}
                       
-                      {/* Profile */}
                       <Link 
                         href="/profile" 
                         className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
@@ -393,7 +413,6 @@ export default function Header() {
                         </div>
                       </Link>
                       
-                      {/* Contact Us */}
                       <Link 
                         href="/contact" 
                         className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
@@ -410,7 +429,6 @@ export default function Header() {
                         </div>
                       </Link>
                       
-                      {/* Sign Out with elegant styling */}
                       <button
                         onClick={() => {
                           logout()
@@ -435,10 +453,10 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Spacer for fixed header */}
+      {/* Spacer for fixed header - unchanged */}
       <div className="h-20 sm:h-24"></div>
 
-      {/* Onboarding Drawer */}
+      {/* Onboarding Drawer - unchanged */}
       <OnboardingDrawer
         isOpen={showOnboarding}
         onClose={handleCloseOnboarding}
@@ -448,7 +466,6 @@ export default function Header() {
   )
 }
 
-// Helper function to format ID as fallback
 function formatId(id: string): string {
   const formatted = id
     .replace(/[^a-zA-Z0-9]/g, ' ')

@@ -41,6 +41,8 @@ export interface ProviderFormData {
   contact_email: string
   contact_phone: string
   alternate_phone: string
+  primary_has_whatsapp?: boolean  // Add this
+  alternate_has_whatsapp?: boolean // Add this
   
   // Service Information
   main_service: string
@@ -51,8 +53,6 @@ export interface ProviderFormData {
   // Pricing & Payment
   fees_pricing: string
   callout_fee: string
-  
-  // REMOVED: accepts_card, accepts_cash, deposit_required, emergency_service, insurance
   
   // Terms (only for new listings)
   accept_terms?: boolean
@@ -387,12 +387,33 @@ function ProviderForm({
               disabled={disabledFields.includes('contact_phone')}
               className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.contact_phone ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('contact_phone') ? 'opacity-70 cursor-not-allowed' : ''}`}
               placeholder="123 456 7890"
-              maxLength={12} // 3 digits + space + 3 digits + space + 4 digits = 12 chars
+              maxLength={12}
               inputMode="numeric"
               pattern="[0-9\s]*"
             />
             {formErrors.contact_phone && (
               <p className="mt-1 text-sm text-red-400">{formErrors.contact_phone}</p>
+            )}
+            
+            {/* WhatsApp Checkbox for Primary Phone */}
+            {formData.contact_phone && formData.contact_phone.replace(/\D/g, '').length >= 10 && (
+              <div className="mt-2 flex items-center gap-2 p-2 bg-gray-800/30 rounded-lg border border-gray-700">
+                <input
+                  type="checkbox"
+                  id="primary_has_whatsapp"
+                  name="primary_has_whatsapp"
+                  checked={formData.primary_has_whatsapp || false}
+                  onChange={handleChange}
+                  disabled={disabledFields.includes('primary_has_whatsapp')}
+                  className="w-4 h-4 accent-green-500 rounded cursor-pointer"
+                />
+                <label htmlFor="primary_has_whatsapp" className="text-sm text-gray-300 flex items-center gap-1.5 cursor-pointer">
+                  <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2c-5.349 0-9.703 4.352-9.706 9.702 0 1.703.444 3.371 1.286 4.836L2 22l5.539-1.504c1.414.783 3.004 1.196 4.64 1.197h.004c5.347 0 9.701-4.353 9.704-9.703.001-2.598-1.01-5.041-2.897-6.928zM12.018 20.06h-.003c-1.446 0-2.864-.389-4.082-1.12l-.293-.174-3.288.875.88-3.2-.19-.305c-.758-1.215-1.158-2.617-1.158-4.064.003-4.445 3.619-8.06 8.067-8.06 2.153 0 4.178.841 5.699 2.368 1.521 1.527 2.358 3.553 2.357 5.71-.002 4.446-3.618 8.062-8.064 8.062zM16.247 14.28c-.245-.123-1.453-.717-1.678-.798-.225-.082-.388-.123-.552.122-.164.245-.636.798-.78.962-.143.164-.287.185-.532.062-.926-.403-1.719-.917-2.402-1.527-.901-.803-1.51-1.771-1.686-2.082-.164-.29-.018-.447.124-.592.128-.128.286-.334.429-.501.143-.167.191-.287.287-.479.095-.192.048-.36-.024-.503-.071-.143-.552-1.329-.756-1.818-.199-.479-.4-.414-.552-.422a9.96 9.96 0 0 0-.47-.008c-.166.005-.398.057-.608.287-.21.23-.802.784-.802 1.913 0 1.128.822 2.218.937 2.372.115.154 1.56 2.456 3.856 3.34 2.296.884 2.296.589 2.71.552.414-.037 1.337-.546 1.525-1.074.188-.528.188-.98.132-1.075-.057-.095-.21-.154-.456-.277z"/>
+                  </svg>
+                  This number has WhatsApp
+                </label>
+              </div>
             )}
           </div>
           
@@ -417,6 +438,27 @@ function ProviderForm({
             />
             {formErrors.alternate_phone && (
               <p className="mt-1 text-sm text-red-400">{formErrors.alternate_phone}</p>
+            )}
+            
+            {/* WhatsApp Checkbox for Alternate Phone */}
+            {formData.alternate_phone && formData.alternate_phone.replace(/\D/g, '').length >= 10 && (
+              <div className="mt-2 flex items-center gap-2 p-2 bg-gray-800/30 rounded-lg border border-gray-700">
+                <input
+                  type="checkbox"
+                  id="alternate_has_whatsapp"
+                  name="alternate_has_whatsapp"
+                  checked={formData.alternate_has_whatsapp || false}
+                  onChange={handleChange}
+                  disabled={disabledFields.includes('alternate_has_whatsapp')}
+                  className="w-4 h-4 accent-green-500 rounded cursor-pointer"
+                />
+                <label htmlFor="alternate_has_whatsapp" className="text-sm text-gray-300 flex items-center gap-1.5 cursor-pointer">
+                  <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2c-5.349 0-9.703 4.352-9.706 9.702 0 1.703.444 3.371 1.286 4.836L2 22l5.539-1.504c1.414.783 3.004 1.196 4.64 1.197h.004c5.347 0 9.701-4.353 9.704-9.703.001-2.598-1.01-5.041-2.897-6.928zM12.018 20.06h-.003c-1.446 0-2.864-.389-4.082-1.12l-.293-.174-3.288.875.88-3.2-.19-.305c-.758-1.215-1.158-2.617-1.158-4.064.003-4.445 3.619-8.06 8.067-8.06 2.153 0 4.178.841 5.699 2.368 1.521 1.527 2.358 3.553 2.357 5.71-.002 4.446-3.618 8.062-8.064 8.062zM16.247 14.28c-.245-.123-1.453-.717-1.678-.798-.225-.082-.388-.123-.552.122-.164.245-.636.798-.78.962-.143.164-.287.185-.532.062-.926-.403-1.719-.917-2.402-1.527-.901-.803-1.51-1.771-1.686-2.082-.164-.29-.018-.447.124-.592.128-.128.286-.334.429-.501.143-.167.191-.287.287-.479.095-.192.048-.36-.024-.503-.071-.143-.552-1.329-.756-1.818-.199-.479-.4-.414-.552-.422a9.96 9.96 0 0 0-.47-.008c-.166.005-.398.057-.608.287-.21.23-.802.784-.802 1.913 0 1.128.822 2.218.937 2.372.115.154 1.56 2.456 3.856 3.34 2.296.884 2.296.589 2.71.552.414-.037 1.337-.546 1.525-1.074.188-.528.188-.98.132-1.075-.057-.095-.21-.154-.456-.277z"/>
+                  </svg>
+                  This number has WhatsApp
+                </label>
+              </div>
             )}
           </div>
         </div>
@@ -486,20 +528,20 @@ function ProviderForm({
           
           {/* Details */}
           <div>
-  <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-    Details
-    <span className="text-xs text-gray-400 ml-2">(Optional)</span>
-  </label>
-  <textarea
-    name="details"
-    value={formData.details}
-    onChange={handleChange}
-    rows={10}
-    disabled={disabledFields.includes('details')}
-    className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
-    placeholder="Enter your service details...(Enter services separated by commas or on separate lines. Will display as a bullet list.)"
-  />
-</div>
+            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+              Details
+              <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+            </label>
+            <textarea
+              name="details"
+              value={formData.details}
+              onChange={handleChange}
+              rows={10}
+              disabled={disabledFields.includes('details')}
+              className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
+              placeholder="Enter your service details...(Enter services separated by commas or on separate lines. Will display as a bullet list.)"
+            />
+          </div>
 
           {/* Accreditations */}
           <div>
@@ -640,8 +682,6 @@ function ProviderForm({
             </div>
           </div>
 
-  
-          
           {/* Business Features - New section (optional) */}
           <div>
             <div className="flex items-center justify-between mb-2">

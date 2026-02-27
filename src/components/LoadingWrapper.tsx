@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import LoadingScreen from './LoadingScreen';
+import { getCategoriesWithProviderCounts } from '@/lib/supabase';
 
 interface LoadingWrapperProps {
   children: React.ReactNode;
@@ -15,11 +16,49 @@ const LoadingWrapper: React.FC<LoadingWrapperProps> = ({ children }) => {
   useEffect(() => {
     setIsMounted(true);
     
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
+    const loadCriticalData = async () => {
+      try {
+        // Fetch categories with provider counts (bypass cache)
+        console.log('🔄 Fetching fresh categories data...');
+        const categories = await getCategoriesWithProviderCounts(true);
+        
+        // Store in sessionStorage with timestamp
+        sessionStorage.setItem('cachedCategories', JSON.stringify({
+          data: categories,
+          timestamp: Date.now()
+        }));
+        
+        console.log('✅ Categories loaded:', categories.length);
 
-    return () => clearTimeout(timer);
+      } catch (error) {
+        console.error('❌ Error loading critical data:', error);
+        
+        // If fetch fails, try to use cached data
+        const cached = sessionStorage.getItem('cachedCategories');
+        if (cached) {
+          console.log('📦 Using cached categories data');
+        }
+      }
+    };
+
+    // Start loading data immediately
+    loadCriticalData();
+
+    // Minimum loading time for showcase (2.5 seconds)
+    const minLoadTime = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500);
+
+    // Maximum loading time (5 seconds) - force hide even if data isn't loaded
+    const maxLoadTime = setTimeout(() => {
+      console.log('⏰ Max load time reached, hiding loader');
+      setIsLoading(false);
+    }, 5000);
+
+    return () => {
+      clearTimeout(minLoadTime);
+      clearTimeout(maxLoadTime);
+    };
   }, []);
 
   if (!isMounted) {
@@ -32,10 +71,17 @@ const LoadingWrapper: React.FC<LoadingWrapperProps> = ({ children }) => {
         isVisible={isLoading}
         messages={[
           'Loading Find A Pro...',
-          'Fetching professionals...',
-          'Preparing your dashboard...'
+          'Fetching service categories...',
+          'Counting active providers...',
+          'Preparing your experience...',
+          'Almost there...',
+          'Ready to connect!'
         ]}
-        onComplete={() => setIsLoading(false)}
+        simulateProgress={true}
+        showcaseDuration={800}
+        onComplete={() => {
+          console.log('🎬 Loading complete, showing app');
+        }}
       />
       
       <div 

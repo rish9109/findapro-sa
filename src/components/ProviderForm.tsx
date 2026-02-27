@@ -344,28 +344,33 @@ function ProviderForm({
             )}
           </div>
           
-          {/* Email - Always Locked */}
-          <div>
-            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-              <span>Email Address</span>
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type="email"
-                value={userEmail}
-                readOnly
-                disabled
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 cursor-not-allowed"
-              />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">
-                  Locked
-                </span>
-              </div>
-            </div>
-          </div>
-          
+{/* Email - Always Locked */}
+<div>
+  <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
+    <span>Email Address</span>
+    <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <input
+      type="email"
+      value={userEmail}
+      readOnly
+      disabled
+      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 cursor-not-allowed"
+      style={{ 
+        paddingRight: '80px',
+        textOverflow: 'ellipsis',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap'
+      }}
+    />
+    <div className="absolute right-3 top-1/2 transform -translate-y-1/2" style={{ zIndex: 1 }}>
+      <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded border border-orange-500/30">
+        Locked
+      </span>
+    </div>
+  </div>
+</div>
           {/* Primary Phone */}
           <div>
             <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">

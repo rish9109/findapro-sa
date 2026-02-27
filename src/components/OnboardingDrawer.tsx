@@ -337,7 +337,10 @@ export default function OnboardingDrawer({
                           onClick={handleClose}
                           className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-4 px-6 rounded-xl text-center transition-all transform hover:scale-[1.02] shadow-lg shadow-orange-500/25"
                         >
-                          Claim Your Free Spot
+                          List Your Business now 
+                          <p className="text-center text-xs text-gray-600 mt-2">
+                          * You must be logged in first.
+                        </p>
                         </Link>
                         <button
                           onClick={() => setShowPromoSection(false)}

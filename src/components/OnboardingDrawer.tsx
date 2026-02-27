@@ -309,12 +309,12 @@ export default function OnboardingDrawer({
                       <div className="bg-gray-800/30 rounded-xl p-5 border border-gray-700">
                         <h3 className="text-white font-medium mb-3 flex items-center gap-2">
                           <Zap className="w-4 h-4 text-amber-400" />
-                          Your premium listing includes:
+                         Your Premium Features Include:
                         </h3>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           {[
-                            'Logo & photos', 'WhatsApp', 'Multiple phones', 
-                            'Service areas', 'Verified badge', '3 listings'
+                            '3 Listings per a/c', 'WhatsApp', 'Business Details', 
+                            'Service areas', 'certifications', 'Business features', 'Logo / Image', 'And more'
                           ].map((feature, i) => (
                             <div key={i} className="flex items-center gap-2 text-gray-300">
                               <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
@@ -347,7 +347,7 @@ export default function OnboardingDrawer({
                         </button>
                       </div>
                     </div>
-                  )}
+                  )} 
                 </div>
               </div>
             </motion.div>

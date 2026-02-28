@@ -1,9 +1,11 @@
+// src/components/InstallPrompt.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
-import { usePathname } from 'next/navigation' // Add this import
+import { usePathname } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[]
@@ -12,103 +14,91 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function InstallPrompt() {
+  const { user } = useAuth()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
-  const [neverShowAgain, setNeverShowAgain] = useState(false)
-  const [installed, setInstalled] = useState(false)
   
-  // Add this to get current path
   const pathname = usePathname()
 
   const isStandalone = typeof window !== 'undefined' && 
     window.matchMedia('(display-mode: standalone)').matches
 
   const isAndroid = typeof window !== 'undefined' && 
-    /Android/i.test(navigator.userAgent) && /Chrome/i.test(navigator.userAgent)
+    /Android/i.test(navigator.userAgent)
 
-  // Check localStorage on mount
+  // Check if user has permanently dismissed
+  const hasUserDismissed = typeof window !== 'undefined' && 
+    localStorage.getItem('findapro-install-dismissed') === 'true'
+
+  // Get display name from user
+  const displayName = user?.user_metadata?.full_name || 
+                      user?.user_metadata?.name || 
+                      user?.email?.split('@')[0] || 
+                      'Pro'
+
+  // Listen for the beforeinstallprompt event
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const neverShowAgainStored = localStorage.getItem('findapro-install-never-again') === 'true'
-      setNeverShowAgain(neverShowAgainStored)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (installed) {
-      const timer = setTimeout(() => {
-        setInstalled(false)
-      }, 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [installed])
-
-  useEffect(() => {
-    // Don't show if: standalone, not Android, not on home page, or never-show-again is true
-    if (isStandalone) return
-    if (!isAndroid) return
-    if (pathname !== '/') return // Only show on home page
-    if (neverShowAgain) return // Check the state, not localStorage directly
-
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault()
+      console.log('Install prompt event captured') // Debug
       setDeferredPrompt(e)
-      setShowPrompt(true)
-    }
-
-    const handleAppInstalled = () => {
-      setInstalled(true)
-      setShowPrompt(false)
-      setIsInstalling(false)
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
-    window.addEventListener('appinstalled', handleAppInstalled)
-
+    
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener)
-      window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [isStandalone, isAndroid, pathname, neverShowAgain]) // Add dependencies
+  }, [])
+
+  // Show prompt when user logs in AND we have the prompt
+  useEffect(() => {
+    if (user && deferredPrompt && !hasUserDismissed && !isStandalone && pathname === '/') {
+      // Small delay to ensure smooth UX after login
+      const timer = setTimeout(() => {
+        setShowPrompt(true)
+      }, 1000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [user, deferredPrompt, hasUserDismissed, isStandalone, pathname])
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return
+    if (!deferredPrompt) {
+      console.log('No deferred prompt available')
+      return
+    }
 
     setIsInstalling(true)
+    
+    // Must call prompt() as a direct result of user click
     deferredPrompt.prompt()
-
+    
     const { outcome } = await deferredPrompt.userChoice
-
+    
     if (outcome === 'accepted') {
-      setInstalled(true)
+      console.log('User accepted install')
+      setShowPrompt(false)
+    } else {
+      console.log('User dismissed install')
     }
-
-    if (neverShowAgain) {
-      localStorage.setItem('findapro-install-never-again', 'true')
-    }
-
-    setDeferredPrompt(null)
+    
+    setDeferredPrompt(null) // Can only use once
     setIsInstalling(false)
+  }
+
+  const handleDismiss = () => {
     setShowPrompt(false)
   }
 
-  const handleCancel = () => {
+  const handleDontShowAgain = () => {
+    localStorage.setItem('findapro-install-dismissed', 'true')
     setShowPrompt(false)
-    if (neverShowAgain) {
-      localStorage.setItem('findapro-install-never-again', 'true')
-    }
   }
 
-  const handleNeverAgain = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNeverShowAgain(e.target.checked)
-  }
-
-  // Check if we should show anything at all
-  const shouldShow = showPrompt || installed
-
-  // Don't render if not Android, if standalone, if not on home page, or if we shouldn't show
-  if (!isAndroid || isStandalone || !shouldShow || pathname !== '/') {
+  // Don't render if conditions not met
+  if (!user || !isAndroid || isStandalone || !showPrompt || pathname !== '/' || hasUserDismissed) {
     return null
   }
 
@@ -118,86 +108,58 @@ export default function InstallPrompt() {
         initial={{ opacity: 0, y: -100 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -100 }}
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className="fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-[100]"
       >
         <div className="relative bg-gradient-to-b from-gray-900/95 to-black/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl shadow-2xl overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-          
-          {showPrompt && (
-            <button
-              onClick={handleCancel}
-              className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-400" />
-            </button>
-          )}
+          <button
+            onClick={handleDismiss}
+            className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/10"
+          >
+            <X className="w-4 h-4 text-gray-400" />
+          </button>
 
           <div className="p-6">
-            {!installed ? (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold justify-center-safe">App Install</h3>
-                    <h2 className="text-lg font-semibold text-center bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
-                      findapro.co.za
-                    </h2>
-                    <p className="text-xs text-gray-400 justify-center-safe">FIND A PRO CONNECT (PTY) LTD</p>
-                  </div>
-                </div>
+            <h3 className="text-lg font-semibold mb-1">Welcome, {displayName}! 👋</h3>
+            <h2 className="text-lg font-semibold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent mb-4">
+              Install Find A Pro App
+            </h2>
 
-                <label className="flex items-center gap-3 mb-5 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={neverShowAgain}
-                    onChange={handleNeverAgain}
-                    className="w-4 h-4 accent-amber-500 bg-gray-800 border-gray-600 rounded transition-colors"
-                  />
-                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-                    Don't show this again
-                  </span>
-                </label>
+            <div className="space-y-2 mb-5 text-sm text-gray-300">
+              <p>✓ One-tap access from home screen</p>
+              <p>✓ Faster loading</p>
+              <p>✓ Works offline</p>
+              <p>✓ Quick access to your dashboard</p>
+            </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleCancel}
-                    className="flex-1 py-2.5 bg-gray-800/80 hover:bg-gray-700 rounded-xl font-medium text-sm transition-all hover:scale-[1.02]"
-                  >
-                    Later
-                  </button>
-
-                  <button
-                    onClick={handleInstall}
-                    disabled={isInstalling}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-medium text-sm transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-                  >
-                    {isInstalling ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Installing...
-                      </>
-                    ) : (
-                      'Install App'
-                    )}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", damping: 10 }}
-                  className="text-4xl mb-3"
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleInstall}
+                disabled={isInstalling}
+                className="w-full py-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 rounded-xl font-medium transition-all transform active:scale-95"
+              >
+                {isInstalling ? 'Installing...' : 'Install App'}
+              </button>
+              
+              <div className="flex gap-2 text-xs">
+                <button
+                  onClick={handleDismiss}
+                  className="flex-1 py-2 bg-gray-800/80 hover:bg-gray-700 rounded-lg transition-all"
                 >
-                  🎉
-                </motion.div>
-                <p className="font-semibold text-lg">Installed!</p>
-                <p className="text-sm text-gray-400 mt-1">
-                  FindAPro is on your home screen
-                </p>
+                  Later
+                </button>
+                <button
+                  onClick={handleDontShowAgain}
+                  className="flex-1 py-2 bg-gray-800/80 hover:bg-gray-700 rounded-lg transition-all"
+                >
+                  Don't show again
+                </button>
               </div>
-            )}
+            </div>
+            
+            {/* Debug info - remove in production */}
+            <p className="text-[10px] text-gray-600 mt-3 text-center">
+              {deferredPrompt ? '✓ Install ready' : '⏳ Loading install...'}
+            </p>
           </div>
         </div>
       </motion.div>

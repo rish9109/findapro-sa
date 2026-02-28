@@ -64,11 +64,11 @@ export default async function RootLayout({
       </head>
 
       <body className={inter.className}>
-        <InstallPrompt />
-        <SamsungBrowserNotice /> {/* ← Added here – global overlay notice */}
+        <SamsungBrowserNotice /> {/* ← This one doesn't need auth, so it's fine outside */}
 
         <ErrorBoundary>
           <AuthProvider>
+            <InstallPrompt /> {/* ← MOVED INSIDE AuthProvider */}
             <LoadingWrapper>
               <ScrollToTop />
               <Header />

@@ -145,6 +145,7 @@ export default function AuthModal() {
       setForgotPasswordLoading(false)
     }
   }
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -177,39 +178,43 @@ export default function AuthModal() {
           setConfirmPassword('')
           setShowSignup(false)
         } else {
-          setError(result.message || 'Signup failed')
+          // Handle specific signup errors
+          if (result.message?.toLowerCase().includes('already registered')) {
+            setError('An account with this email already exists. Please sign in instead.')
+          } else {
+            setError(result.message || 'Signup failed. Please try again.')
+          }
         }
       } else {
         const result = await login(email, password)
         
         if (!result.success) {
-          // Check if the email exists in auth by trying to send a magic link
-          const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-              shouldCreateUser: false // Don't create user if they don't exist
-            }
-          })
-          
-          if (!magicLinkError) {
-            // Email exists in auth - must be a Google account
-            setError(
-              'This email uses Google Sign-In. Please click the Google button below to log in, ' +
-              'or click "Forgot Password" to set up email login.'
-            )
-          } else {
-            // Email doesn't exist at all
-            setError('No account found with this email. Would you like to sign up instead?')
-            setShowSignup(true)
+          // Check for specific error types from the login function
+          if (result.error?.message?.toLowerCase().includes('invalid login credentials')) {
+            setError('Invalid email or password. Please try again.')
+          } 
+          else if (result.error?.message?.toLowerCase().includes('email not confirmed')) {
+            setError('Please verify your email address before logging in. Check your inbox for the verification link.')
+          }
+          else if (result.error?.message?.toLowerCase().includes('provider is not supported') || 
+                   result.error?.message?.toLowerCase().includes('identity is already linked to another user')) {
+            // This could indicate a Google account trying to use email/password
+            setError('This email uses Google Sign-In. Please click the Google button below to log in.')
+          }
+          else {
+            // Generic error for any other case - doesn't reveal if email exists or not
+            setError('Unable to log in. Please check your credentials and try again.')
           }
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred')
+      setError('An unexpected error occurred. Please try again.')
+      console.error('Auth error:', err)
     } finally {
       setIsLoading(false)
     }
   }
+  
   // ─── Fixed switch functions ────────────────────────────────────────
   const switchToSignup = () => {
     setShowSignup(true)
@@ -358,44 +363,40 @@ export default function AuthModal() {
                         </div>
                       </div>
                     )}
-{error && (
-  <div className={`p-4 rounded-lg border ${
-    error.includes('Google') 
-      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-      : 'bg-red-500/10 text-red-400 border-red-500/20'
-  }`}>
-    <div className="flex items-center gap-2 mb-2">
-      <span className="font-medium">
-        {error.includes('Google') ? 'Google Account Detected' : 'Error'}
-      </span>
-    </div>
-    {error}
-    {error.includes('Google') && (
-      <div className="mt-3 flex gap-3">
-        <button 
-          type="button" 
-          onClick={switchToForgotPassword} 
-          className="text-blue-400 hover:text-blue-300 font-medium text-sm underline"
-        >
-          Forgot Password
-        </button>
-        <span className="text-gray-500">|</span>
-        <button 
-          type="button" 
-          onClick={handleGoogleSignIn} 
-          className="text-blue-400 hover:text-blue-300 font-medium text-sm underline"
-        >
-          Continue with Google
-        </button>
-      </div>
-    )}
-    {error.toLowerCase().includes('sign up') && !error.includes('Google') && (
-      <button type="button" onClick={switchToSignup} className="block mt-2 text-red-400 hover:text-red-300 font-medium underline">
-        Yes, create an account
-      </button>
-    )}
-  </div>
-)}
+
+                    {error && (
+                      <div className={`p-4 rounded-lg border ${
+                        error.includes('Google') 
+                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
+                          : 'bg-red-500/10 text-red-400 border-red-500/20'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium">
+                            {error.includes('Google') ? 'Google Account Detected' : 'Error'}
+                          </span>
+                        </div>
+                        {error}
+                        {error.includes('Google') && (
+                          <div className="mt-3 flex gap-3">
+                            <button 
+                              type="button" 
+                              onClick={switchToForgotPassword} 
+                              className="text-blue-400 hover:text-blue-300 font-medium text-sm underline"
+                            >
+                              Forgot Password
+                            </button>
+                            <span className="text-gray-500">|</span>
+                            <button 
+                              type="button" 
+                              onClick={handleGoogleSignIn} 
+                              className="text-blue-400 hover:text-blue-300 font-medium text-sm underline"
+                            >
+                              Continue with Google
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {showSignup && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

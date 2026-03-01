@@ -156,15 +156,18 @@ export default function AuthModal() {
       if (showSignup) {
         if (!name.trim() || !surname.trim()) {
           setError('Please enter your name and surname')
+          setIsLoading(false)
           return
         }
         if (password !== confirmPassword) {
           setError('Passwords do not match')
+          setIsLoading(false)
           return
         }
         const allChecksMet = Object.values(passwordChecks).every(check => check)
         if (!allChecksMet) {
           setError('Please meet all password requirements')
+          setIsLoading(false)
           return
         }
   
@@ -178,8 +181,9 @@ export default function AuthModal() {
           setConfirmPassword('')
           setShowSignup(false)
         } else {
-          // Handle specific signup errors
-          if (result.message?.toLowerCase().includes('already registered')) {
+          // Handle specific signup errors based on message content
+          if (result.message?.toLowerCase().includes('already registered') || 
+              result.message?.toLowerCase().includes('user already exists')) {
             setError('An account with this email already exists. Please sign in instead.')
           } else {
             setError(result.message || 'Signup failed. Please try again.')
@@ -189,16 +193,19 @@ export default function AuthModal() {
         const result = await login(email, password)
         
         if (!result.success) {
-          // Check for specific error types from the login function
-          if (result.error?.message?.toLowerCase().includes('invalid login credentials')) {
+          const errorMessage = result.message?.toLowerCase() || ''
+          
+          // Check for specific error patterns in the message
+          if (errorMessage.includes('invalid login credentials')) {
             setError('Invalid email or password. Please try again.')
           } 
-          else if (result.error?.message?.toLowerCase().includes('email not confirmed')) {
+          else if (errorMessage.includes('email not confirmed')) {
             setError('Please verify your email address before logging in. Check your inbox for the verification link.')
           }
-          else if (result.error?.message?.toLowerCase().includes('provider is not supported') || 
-                   result.error?.message?.toLowerCase().includes('identity is already linked to another user')) {
-            // This could indicate a Google account trying to use email/password
+          else if (errorMessage.includes('provider is not supported') || 
+                   errorMessage.includes('identity is already linked') ||
+                   errorMessage.includes('google')) {
+            // This indicates a Google account trying to use email/password
             setError('This email uses Google Sign-In. Please click the Google button below to log in.')
           }
           else {
@@ -214,7 +221,6 @@ export default function AuthModal() {
       setIsLoading(false)
     }
   }
-  
   // ─── Fixed switch functions ────────────────────────────────────────
   const switchToSignup = () => {
     setShowSignup(true)

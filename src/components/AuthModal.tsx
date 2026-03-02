@@ -285,7 +285,7 @@ export default function AuthModal() {
                             ? 'Enter your email to reset your password' 
                             : showSignup 
                               ? 'Join FindAPro to access all features' 
-                              : 'Sign in to your premium account'}
+                              : 'Sign in to your account'}
                         </p>
                       </div>
                     </div>

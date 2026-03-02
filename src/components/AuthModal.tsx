@@ -271,32 +271,32 @@ export default function AuthModal() {
                 
                 {/* Header */}
                 <div className="bg-gradient-to-r from-gray-800 to-gray-900 p-4 sm:p-6 border-b border-emerald-500/20">
-                  <div className="flex justify-between items-start sm:items-center mb-2">
-                    <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0 mt-1 sm:mt-0">
-                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h2 className="text-xl sm:text-2xl font-bold text-white truncate">
-                          {showForgotPassword ? 'Reset Password' : showSignup ? 'Create Account' : 'Welcome Back'}
-                        </h2>
-                        <p className="text-gray-400 text-xs sm:text-sm truncate">
-                          {showForgotPassword 
-                            ? 'Enter your email to reset your password' 
-                            : showSignup 
-                              ? 'Join FindAPro to access all features' 
-                              : 'Sign in to your account'}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={hideAuthModal}
-                      className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 text-gray-400 hover:text-white ml-2 flex-shrink-0"
-                    >
-                      <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
-                  </div>
-                </div>
+  <div className="flex justify-between items-start sm:items-center mb-2">
+    <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0 mt-1 sm:mt-0">
+        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white whitespace-nowrap">
+          {showForgotPassword ? 'Reset Password' : showSignup ? 'Create Account' : 'Welcome Back'}
+        </h2>
+        <p className="text-gray-400 text-xs sm:text-sm truncate">
+          {showForgotPassword 
+            ? 'Enter your email to reset your password' 
+            : showSignup 
+              ? 'Join FindAPro to access all features' 
+              : 'Sign in to your account'}
+        </p>
+      </div>
+    </div>
+    <button
+      onClick={hideAuthModal}
+      className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 text-gray-400 hover:text-white ml-2 flex-shrink-0"
+    >
+      <X className="w-5 h-5 sm:w-6 sm:h-6" />
+    </button>
+  </div>
+</div>
 
                 {showForgotPassword ? (
                   <form onSubmit={handleForgotPassword} className="p-4 sm:p-6 space-y-5">

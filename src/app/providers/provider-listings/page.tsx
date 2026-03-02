@@ -430,22 +430,12 @@ function ProviderListingsContent() {
           
           <div className="w-24 hidden sm:block"></div>
         </div>
-        
-        {/* Progress - Hidden on mobile, visible on larger screens */}
-        <div className="hidden sm:flex items-center justify-center mb-6">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">1</div>
-            <div className="w-12 h-1 bg-gray-600"></div>
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 font-bold">2</div>
-            <div className="w-12 h-1 bg-gray-600"></div>
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 font-bold">3</div>
-          </div>
-        </div>
+
         
         {/* Listings counter */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 max-w-xs mx-auto mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm sm:text-base text-gray-300">Your Listings:</span>
+            <span className="text-sm sm:text-base text-gray-300">Your Listing:</span>
             <span className="text-white font-bold">{existingListingsCount}/3</span>
           </div>
           <div className="bg-gray-700 h-2 rounded-full overflow-hidden">

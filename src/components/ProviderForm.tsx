@@ -525,22 +525,28 @@ function ProviderForm({
             )}
           </div>
           
-          {/* Details */}
-          <div>
-            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-              Details
-              <span className="text-xs text-gray-400 ml-2">(Optional)</span>
-            </label>
-            <textarea
-              name="details"
-              value={formData.details}
-              onChange={handleChange}
-              rows={10}
-              disabled={disabledFields.includes('details')}
-              className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
-              placeholder="Enter your service details...(Enter services separated by commas or on separate lines. Will display as a bullet list.)"
-            />
-          </div>
+{/* Details */}
+<div>
+  <div className="flex items-center justify-between mb-2">
+    <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+      Details
+      <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+    </label>
+    <span className={`text-xs ${formData.details?.length > 2300 ? 'text-orange-400' : 'text-gray-500'}`}>
+      {formData.details?.length || 0}/2500 characters
+    </span>
+  </div>
+  <textarea
+    name="details"
+    value={formData.details}
+    onChange={handleChange}
+    rows={10}
+    maxLength={2500}  // <-- Changed to 2500
+    disabled={disabledFields.includes('details')}
+    className={`w-full px-4 py-5 bg-gray-900 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all ${disabledFields.includes('details') ? 'opacity-70 cursor-not-allowed' : ''}`}
+    placeholder="Enter your service details...(Enter services separated by commas or on separate lines. Will display as a bullet list.)"
+  />
+</div>
 
           {/* Accreditations */}
           <div>

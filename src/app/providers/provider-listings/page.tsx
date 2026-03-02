@@ -577,7 +577,7 @@ function ProviderListingsContent() {
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : []}
         onSave={handleServiceAreaDrawerSave}
-        maxAreas={7}
+        maxAreas={20}
       />
 
       <FormSubmissionDrawer

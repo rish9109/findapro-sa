@@ -764,7 +764,7 @@ function EditListingContent() {
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : []}
         onSave={handleServiceAreaDrawerSave} 
-        maxAreas={10}
+        maxAreas={20}
       />
 
       <FormSubmissionDrawer

@@ -592,67 +592,73 @@ function ProviderForm({
         </div>
       </div>
 
-      {/* ==================== SECTION 4: SERVICE AREAS ==================== */}
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">4</div>
-          <h2 className="text-xl font-bold text-white">Service Areas</h2>
+   {/* ==================== SECTION 4: SERVICE AREAS ==================== */}
+<div className="mb-10">
+  <div className="flex items-center gap-3 mb-6">
+    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">4</div>
+    <h2 className="text-xl font-bold text-white">Service Areas</h2>
+  </div>
+  
+  <div className="space-y-6">
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+          <span>Service Areas</span>
+          <span className="text-red-500">*</span>
+        </label>
+        <span className="text-xs text-gray-500">
+          {serviceAreas.primaryArea ? 1 + (serviceAreas.additionalAreas?.length || 0) : 0}/20 selected
+        </span>
+      </div>
+      
+      <button
+        type="button"
+        onClick={onOpenAreaDrawer}
+        disabled={disabledFields.includes('service_areas')}
+        className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.primaryArea ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors ${disabledFields.includes('service_areas') ? 'opacity-70 cursor-not-allowed' : ''}`}
+      >
+        <div className="flex-1">
+          <span className={serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0 ? "text-white" : "text-gray-500"}>
+            {serviceAreas.primaryArea 
+              ? `${serviceAreas.primaryArea}${(serviceAreas.additionalAreas?.length || 0) > 0 ? ` + ${serviceAreas.additionalAreas?.length} more` : ''}`
+              : "Select your service areas"}
+          </span>
         </div>
-        
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-[#FF7A45] mb-2 flex items-center gap-1">
-              <span>Service Areas</span>
-              <span className="text-red-500">*</span>
-            </label>
-            <button
-              type="button"
-              onClick={onOpenAreaDrawer}
-              disabled={disabledFields.includes('service_areas')}
-              className={`w-full px-4 py-3 bg-gray-900 border ${formErrors.primaryArea ? 'border-red-500' : 'border-gray-700'} rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors ${disabledFields.includes('service_areas') ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              <div className="flex-1">
-                <span className={serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0 ? "text-white" : "text-gray-500"}>
-                  {serviceAreas.primaryArea 
-                    ? `${serviceAreas.primaryArea}${(serviceAreas.additionalAreas?.length || 0) > 0 ? ` + ${serviceAreas.additionalAreas?.length} more` : ''}`
-                    : "Select your service areas"}
-                </span>
-              </div>
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            {formErrors.primaryArea && (
-              <p className="mt-1 text-sm text-red-400">{formErrors.primaryArea}</p>
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      {formErrors.primaryArea && (
+        <p className="mt-1 text-sm text-red-400">{formErrors.primaryArea}</p>
+      )}
+      
+      {/* Selected areas preview */}
+      {(serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0) && (
+        <div className="mt-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+          <div className="flex flex-wrap gap-2">
+            {serviceAreas.primaryArea && (
+              <span className="px-3 py-2 bg-orange-500/30 text-orange-300 rounded-lg text-sm border border-orange-500/50 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                {serviceAreas.primaryArea} (Primary)
+              </span>
             )}
-            
-            {/* Selected areas preview */}
-            {(serviceAreas.primaryArea || (serviceAreas.additionalAreas?.length || 0) > 0) && (
-              <div className="mt-3 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-                <div className="flex flex-wrap gap-2">
-                  {serviceAreas.primaryArea && (
-                    <span className="px-3 py-2 bg-orange-500/30 text-orange-300 rounded-lg text-sm border border-orange-500/50 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      {serviceAreas.primaryArea} (Primary)
-                    </span>
-                  )}
-                  {serviceAreas.additionalAreas?.slice(0, 3).map((area, index) => (
-                    <span key={index} className="px-3 py-2 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700 flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      {area}
-                    </span>
-                  ))}
-                  {(serviceAreas.additionalAreas?.length || 0) > 3 && (
-                    <span className="px-3 py-2 bg-gray-700 text-gray-400 text-sm rounded-lg border border-gray-600">
-                      +{(serviceAreas.additionalAreas?.length || 0) - 3} more
-                    </span>
-                  )}
-                </div>
-              </div>
+            {serviceAreas.additionalAreas?.slice(0, 3).map((area, index) => (
+              <span key={index} className="px-3 py-2 bg-gray-800 text-gray-300 rounded-lg text-sm border border-gray-700 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                {area}
+              </span>
+            ))}
+            {(serviceAreas.additionalAreas?.length || 0) > 3 && (
+              <span className="px-3 py-2 bg-gray-700 text-gray-400 text-sm rounded-lg border border-gray-600">
+                +{(serviceAreas.additionalAreas?.length || 0) - 3} more
+              </span>
             )}
           </div>
         </div>
-      </div>
+      )}
+    </div>
+  </div>
+</div>
 
       {/* ==================== SECTION 5: BUSINESS DETAILS ==================== */}
       <div className="mb-10">

@@ -8,7 +8,7 @@ import Footer from '@/components/Footer'
 import { AuthProvider } from '@/contexts/AuthContext'
 import AuthModal from '@/components/AuthModal'
 import LoadingWrapper from '@/components/LoadingWrapper'
-import ErrorBoundary from '@/components/ErrorBoundary'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import ScrollToTop from '@/components/ScrollToTop'
 
 // ── PWA components ───────────────────────────────────────────────

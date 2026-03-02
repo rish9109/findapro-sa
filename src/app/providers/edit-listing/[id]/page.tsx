@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase, Provider, saveProviderBusinessFeatures } from '@/lib/supabase'
+import { supabase, saveProviderBusinessFeatures } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import AccreditationDrawer from '@/components/AccreditationDrawer'
 import ServiceAreaDrawer from '@/components/ServiceAreaDrawer'
@@ -13,13 +13,8 @@ import FormSubmissionDrawer from '@/components/FormSubmissionDrawer'
 import BusinessFeatureDrawer from '@/components/BusinessFeatureDrawer'
 import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, ProviderFormData } from '@/components/ProviderForm'
 import { 
-  ArrowLeft, Heart, Share2, Phone, Mail, MapPin, 
-  Star, Clock, Shield, Award, 
-  CheckCircle, Calendar, Briefcase, Users, Globe,
-  ExternalLink, ShieldCheck, PhoneCall,
-  Building, AlertCircle, MessageCircle, Tag, FileText,
-  ThumbsUp, Zap, Leaf, Gift, Percent, Truck, Wrench, 
-  Languages, Fingerprint, Settings, CreditCard, Eye, XCircle, Loader2, Save  
+  ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, Shield,
+  Loader2, Save  
 } from 'lucide-react'
 
 // Status configuration
@@ -75,6 +70,7 @@ function EditListingContent() {
   
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
   
   // Submission drawer state
@@ -96,7 +92,7 @@ function EditListingContent() {
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   
   // Existing data
-  const [listing, setListing] = useState<Provider | null>(null)
+  const [listing, setListing] = useState<any>(null)
   const [selectedAccreditations, setSelectedAccreditations] = useState<SelectedAccreditation[]>([])
   const [selectedBusinessFeatures, setSelectedBusinessFeatures] = useState<SelectedBusinessFeature[]>([])
   const [serviceAreas, setServiceAreas] = useState<{
@@ -111,32 +107,29 @@ function EditListingContent() {
   const [existingBusinessName, setExistingBusinessName] = useState<string>('')
   const [lockedFields, setLockedFields] = useState<string[]>([])
   
-// Form state
-const [formData, setFormData] = useState<ProviderFormData>({
-  business_name: '',
-  contact_person: '',
-  contact_email: '',
-  contact_phone: '',
-  alternate_phone: '',
-  primary_has_whatsapp: false,  // Add this
-  alternate_has_whatsapp: false, // Add this
-  main_service: '',
-  main_service_id: '',
-  details: '',
-  experience_years: '',
-  fees_pricing: '',
-  callout_fee: '',
-  status: ''
-})
+  // Form state
+  const [formData, setFormData] = useState<ProviderFormData>({
+    business_name: '',
+    contact_person: '',
+    contact_email: '',
+    contact_phone: '',
+    alternate_phone: '',
+    primary_has_whatsapp: false,
+    alternate_has_whatsapp: false,
+    main_service: '',
+    main_service_id: '',
+    details: '',
+    experience_years: '',
+    fees_pricing: '',
+    status: ''
+  })
 
   // Add CSS to prevent scroll on focus
   useEffect(() => {
-    // Disable browser's built-in scroll restoration
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual'
     }
     
-    // Add CSS to prevent scroll on focus
     const styleElement = document.createElement('style')
     styleElement.textContent = `
       input:focus, 
@@ -148,17 +141,14 @@ const [formData, setFormData] = useState<ProviderFormData>({
         scroll-margin-bottom: 0px !important;
       }
       
-      /* Disable scroll anchoring */
       html {
         overflow-anchor: none;
       }
       
-      /* Prevent any automatic scrolling */
       * {
         scroll-behavior: auto !important;
       }
       
-      /* Ensure form container doesn't cause scroll jumps */
       .no-scroll-jump {
         contain: content;
       }
@@ -202,8 +192,6 @@ const [formData, setFormData] = useState<ProviderFormData>({
         setExistingBusinessName(listingData.business_name)
         setLockedFields(['business_name', 'contact_email'])
         
-        console.log('Business name and email locked for this listing')
-        
         // Parse service areas
         let parsedServiceAreas: string[] = []
         try {
@@ -220,14 +208,13 @@ const [formData, setFormData] = useState<ProviderFormData>({
           contact_email: listingData.contact_email || '',
           contact_phone: listingData.contact_phone || '',
           alternate_phone: listingData.alternate_phone || '',
-          primary_has_whatsapp: listingData.primary_has_whatsapp || false,  // Add this
-          alternate_has_whatsapp: listingData.alternate_has_whatsapp || false, // Add this
+          primary_has_whatsapp: listingData.primary_has_whatsapp || false,
+          alternate_has_whatsapp: listingData.alternate_has_whatsapp || false,
           main_service: listingData.main_service || '',
           main_service_id: listingData.main_service_id || '',
           details: listingData.details || '',
           experience_years: listingData.experience_years || '',
           fees_pricing: listingData.fees_pricing || '',
-          callout_fee: listingData.callout_fee || '',
           status: listingData.status || ''
         })
         
@@ -379,7 +366,7 @@ const [formData, setFormData] = useState<ProviderFormData>({
     handleSubmit(new Event('submit') as any)
   }, [])
 
-  // Validate form - REMOVED old field validations
+  // Validate form
   const validateForm = useCallback(() => {
     const errors: Record<string, string> = {}
     
@@ -401,7 +388,6 @@ const [formData, setFormData] = useState<ProviderFormData>({
     if (!serviceAreas.primaryArea.trim()) {
       errors.primaryArea = 'Primary service area is required'
     }
-    // Business features are optional - removed validation
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -466,15 +452,14 @@ const [formData, setFormData] = useState<ProviderFormData>({
         contact_person: formData.contact_person,
         contact_phone: formData.contact_phone,
         alternate_phone: formData.alternate_phone,
-        primary_has_whatsapp: formData.primary_has_whatsapp || false,  // Add this
-        alternate_has_whatsapp: formData.alternate_has_whatsapp || false, // Add this
+        primary_has_whatsapp: formData.primary_has_whatsapp || false,
+        alternate_has_whatsapp: formData.alternate_has_whatsapp || false,
         main_service: formData.main_service,
         main_service_id: formData.main_service_id,
         details: formData.details,
         experience_years: formData.experience_years,
         service_areas: JSON.stringify([serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])]),
         fees_pricing: formData.fees_pricing || null,
-        callout_fee: formData.callout_fee || null,
         updated_at: new Date().toISOString(),
       }
       
@@ -519,6 +504,9 @@ const [formData, setFormData] = useState<ProviderFormData>({
       // Handle business features
       if (selectedBusinessFeatures.length > 0) {
         await saveProviderBusinessFeatures(listing.id, selectedBusinessFeatures)
+      } else {
+        // Delete all features if none selected
+        await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
       }
       
       await sendEmailNotifications(
@@ -550,12 +538,22 @@ const [formData, setFormData] = useState<ProviderFormData>({
     if (!listing) return
     if (!confirm(`Delete "${listing.business_name}"? This cannot be undone.`)) return
     
+    setIsDeleting(true)
     try {
-      await supabase.from('providers').delete().eq('id', listing.id)
+      // First delete related records
+      await supabase.from('provider_accreditations').delete().eq('provider_id', listing.id)
+      await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
+      
+      // Then delete the provider
+      const { error } = await supabase.from('providers').delete().eq('id', listing.id)
+      if (error) throw error
+      
       router.push('/providers/dashboard')
     } catch (err: any) {
       console.error('Error deleting:', err)
       setError(err.message || 'Failed to delete listing')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -628,14 +626,22 @@ const [formData, setFormData] = useState<ProviderFormData>({
             
             <button
               onClick={handleDelete}
-              className="w-full sm:w-auto px-5 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-colors"
+              disabled={isDeleting}
+              className={`w-full sm:w-auto px-5 py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg font-medium transition-colors ${
+                isDeleting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              Delete Listing
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Listing'
+              )}
             </button>
           </div>
 
-    
-          
           {listing.status === 'rejected' && listing.rejection_reason && (
             <div className="mb-6 sm:mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
               <div className="flex items-start gap-3">

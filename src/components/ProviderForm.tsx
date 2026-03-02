@@ -41,8 +41,8 @@ export interface ProviderFormData {
   contact_email: string
   contact_phone: string
   alternate_phone: string
-  primary_has_whatsapp?: boolean  // Add this
-  alternate_has_whatsapp?: boolean // Add this
+  primary_has_whatsapp?: boolean
+  alternate_has_whatsapp?: boolean
   
   // Service Information
   main_service: string
@@ -52,7 +52,6 @@ export interface ProviderFormData {
   
   // Pricing & Payment
   fees_pricing: string
-  callout_fee: string
   
   // Terms (only for new listings)
   accept_terms?: boolean

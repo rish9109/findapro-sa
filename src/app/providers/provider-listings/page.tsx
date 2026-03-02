@@ -56,14 +56,13 @@ function ProviderListingsContent() {
     contact_email: '',
     contact_phone: '',
     alternate_phone: '',
-    primary_has_whatsapp: false,  // Add this
-    alternate_has_whatsapp: false, // Add this
+    primary_has_whatsapp: false,
+    alternate_has_whatsapp: false,
     main_service: '',
     main_service_id: '',
     details: '',
     experience_years: '',
     fees_pricing: '',
-    callout_fee: '',
     accept_terms: false
   })
 
@@ -225,7 +224,7 @@ function ProviderListingsContent() {
     handleSubmit(new Event('submit') as any)
   }, [])
 
-  // Validate form - REMOVED old field validations
+  // Validate form
   const validateForm = useCallback(() => {
     const errors: Record<string, string> = {}
     
@@ -247,7 +246,6 @@ function ProviderListingsContent() {
     if (!serviceAreas.primaryArea.trim()) {
       errors.primaryArea = 'Primary service area is required'
     }
-    // Business features are optional - removed validation
     if (!formData.accept_terms) {
       errors.accept_terms = 'You must accept the terms'
     }
@@ -257,7 +255,6 @@ function ProviderListingsContent() {
   }, [formData, existingBusinessName, serviceAreas])
 
   const showIncompleteFormNotification = () => {
-    // Create a temporary notification element
     const notification = document.createElement('div');
     notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in';
     notification.innerHTML = `
@@ -272,7 +269,6 @@ function ProviderListingsContent() {
     
     document.body.appendChild(notification);
     
-    // Remove after 3 seconds
     setTimeout(() => {
       notification.classList.add('animate-slide-out');
       setTimeout(() => notification.remove(), 300);
@@ -318,17 +314,15 @@ function ProviderListingsContent() {
         contact_email: userEmail,
         contact_phone: formData.contact_phone,
         alternate_phone: formData.alternate_phone,
-        primary_has_whatsapp: formData.primary_has_whatsapp || false,  // Add this
-        alternate_has_whatsapp: formData.alternate_has_whatsapp || false, // Add this
+        primary_has_whatsapp: formData.primary_has_whatsapp || false,
+        alternate_has_whatsapp: formData.alternate_has_whatsapp || false,
         main_service: formData.main_service,
         main_service_id: formData.main_service_id,
         details: formData.details,
         experience_years: formData.experience_years,
         service_areas: JSON.stringify([serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])]),
         fees_pricing: formData.fees_pricing || null,
-        callout_fee: formData.callout_fee || null,
         status: 'pending',
-        verified: false,
         created_at: new Date().toISOString(),
         submitted_at: new Date().toISOString(),
         launch_trial: true,
@@ -361,7 +355,7 @@ function ProviderListingsContent() {
         await saveProviderBusinessFeatures(data.id, selectedBusinessFeatures)
       }
       
-      // Send notification with full provider data (non-blocking)
+      // Send notification (non-blocking)
       console.log('📤 Attempting to send email for:', data.business_name, 'Email:', data.contact_email)
       
       fetch('/api/email', {

@@ -1,56 +1,50 @@
-// File: src/components/ErrorBoundary.tsx
-'use client';
+// components/ErrorBoundary.tsx
+'use client'
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react'
 
 interface Props {
-  children: ReactNode;
+  children: ReactNode
+  fallback?: ReactNode
 }
 
 interface State {
-  hasError: boolean;
-  error?: Error;
+  hasError: boolean
+  error?: Error
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false
-  };
-
-  public static getDerivedStateFromError(error: Error): State {
-    console.error('🚨 ErrorBoundary caught error:', error);
-    return { hasError: true, error };
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props)
+    this.state = { hasError: false }
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error }
   }
 
-  public render() {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo)
+  }
+
+  render() {
     if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-          <div className="bg-gray-800 p-8 rounded-lg max-w-md">
-            <h2 className="text-red-400 text-2xl font-bold mb-4">Something went wrong</h2>
-            <p className="text-gray-300 mb-4">
-              {this.state.error?.message || 'An unexpected error occurred'}
-            </p>
+      return this.props.fallback || (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 max-w-md">
+            <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
+            <p className="text-gray-300 mb-4">{this.state.error?.message}</p>
             <button
-              onClick={() => {
-                this.setState({ hasError: false });
-                window.location.reload();
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg"
             >
               Reload Page
             </button>
           </div>
         </div>
-      );
+      )
     }
 
-    return this.props.children;
+    return this.props.children
   }
 }
-
-export default ErrorBoundary;

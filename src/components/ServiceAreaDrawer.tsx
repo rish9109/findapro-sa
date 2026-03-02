@@ -26,7 +26,7 @@ export default function ServiceAreaDrawer({
   onClose,
   initialAreas = [],
   onSave,
-  maxAreas = 7,
+  maxAreas = 20,
 }: ServiceAreaDrawerProps) {
   // State
   const [mounted, setMounted] = useState(false);
@@ -1000,59 +1000,49 @@ useEffect(() => {
                       
                       return (
                         <div key={province.id}>
-                          {/* Province Header */}
-                          <button
-                            onClick={() => toggleProvince(province.id)}
-                            style={{
-                              width: '100%',
-                              padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
-                              backgroundColor: isExpanded ? '#1f2937' : '#111827',
-                              border: '1px solid',
-                              borderColor: someCitiesSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151',
-                              borderRadius: '0.75rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              color: 'white',
-                              fontSize: '0.9375rem',
-                              cursor: 'pointer',
-                              marginBottom: isExpanded ? '0.25rem' : 0,
-                              minHeight: isMobile ? '48px' : 'auto',
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isExpanded) e.currentTarget.style.backgroundColor = '#1f2937';
-                              e.currentTarget.style.borderColor = '#4b5563';
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!isExpanded) e.currentTarget.style.backgroundColor = '#111827';
-                              e.currentTarget.style.borderColor = someCitiesSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151';
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              {isExpanded ? (
-                                <ChevronDown style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
-                              ) : (
-                                <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
-                              )}
-                              <span style={{ fontWeight: '500' }}>{province.name}</span>
-                              <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>({province.code})</span>
-                              {someCitiesSelected && (
-                                <span style={{ 
-                                  fontSize: '0.75rem',
-                                  padding: '0.125rem 0.5rem',
-                                  backgroundColor: 'rgba(249, 115, 22, 0.2)',
-                                  color: '#fdba74',
-                                  borderRadius: '9999px',
-                                }}>
-                                  {province.cities?.filter(c => selectedAreas.includes(c)).length} selected
-                                </span>
-                              )}
-                            </div>
-                            <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                              {cityCount} {cityCount === 1 ? 'town' : 'towns'}
-                            </span>
-                          </button>
-                          
+
+               {/* Province Header */}
+<button
+  onClick={() => toggleProvince(province.id)}
+  style={{
+    width: '100%',
+    padding: isMobile ? '0.875rem 1rem' : '0.75rem 1rem',
+    backgroundColor: isExpanded ? '#1f2937' : '#111827',
+    border: '1px solid',
+    borderColor: someCitiesSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151',
+    borderRadius: '0.75rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    color: 'white',
+    fontSize: '0.9375rem',
+    cursor: 'pointer',
+    marginBottom: isExpanded ? '0.25rem' : 0,
+    minHeight: isMobile ? '48px' : 'auto',
+  }}
+  onMouseEnter={(e) => {
+    if (!isExpanded) e.currentTarget.style.backgroundColor = '#1f2937';
+    e.currentTarget.style.borderColor = '#4b5563';
+  }}
+  onMouseLeave={(e) => {
+    if (!isExpanded) e.currentTarget.style.backgroundColor = '#111827';
+    e.currentTarget.style.borderColor = someCitiesSelected ? 'rgba(249, 115, 22, 0.3)' : '#374151';
+  }}
+>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+    {isExpanded ? (
+      <ChevronDown style={{ width: '1rem', height: '1rem', color: '#f97316' }} />
+    ) : (
+      <ChevronRight style={{ width: '1rem', height: '1rem', color: '#9ca3af' }} />
+    )}
+    <span style={{ fontWeight: '500' }}>{province.name}</span>
+    <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>({province.code})</span>
+    {/* REMOVED: The selected count badge */}
+  </div>
+  <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+    {cityCount} {cityCount === 1 ? 'town' : 'towns'}
+  </span>
+</button>
                           {/* Cities List */}
                           {isExpanded && province.cities && (
                             <div style={{ 

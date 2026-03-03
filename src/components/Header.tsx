@@ -136,32 +136,6 @@ export default function Header() {
     }
   }, [])
 
-  // ─── ONLY CLICK BLOCKING ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!showOnboarding) return
-
-    const blockHeaderClicks = (e: MouseEvent | TouchEvent) => {
-      const clientY = 'touches' in e ? e.touches[0]?.clientY : (e as MouseEvent).clientY
-      if (clientY && clientY < 100) {  // adjust if your header is taller/shorter
-        e.preventDefault()
-        e.stopPropagation()
-        if ('stopImmediatePropagation' in e) {
-          e.stopImmediatePropagation()
-        }
-      }
-    }
-
-    document.addEventListener('mousedown', blockHeaderClicks, true)
-    document.addEventListener('click', blockHeaderClicks, true)
-    document.addEventListener('touchstart', blockHeaderClicks, true)
-
-    return () => {
-      document.removeEventListener('mousedown', blockHeaderClicks, true)
-      document.removeEventListener('click', blockHeaderClicks, true)
-      document.removeEventListener('touchstart', blockHeaderClicks, true)
-    }
-  }, [showOnboarding])
-  // ────────────────────────────────────────────────────────────────────────
 
   const handleAuthClick = () => {
     showAuthModal('login')

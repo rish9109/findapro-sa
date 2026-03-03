@@ -20,8 +20,36 @@ export default function OnboardingDrawer({
   showPromo = true,
 }: OnboardingDrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const [showPromoSection, setShowPromoSection] = useState(false)
   const [timeLeft, setTimeLeft] = useState({ days: 7, hours: 0 })
+  const [drawerTop, setDrawerTop] = useState(80) // Default desktop top position
+
+  // Calculate dynamic top position based on viewport
+  useEffect(() => {
+    const calculateDrawerPosition = () => {
+      // Get viewport height
+      const vh = window.innerHeight
+      
+      // Calculate top position dynamically
+      // For very small screens (<= 600px), use 60px
+      // For medium screens (601px - 900px), use 70px
+      // For larger screens (> 900px), use 80px
+      if (vh <= 600) {
+        setDrawerTop(56)
+      } else if (vh <= 900) {
+        setDrawerTop(64)
+      } else {
+        setDrawerTop(80)
+      }
+    }
+
+    // Calculate on mount and resize
+    calculateDrawerPosition()
+    window.addEventListener('resize', calculateDrawerPosition)
+    
+    return () => window.removeEventListener('resize', calculateDrawerPosition)
+  }, [])
 
   // Close on Escape
   useEffect(() => {
@@ -115,7 +143,10 @@ export default function OnboardingDrawer({
     onClose()
   }
 
-  const remainingSpots = { firstTier: 42, secondTier: 50 }
+  // Calculate max height dynamically
+  const getMaxHeight = () => {
+    return `calc(100vh - ${drawerTop}px)`
+  }
 
   return (
     <>
@@ -139,11 +170,15 @@ export default function OnboardingDrawer({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -30, opacity: 0 }}
               transition={{ type: 'spring', damping: 30, stiffness: 250 }}
-              className="fixed top-[80px] sm:top-[96px] left-0 right-0 z-[95] max-h-[calc(100vh-80px)] sm:max-h-[calc(100vh-96px)] overflow-y-auto drawer-scroll"
+              className="fixed left-0 right-0 z-[95] overflow-y-auto drawer-scroll"
+              style={{ 
+                top: `${drawerTop}px`,
+                maxHeight: getMaxHeight()
+              }}
               onClick={handleDrawerClick}
             >
               <div className="bg-gradient-to-b from-gray-900 via-black to-gray-950 border-t border-white/10 shadow-2xl rounded-b-3xl">
-                <div className="container mx-auto px-5 sm:px-8 py-8 sm:py-12 max-w-4xl">
+                <div className="container mx-auto px-5 sm:px-8 py-8 sm:py-12 max-w-4xl" ref={contentRef}>
 
                   {/* Hint pill */}
                   <div className="mb-8 sm:mb-10 text-center sm:text-right">
@@ -274,37 +309,6 @@ export default function OnboardingDrawer({
                       </div>
 
 
-                      {/* Tier cards - responsive */}
-                      <div className="space-y-3">
-                        <div className="bg-gradient-to-r from-amber-500/10 to-transparent p-5 rounded-xl border border-amber-500/20">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
-                                <span className="text-amber-400 font-bold text-lg">1</span>
-                              </div>
-                              <div>
-                                <div className="font-semibold text-white">First 50 businesses</div>
-                                <div className="text-amber-400 font-bold text-lg">6 Months Free</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gradient-to-r from-blue-500/10 to-transparent p-5 rounded-xl border border-blue-500/20">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                                <span className="text-blue-400 font-bold text-lg">2</span>
-                              </div>
-                              <div>
-                                <div className="font-semibold text-white">Next 50 businesses</div>
-                                <div className="text-blue-400 font-bold text-lg">3 Months Free</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       {/* What you get - simplified for mobile */}
                       <div className="bg-gray-800/30 rounded-xl p-5 border border-gray-700">
                         <h3 className="text-white font-medium mb-3 flex items-center gap-2">
@@ -329,9 +333,8 @@ export default function OnboardingDrawer({
                         <span className="text-3xl font-bold text-white">R99</span>
                         <span className="text-gray-400 text-sm ml-2">/month after offer</span>
                       </div>
-
-                      {/* CTA Buttons */}
-                      <div className="flex flex-col sm:flex-row gap-3 pt-4">
+ {/* CTA Buttons */}
+ <div className="flex flex-col sm:flex-row gap-3 pt-4">
                         <Link
                           href="/providers/provider-listings"
                           onClick={handleClose}
@@ -389,7 +392,7 @@ export default function OnboardingDrawer({
         /* Mobile optimizations */
         @media (max-width: 640px) {
           .drawer-scroll {
-            max-height: calc(100vh - 80px);
+            max-height: calc(100vh - 56px);
           }
         }
       `}</style>

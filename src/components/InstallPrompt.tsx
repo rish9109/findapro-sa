@@ -125,10 +125,9 @@ export default function InstallPrompt() {
             </h2>
 
             <div className="space-y-2 mb-5 text-sm text-gray-300">
-              <p>✓ One-tap access from home screen</p>
+              <p>✓ One-tap access</p>
               <p>✓ Faster loading</p>
-              <p>✓ Works offline</p>
-              <p>✓ Quick access to your dashboard</p>
+              <p>✓ Better Experience</p>
             </div>
 
             <div className="flex flex-col gap-2">

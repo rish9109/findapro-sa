@@ -1,7 +1,7 @@
 // File: src/app/providers/edit-listings/[id]/page.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, saveProviderBusinessFeatures } from '@/lib/supabase'
@@ -18,7 +18,7 @@ import {
   Loader2, Save  
 } from 'lucide-react'
 
-// Status configuration
+// Status configuration - defined outside component to prevent recreation
 const statusConfig = {
   pending: {
     icon: Clock,
@@ -68,6 +68,9 @@ function EditListingContent() {
   const router = useRouter()
   const params = useParams()
   const listingId = params.id as string
+  
+  // Refs to track mounted state and prevent updates after unmount
+  const isMounted = useRef(true)
   
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -127,6 +130,14 @@ function EditListingContent() {
     status: ''
   })
 
+  // Track mounted state
+  useEffect(() => {
+    isMounted.current = true
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
   // Add CSS to prevent scroll on focus
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
@@ -185,132 +196,133 @@ function EditListingContent() {
           .single()
         
         if (listingError || !listingData) {
-          setError('Listing not found')
+          if (isMounted.current) setError('Listing not found')
           return
         }
         
-        setListing(listingData)
-        
-        // Business name should ALWAYS be locked, just like email
-        setExistingBusinessName(listingData.business_name)
-        setLockedFields(['business_name', 'contact_email'])
-        
-        // Parse service areas
-        let parsedServiceAreas: string[] = []
-        try {
-          if (listingData.service_areas) {
-            parsedServiceAreas = JSON.parse(listingData.service_areas)
+        if (isMounted.current) {
+          setListing(listingData)
+          
+          // Business name should ALWAYS be locked, just like email
+          setExistingBusinessName(listingData.business_name)
+          setLockedFields(['business_name', 'contact_email'])
+          
+          // Parse service areas
+          let parsedServiceAreas: string[] = []
+          try {
+            if (listingData.service_areas) {
+              parsedServiceAreas = JSON.parse(listingData.service_areas)
+            }
+          } catch (e) {
+            console.error('Error parsing service areas:', e)
           }
-        } catch (e) {
-          console.error('Error parsing service areas:', e)
-        }
-        
-        setFormData({
-          business_name: listingData.business_name || '',
-          contact_person: listingData.contact_person || '',
-          contact_email: listingData.contact_email || '',
-          contact_phone: listingData.contact_phone || '',
-          alternate_phone: listingData.alternate_phone || '',
-          primary_has_whatsapp: listingData.primary_has_whatsapp || false,
-          alternate_has_whatsapp: listingData.alternate_has_whatsapp || false,
-          main_service: listingData.main_service || '',
-          main_service_id: listingData.main_service_id || '',
-          details: listingData.details || '',
-          experience_years: listingData.experience_years || '',
-          fees_pricing: listingData.fees_pricing || '',
-          status: listingData.status || ''
-        })
-        
-        if (parsedServiceAreas.length > 0) {
-          setServiceAreas({
-            primaryArea: parsedServiceAreas[0] || '',
-            additionalAreas: parsedServiceAreas.slice(1) || []
+          
+          setFormData({
+            business_name: listingData.business_name || '',
+            contact_person: listingData.contact_person || '',
+            contact_email: listingData.contact_email || '',
+            contact_phone: listingData.contact_phone || '',
+            alternate_phone: listingData.alternate_phone || '',
+            primary_has_whatsapp: listingData.primary_has_whatsapp || false,
+            alternate_has_whatsapp: listingData.alternate_has_whatsapp || false,
+            main_service: listingData.main_service || '',
+            main_service_id: listingData.main_service_id || '',
+            details: listingData.details || '',
+            experience_years: listingData.experience_years || '',
+            fees_pricing: listingData.fees_pricing || '',
+            status: listingData.status || ''
           })
-        }
-        
-        // Load accreditations
-        const { data: accreditationsData } = await supabase
-          .from('provider_accreditations')
-          .select('*')
-          .eq('provider_id', listingId)
-          .order('position')
-        
-        if (accreditationsData) {
-          const formattedAccreditations: SelectedAccreditation[] = accreditationsData.map(acc => ({
-            id: acc.id || `temp-${Date.now()}`,
-            accreditation_id: acc.accreditation_id || undefined,
-            custom_name: acc.custom_name || undefined,
-            custom_description: acc.custom_description || undefined,
-            is_custom: acc.is_custom || false,
-            position: acc.position || 0
-          }))
-          setSelectedAccreditations(formattedAccreditations)
-        }
+          
+          if (parsedServiceAreas.length > 0) {
+            setServiceAreas({
+              primaryArea: parsedServiceAreas[0] || '',
+              additionalAreas: parsedServiceAreas.slice(1) || []
+            })
+          }
+          
+          // Load accreditations
+          const { data: accreditationsData } = await supabase
+            .from('provider_accreditations')
+            .select('*')
+            .eq('provider_id', listingId)
+            .order('position')
+          
+          if (accreditationsData) {
+            const formattedAccreditations: SelectedAccreditation[] = accreditationsData.map(acc => ({
+              id: acc.id || `temp-${Date.now()}`,
+              accreditation_id: acc.accreditation_id || undefined,
+              custom_name: acc.custom_name || undefined,
+              custom_description: acc.custom_description || undefined,
+              is_custom: acc.is_custom || false,
+              position: acc.position || 0
+            }))
+            setSelectedAccreditations(formattedAccreditations)
+          }
 
-        // Load business features
-        const { data: featuresData } = await supabase
-          .from('provider_business_features')
-          .select(`
-            *,
-            feature:business_features(*)
-          `)
-          .eq('provider_id', listingId)
-          .order('position')
-        
-        if (featuresData) {
-          const formattedFeatures: SelectedBusinessFeature[] = featuresData.map(item => ({
-            id: item.id,
-            feature_id: item.feature_id,
-            feature: item.feature,
-            custom_name: item.custom_name,
-            custom_description: item.custom_description,
-            is_custom: item.is_custom,
-            position: item.position
-          }))
-          setSelectedBusinessFeatures(formattedFeatures)
-        }
+          // Load business features
+          const { data: featuresData } = await supabase
+            .from('provider_business_features')
+            .select(`
+              *,
+              feature:business_features(*)
+            `)
+            .eq('provider_id', listingId)
+            .order('position')
+          
+          if (featuresData) {
+            const formattedFeatures: SelectedBusinessFeature[] = featuresData.map(item => ({
+              id: item.id,
+              feature_id: item.feature_id,
+              feature: item.feature,
+              custom_name: item.custom_name,
+              custom_description: item.custom_description,
+              is_custom: item.is_custom,
+              position: item.position
+            }))
+            setSelectedBusinessFeatures(formattedFeatures)
+          }
+          
+          const { data: socialLinksData } = await supabase
+            .from('provider_social_links')
+            .select(`
+              *,
+              platform:social_platforms(*)
+            `)
+            .eq('provider_id', listingId)
+            .order('display_order')
 
-        // Load social links
-        const { data: socialLinksData } = await supabase
-          .from('provider_social_links')
-          .select(`
-            *,
-            platform:social_platforms(*)
-          `)
-          .eq('provider_id', listingId)
-          .order('display_order')
-        
-        if (socialLinksData) {
-          const formattedSocialLinks: SelectedSocialLink[] = socialLinksData.map(link => ({
-            id: link.id,
-            platform_id: link.platform_id,
-            platform: link.platform,
-            custom_platform_name: link.custom_platform_name,
-            url: link.url,
-            is_custom: !link.platform_id
-          }))
-          setSelectedSocialLinks(formattedSocialLinks)
+          if (socialLinksData) {
+            const formattedLinks: SelectedSocialLink[] = socialLinksData.map(item => ({
+              id: item.id,
+              platform_id: item.platform_id,
+              platform: item.platform,
+              custom_platform_name: item.custom_platform_name,
+              url: item.url,
+              is_custom: item.is_custom
+            }))
+            setSelectedSocialLinks(formattedLinks)
+          }
+          
+          const { data: servicesData } = await supabase
+            .from('service_categories')
+            .select('id, name, description, icon')
+            .eq('is_active', true)
+            .order('name')
+          setServiceCategories(servicesData || [])
         }
-        
-        const { data: servicesData } = await supabase
-          .from('service_categories')
-          .select('id, name, description, icon')
-          .eq('is_active', true)
-          .order('name')
-        setServiceCategories(servicesData || [])
         
       } catch (err: any) {
         console.error('Error loading listing:', err)
-        setError(err.message || 'Failed to load listing')
+        if (isMounted.current) setError(err.message || 'Failed to load listing')
       } finally {
-        setLoading(false)
+        if (isMounted.current) setLoading(false)
       }
     }
     
     loadData()
   }, [router, listingId])
 
-  // Memoized handlers
+  // Memoized handlers - all useCallback with empty deps where possible
   const handleServiceSelect = useCallback((service: ServiceCategory) => {
     setFormData(prev => ({ 
       ...prev, 
@@ -333,12 +345,10 @@ function EditListingContent() {
     }
   }, [formErrors])
 
-  // ADD THIS NEW HANDLER
   const handleSocialLinksSave = useCallback((links: SelectedSocialLink[]) => {
     setSelectedSocialLinks(links)
   }, [])
 
-  // Handler for ServiceAreaDrawer (expects string array)
   const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
     setServiceAreas({
       primaryArea: areas[0] || '',
@@ -349,7 +359,6 @@ function EditListingContent() {
     }
   }, [formErrors])
 
-  // Handler for ProviderForm (expects object with primaryArea/additionalAreas)
   const handleServiceAreasChange = useCallback((areas: { primaryArea: string; additionalAreas: string[] }) => {
     setServiceAreas(areas)
     if (formErrors.primaryArea) {
@@ -424,7 +433,7 @@ function EditListingContent() {
   }, [formData, serviceAreas])
 
   // Send email notifications
-  const sendEmailNotifications = async (providerId: string, businessName: string, newStatus: string, userEmail: string) => {
+  const sendEmailNotifications = useCallback(async (providerId: string, businessName: string, newStatus: string, userEmail: string) => {
     try {
       await fetch('/api/email', {
         method: 'POST',
@@ -456,9 +465,9 @@ function EditListingContent() {
     } catch (emailError: any) {
       console.log('Email notification failed:', emailError.message)
     }
-  }
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
@@ -532,33 +541,34 @@ function EditListingContent() {
       }
 
       // Handle business features
-      await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
-      
       if (selectedBusinessFeatures.length > 0) {
         await saveProviderBusinessFeatures(listing.id, selectedBusinessFeatures)
+      } else {
+        // Delete all features if none selected
+        await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
       }
-
-      // Handle social links
-      await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
       
+      // Handle social links
       if (selectedSocialLinks.length > 0) {
+        // Delete existing links
+        await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
+        
+        // Insert new links
         const socialLinksData = selectedSocialLinks.map((link, index) => ({
           provider_id: listing.id,
           platform_id: link.is_custom ? null : link.platform_id,
           custom_platform_name: link.is_custom ? link.custom_platform_name : null,
           url: link.url,
+          is_custom: link.is_custom,
           display_order: index
         }))
         
-        const { error: socialError } = await supabase
-          .from('provider_social_links')
-          .insert(socialLinksData)
-        
-        if (socialError) {
-          console.error('Error saving social links:', socialError)
-        }
+        await supabase.from('provider_social_links').insert(socialLinksData)
+      } else {
+        // Delete all links if none selected
+        await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
       }
-      
+
       await sendEmailNotifications(
         listing.id,
         formData.business_name,
@@ -566,25 +576,29 @@ function EditListingContent() {
         formData.contact_email || user.email || ''
       )
       
-      setSubmissionStatus('success')
-      setSubmissionMessage('Changes Saved!')
-      setSubmissionDetail(
-        newStatus === 'pending' 
-          ? 'Your changes have been submitted for review.'
-          : 'Changes saved successfully!'
-      )
+      if (isMounted.current) {
+        setSubmissionStatus('success')
+        setSubmissionMessage('Changes Saved!')
+        setSubmissionDetail(
+          newStatus === 'pending' 
+            ? 'Your changes have been submitted for review.'
+            : 'Changes saved successfully!'
+        )
+      }
       
     } catch (err: any) {
       console.error('Error:', err)
-      setSubmissionStatus('error')
-      setSubmissionMessage('Update Failed')
-      setSubmissionDetail(err.message || 'Failed to update listing')
+      if (isMounted.current) {
+        setSubmissionStatus('error')
+        setSubmissionMessage('Update Failed')
+        setSubmissionDetail(err.message || 'Failed to update listing')
+      }
     } finally {
-      setIsSubmitting(false)
+      if (isMounted.current) setIsSubmitting(false)
     }
-  }
+  }, [validateForm, listing, showIncompleteFormNotification, formData, serviceAreas, selectedAccreditations, selectedBusinessFeatures, selectedSocialLinks, sendEmailNotifications])
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!listing) return
     if (!confirm(`Delete "${listing.business_name}"? This cannot be undone.`)) return
     
@@ -594,7 +608,7 @@ function EditListingContent() {
       await supabase.from('provider_accreditations').delete().eq('provider_id', listing.id)
       await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
       await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
-      
+
       // Then delete the provider
       const { error } = await supabase.from('providers').delete().eq('id', listing.id)
       if (error) throw error
@@ -602,11 +616,76 @@ function EditListingContent() {
       router.push('/providers/dashboard')
     } catch (err: any) {
       console.error('Error deleting:', err)
-      setError(err.message || 'Failed to delete listing')
+      if (isMounted.current) setError(err.message || 'Failed to delete listing')
     } finally {
-      setIsDeleting(false)
+      if (isMounted.current) setIsDeleting(false)
     }
-  }
+  }, [listing, router])
+
+  // Memoized drawer handlers - stable references
+  const handleOpenServiceDrawer = useCallback(() => setShowServiceDrawer(true), [])
+  const handleOpenAreaDrawer = useCallback(() => setShowServiceAreaDrawer(true), [])
+  const handleOpenAccreditationDrawer = useCallback(() => setShowAccreditationDrawer(true), [])
+  const handleOpenBusinessFeatureDrawer = useCallback(() => setShowBusinessFeatureDrawer(true), [])
+  const handleOpenSocialLinksDrawer = useCallback(() => setShowSocialLinksDrawer(true), [])
+
+  const handleCloseServiceDrawer = useCallback(() => setShowServiceDrawer(false), [])
+  const handleCloseAreaDrawer = useCallback(() => setShowServiceAreaDrawer(false), [])
+  const handleCloseAccreditationDrawer = useCallback(() => setShowAccreditationDrawer(false), [])
+  const handleCloseBusinessFeatureDrawer = useCallback(() => setShowBusinessFeatureDrawer(false), [])
+  const handleCloseSocialLinksDrawer = useCallback(() => setShowSocialLinksDrawer(false), [])
+
+  // Get status info - moved BEFORE formProps
+  const statusInfo = listing ? (statusConfig[listing.status as keyof typeof statusConfig] || statusConfig.pending) : statusConfig.pending
+
+  // Memoize form props to prevent re-renders
+  const formProps = useMemo(() => ({
+    mode: 'edit' as const,
+    serviceCategories,
+    userEmail: formData.contact_email,
+    existingBusinessName,
+    selectedAccreditations,
+    onAccreditationsChange: handleAccreditationsSave,
+    selectedBusinessFeatures,
+    onBusinessFeaturesChange: handleBusinessFeaturesSave,
+    selectedSocialLinks,
+    onSocialLinksChange: handleSocialLinksSave,
+    serviceAreas,
+    onServiceAreasChange: handleServiceAreasChange,
+    formData,
+    onFormChange: setFormData,
+    formErrors,
+    setFormErrors,
+    onOpenServiceDrawer: handleOpenServiceDrawer,
+    onOpenAreaDrawer: handleOpenAreaDrawer,
+    onOpenAccreditationDrawer: handleOpenAccreditationDrawer,
+    onOpenBusinessFeatureDrawer: handleOpenBusinessFeatureDrawer,
+    onOpenSocialLinksDrawer: handleOpenSocialLinksDrawer,
+    statusInfo,
+    disabledFields: [...lockedFields, ...(listing?.status === 'deleted' ? ['all'] as const : [])]
+  }), [
+    serviceCategories,
+    formData.contact_email,
+    existingBusinessName,
+    selectedAccreditations,
+    selectedBusinessFeatures,
+    selectedSocialLinks,
+    serviceAreas,
+    formData,
+    formErrors,
+    statusInfo,
+    lockedFields,
+    listing?.status,
+    handleAccreditationsSave,
+    handleBusinessFeaturesSave,
+    handleSocialLinksSave,
+    handleServiceAreasChange,
+    handleOpenServiceDrawer,
+    handleOpenAreaDrawer,
+    handleOpenAccreditationDrawer,
+    handleOpenBusinessFeatureDrawer,
+    handleOpenSocialLinksDrawer
+  ])
 
   if (loading) {
     return (
@@ -645,8 +724,6 @@ function EditListingContent() {
   }
 
   if (!listing) return null
-
-  const statusInfo = statusConfig[listing.status as keyof typeof statusConfig] || statusConfig.pending
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-4 sm:py-6 px-3 sm:px-4 pt-20 sm:pt-24">
@@ -708,32 +785,7 @@ function EditListingContent() {
 
         {/* Main Form */}
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-3 sm:p-4 md:p-6 border border-gray-700 mb-6 no-scroll-jump">
-          <ProviderForm
-            mode="edit"
-            serviceCategories={serviceCategories}
-            userEmail={formData.contact_email}
-            existingBusinessName={existingBusinessName}
-            selectedAccreditations={selectedAccreditations}
-            onAccreditationsChange={handleAccreditationsSave}
-            selectedBusinessFeatures={selectedBusinessFeatures}
-            onBusinessFeaturesChange={handleBusinessFeaturesSave}
-            // ADD THESE TWO NEW PROPS
-            selectedSocialLinks={selectedSocialLinks}
-            onSocialLinksChange={handleSocialLinksSave}
-            serviceAreas={serviceAreas}
-            onServiceAreasChange={handleServiceAreasChange}
-            formData={formData}
-            onFormChange={setFormData}
-            formErrors={formErrors}
-            setFormErrors={setFormErrors}
-            onOpenServiceDrawer={() => setShowServiceDrawer(true)}
-            onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
-            onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
-            onOpenBusinessFeatureDrawer={() => setShowBusinessFeatureDrawer(true)}
-            onOpenSocialLinksDrawer={() => setShowSocialLinksDrawer(true)}
-            statusInfo={statusInfo}
-            disabledFields={[...lockedFields, ...(listing.status === 'deleted' ? ['all'] : [])]}
-          />
+          <ProviderForm {...formProps} />
           
           {/* Form Actions */}
           <div className="pt-6 border-t border-gray-700 mt-10">
@@ -787,7 +839,7 @@ function EditListingContent() {
       {/* Drawers */}
       <ServiceCategoryDrawer
         isOpen={showServiceDrawer}
-        onClose={() => setShowServiceDrawer(false)}
+        onClose={handleCloseServiceDrawer}
         serviceCategories={serviceCategories}
         selectedCategoryId={formData.main_service_id}
         onSelect={handleServiceSelect}
@@ -796,7 +848,7 @@ function EditListingContent() {
 
       <AccreditationDrawer
         isOpen={showAccreditationDrawer}
-        onClose={() => setShowAccreditationDrawer(false)}
+        onClose={handleCloseAccreditationDrawer}
         providerId={listing?.id || "temp"}
         initialSelection={selectedAccreditations}
         onSave={handleAccreditationsSave}
@@ -806,7 +858,7 @@ function EditListingContent() {
 
       <BusinessFeatureDrawer
         isOpen={showBusinessFeatureDrawer}
-        onClose={() => setShowBusinessFeatureDrawer(false)}
+        onClose={handleCloseBusinessFeatureDrawer}
         providerId={listing?.id || "new"}
         initialSelection={selectedBusinessFeatures}
         onSave={handleBusinessFeaturesSave}
@@ -815,8 +867,8 @@ function EditListingContent() {
 
       <SocialLinksDrawer
         isOpen={showSocialLinksDrawer}
-        onClose={() => setShowSocialLinksDrawer(false)}
-        providerId={listing?.id || "temp"}
+        onClose={handleCloseSocialLinksDrawer}
+        providerId={listing?.id || "new"}
         initialLinks={selectedSocialLinks}
         onSave={handleSocialLinksSave}
         maxLinks={4}
@@ -824,11 +876,11 @@ function EditListingContent() {
 
       <ServiceAreaDrawer
         isOpen={showServiceAreaDrawer}
-        onClose={() => setShowServiceAreaDrawer(false)}
+        onClose={handleCloseAreaDrawer}
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : []}
         onSave={handleServiceAreaDrawerSave} 
-        maxAreas={20}
+        maxAreas={10}
       />
 
       <FormSubmissionDrawer

@@ -1,7 +1,7 @@
-// provider-listings/page.tsx
+// File: src/app/providers/listings/page.tsx
 'use client'
 
-import { useState, useEffect, Suspense, useCallback } from 'react'
+import { useState, useEffect, Suspense, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, saveProviderBusinessFeatures } from '@/lib/supabase'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -16,6 +16,12 @@ import { ArrowLeft, Save } from 'lucide-react'
 
 function ProviderListingsContent() {
   const router = useRouter()
+  
+  // Refs for scroll position tracking
+  const isMounted = useRef(true)
+  const scrollPositionRef = useRef(0)
+  const hasSubmitted = useRef(false)
+  
   const [loading, setLoading] = useState(false)
   const [userEmail, setUserEmail] = useState('')
   const [showServiceDrawer, setShowServiceDrawer] = useState(false)
@@ -69,6 +75,81 @@ function ProviderListingsContent() {
     accept_terms: false
   })
 
+  // Track mounted state
+  useEffect(() => {
+    isMounted.current = true
+    hasSubmitted.current = false
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
+  // Track scroll position only when not submitting
+  useEffect(() => {
+    const handleScroll = () => {
+      // Only track scroll when not submitting and drawer is not showing
+      if (!loading && !showSubmissionDrawer && !hasSubmitted.current) {
+        scrollPositionRef.current = window.scrollY
+      }
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [loading, showSubmissionDrawer])
+
+  // Add CSS to prevent scroll on focus and maintain scroll position
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+    
+    const styleElement = document.createElement('style')
+    styleElement.textContent = `
+      input:focus, 
+      textarea:focus, 
+      select:focus, 
+      button:focus {
+        scroll-margin: 0px !important;
+        scroll-margin-top: 0px !important;
+        scroll-margin-bottom: 0px !important;
+      }
+      
+      html {
+        overflow-anchor: none;
+      }
+      
+      * {
+        scroll-behavior: auto !important;
+      }
+      
+      .no-scroll-jump {
+        contain: content;
+      }
+      
+      /* Prevent page shift on re-render */
+      .form-field-container {
+        min-height: 80px;
+        contain: layout;
+      }
+      
+      .preview-section {
+        min-height: 60px;
+        contain: content;
+      }
+    `
+    document.head.appendChild(styleElement)
+    
+    return () => {
+      document.head.removeChild(styleElement)
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto'
+      }
+    }
+  }, [])
+
   // Fetch all initial data
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -114,7 +195,7 @@ function ProviderListingsContent() {
       } catch (error) {
         console.error('Error fetching initial data:', error)
       } finally {
-        setLoadingData(false)
+        if (isMounted.current) setLoadingData(false)
       }
     }
     
@@ -167,7 +248,20 @@ function ProviderListingsContent() {
     }
   }
 
-  // Memoized handlers to prevent unnecessary re-renders
+  // Memoized drawer handlers - stable references
+  const handleOpenServiceDrawer = useCallback(() => setShowServiceDrawer(true), [])
+  const handleOpenAreaDrawer = useCallback(() => setShowServiceAreaDrawer(true), [])
+  const handleOpenAccreditationDrawer = useCallback(() => setShowAccreditationDrawer(true), [])
+  const handleOpenBusinessFeatureDrawer = useCallback(() => setShowBusinessFeatureDrawer(true), [])
+  const handleOpenSocialLinksDrawer = useCallback(() => setShowSocialLinksDrawer(true), [])
+
+  const handleCloseServiceDrawer = useCallback(() => setShowServiceDrawer(false), [])
+  const handleCloseAreaDrawer = useCallback(() => setShowServiceAreaDrawer(false), [])
+  const handleCloseAccreditationDrawer = useCallback(() => setShowAccreditationDrawer(false), [])
+  const handleCloseBusinessFeatureDrawer = useCallback(() => setShowBusinessFeatureDrawer(false), [])
+  const handleCloseSocialLinksDrawer = useCallback(() => setShowSocialLinksDrawer(false), [])
+
+  // Memoized handlers
   const handleServiceSelect = useCallback((service: ServiceCategory) => {
     setFormData(prev => ({ 
       ...prev, 
@@ -221,6 +315,7 @@ function ProviderListingsContent() {
 
   const handleCloseDrawer = useCallback(() => {
     setShowSubmissionDrawer(false)
+    hasSubmitted.current = false
     if (submissionStatus === 'success') {
       router.push('/providers/dashboard')
     }
@@ -228,6 +323,7 @@ function ProviderListingsContent() {
 
   const handleRetry = useCallback(() => {
     setShowSubmissionDrawer(false)
+    hasSubmitted.current = false
     handleSubmit(new Event('submit') as any)
   }, [])
 
@@ -261,7 +357,7 @@ function ProviderListingsContent() {
     return Object.keys(errors).length === 0
   }, [formData, existingBusinessName, serviceAreas])
 
-  const showIncompleteFormNotification = () => {
+  const showIncompleteFormNotification = useCallback(() => {
     const notification = document.createElement('div');
     notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-in';
     notification.innerHTML = `
@@ -280,9 +376,9 @@ function ProviderListingsContent() {
       notification.classList.add('animate-slide-out');
       setTimeout(() => notification.remove(), 300);
     }, 3000);
-  }
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
@@ -298,11 +394,17 @@ function ProviderListingsContent() {
       return
     }
     
+    // Mark that we've submitted - this will stop scroll tracking
+    hasSubmitted.current = true
+    
     setSubmissionStatus('submitting')
     setSubmissionMessage('Creating your listing...')
     setSubmissionDetail('Please wait while we save your information')
     setShowSubmissionDrawer(true)
     setLoading(true)
+    
+    // Allow the page to scroll to top naturally
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -362,7 +464,7 @@ function ProviderListingsContent() {
         await saveProviderBusinessFeatures(data.id, selectedBusinessFeatures)
       }
       
-      // ADD THIS CODE TO SAVE SOCIAL LINKS
+      // Save social links
       if (selectedSocialLinks.length > 0 && data?.id) {
         const socialLinksData = selectedSocialLinks.map((link, index) => ({
           provider_id: data.id,
@@ -411,19 +513,68 @@ function ProviderListingsContent() {
         console.error('❌ Email notification network error:', error.message)
       })
       
-      setSubmissionStatus('success')
-      setSubmissionMessage('Listing Created!')
-      setSubmissionDetail('Your service listing has been submitted successfully.')
+      if (isMounted.current) {
+        setSubmissionStatus('success')
+        setSubmissionMessage('Listing Created!')
+        setSubmissionDetail('Your service listing has been submitted successfully.')
+      }
       
     } catch (error: any) {
       console.error('Error:', error)
-      setSubmissionStatus('error')
-      setSubmissionMessage('Submission Failed')
-      setSubmissionDetail(error.message || 'Failed to submit form')
+      if (isMounted.current) {
+        setSubmissionStatus('error')
+        setSubmissionMessage('Submission Failed')
+        setSubmissionDetail(error.message || 'Failed to submit form')
+      }
     } finally {
-      setLoading(false)
+      if (isMounted.current) setLoading(false)
     }
-  }
+  }, [validateForm, existingBusinessName, formData, userEmail, serviceAreas, selectedAccreditations, selectedBusinessFeatures, selectedSocialLinks, showIncompleteFormNotification, router])
+
+  // Memoize form props to prevent unnecessary re-renders
+  const formProps = useMemo(() => ({
+    mode: 'create' as const,
+    serviceCategories,
+    userEmail,
+    existingBusinessName,
+    selectedAccreditations,
+    onAccreditationsChange: handleAccreditationsSave,
+    selectedBusinessFeatures,
+    onBusinessFeaturesChange: handleBusinessFeaturesSave,
+    selectedSocialLinks,
+    onSocialLinksChange: handleSocialLinksSave,
+    serviceAreas,
+    onServiceAreasChange: handleServiceAreasChange,
+    formData,
+    onFormChange: setFormData,
+    formErrors,
+    setFormErrors,
+    onOpenServiceDrawer: handleOpenServiceDrawer,
+    onOpenAreaDrawer: handleOpenAreaDrawer,
+    onOpenAccreditationDrawer: handleOpenAccreditationDrawer,
+    onOpenBusinessFeatureDrawer: handleOpenBusinessFeatureDrawer,
+    onOpenSocialLinksDrawer: handleOpenSocialLinksDrawer,
+    disabledFields: existingBusinessName ? ['business_name'] : []
+  }), [
+    serviceCategories,
+    userEmail,
+    existingBusinessName,
+    selectedAccreditations,
+    selectedBusinessFeatures,
+    selectedSocialLinks,
+    serviceAreas,
+    formData,
+    formErrors,
+    handleAccreditationsSave,
+    handleBusinessFeaturesSave,
+    handleSocialLinksSave,
+    handleServiceAreasChange,
+    handleOpenServiceDrawer,
+    handleOpenAreaDrawer,
+    handleOpenAccreditationDrawer,
+    handleOpenBusinessFeatureDrawer,
+    handleOpenSocialLinksDrawer
+  ])
   
   if (loadingData) {
     return (
@@ -492,29 +643,7 @@ function ProviderListingsContent() {
 
         {/* Main Form */}
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-3 sm:p-4 md:p-6 border border-gray-700 mb-6">
-          <ProviderForm
-            mode="create"
-            serviceCategories={serviceCategories}
-            userEmail={userEmail}
-            existingBusinessName={existingBusinessName}
-            selectedAccreditations={selectedAccreditations}
-            onAccreditationsChange={handleAccreditationsSave}
-            selectedBusinessFeatures={selectedBusinessFeatures}
-            onBusinessFeaturesChange={handleBusinessFeaturesSave}
-            selectedSocialLinks={selectedSocialLinks}
-            onSocialLinksChange={handleSocialLinksSave}
-            serviceAreas={serviceAreas}
-            onServiceAreasChange={handleServiceAreasChange}
-            formData={formData}
-            onFormChange={setFormData}
-            formErrors={formErrors}
-            setFormErrors={setFormErrors}
-            onOpenServiceDrawer={() => setShowServiceDrawer(true)}
-            onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
-            onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
-            onOpenBusinessFeatureDrawer={() => setShowBusinessFeatureDrawer(true)}
-            onOpenSocialLinksDrawer={() => setShowSocialLinksDrawer(true)}
-          />
+          <ProviderForm {...formProps} />
           
           {/* Form Actions with Cancel Button at Bottom */}
           <div className="pt-6 border-t border-gray-700 mt-10">
@@ -565,7 +694,7 @@ function ProviderListingsContent() {
       {/* Drawers */}
       <ServiceCategoryDrawer
         isOpen={showServiceDrawer}
-        onClose={() => setShowServiceDrawer(false)}
+        onClose={handleCloseServiceDrawer}
         serviceCategories={serviceCategories}
         selectedCategoryId={formData.main_service_id}
         onSelect={handleServiceSelect}
@@ -574,7 +703,7 @@ function ProviderListingsContent() {
 
       <AccreditationDrawer
         isOpen={showAccreditationDrawer}
-        onClose={() => setShowAccreditationDrawer(false)}
+        onClose={handleCloseAccreditationDrawer}
         providerId="temp"
         initialSelection={selectedAccreditations}
         onSave={handleAccreditationsSave}
@@ -584,7 +713,7 @@ function ProviderListingsContent() {
 
       <BusinessFeatureDrawer
         isOpen={showBusinessFeatureDrawer}
-        onClose={() => setShowBusinessFeatureDrawer(false)}
+        onClose={handleCloseBusinessFeatureDrawer}
         providerId="new"
         initialSelection={selectedBusinessFeatures}
         onSave={handleBusinessFeaturesSave}
@@ -593,7 +722,7 @@ function ProviderListingsContent() {
 
       <SocialLinksDrawer
         isOpen={showSocialLinksDrawer}
-        onClose={() => setShowSocialLinksDrawer(false)}
+        onClose={handleCloseSocialLinksDrawer}
         providerId="temp"
         initialLinks={selectedSocialLinks}
         onSave={handleSocialLinksSave}
@@ -602,7 +731,7 @@ function ProviderListingsContent() {
 
       <ServiceAreaDrawer
         isOpen={showServiceAreaDrawer}
-        onClose={() => setShowServiceAreaDrawer(false)}
+        onClose={handleCloseAreaDrawer}
         initialAreas={serviceAreas.primaryArea ? 
           [serviceAreas.primaryArea, ...(serviceAreas.additionalAreas || [])] : []}
         onSave={handleServiceAreaDrawerSave}

@@ -11,7 +11,8 @@ import ServiceAreaDrawer from '@/components/ServiceAreaDrawer'
 import ServiceCategoryDrawer from '@/components/ServiceCategoryDrawer'
 import FormSubmissionDrawer from '@/components/FormSubmissionDrawer'
 import BusinessFeatureDrawer from '@/components/BusinessFeatureDrawer'
-import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, ProviderFormData } from '@/components/ProviderForm'
+import SocialLinksDrawer from '@/components/SocialLinksDrawer'
+import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, SelectedSocialLink, ProviderFormData } from '@/components/ProviderForm'
 import { 
   ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, Shield,
   Loader2, Save  
@@ -84,6 +85,7 @@ function EditListingContent() {
   const [showServiceAreaDrawer, setShowServiceAreaDrawer] = useState(false)
   const [showAccreditationDrawer, setShowAccreditationDrawer] = useState(false)
   const [showBusinessFeatureDrawer, setShowBusinessFeatureDrawer] = useState(false)
+  const [showSocialLinksDrawer, setShowSocialLinksDrawer] = useState(false)
   
   // Form errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -95,6 +97,7 @@ function EditListingContent() {
   const [listing, setListing] = useState<any>(null)
   const [selectedAccreditations, setSelectedAccreditations] = useState<SelectedAccreditation[]>([])
   const [selectedBusinessFeatures, setSelectedBusinessFeatures] = useState<SelectedBusinessFeature[]>([])
+  const [selectedSocialLinks, setSelectedSocialLinks] = useState<SelectedSocialLink[]>([])
   const [serviceAreas, setServiceAreas] = useState<{
     primaryArea: string;
     additionalAreas: string[];
@@ -266,6 +269,28 @@ function EditListingContent() {
           }))
           setSelectedBusinessFeatures(formattedFeatures)
         }
+
+        // Load social links
+        const { data: socialLinksData } = await supabase
+          .from('provider_social_links')
+          .select(`
+            *,
+            platform:social_platforms(*)
+          `)
+          .eq('provider_id', listingId)
+          .order('display_order')
+        
+        if (socialLinksData) {
+          const formattedSocialLinks: SelectedSocialLink[] = socialLinksData.map(link => ({
+            id: link.id,
+            platform_id: link.platform_id,
+            platform: link.platform,
+            custom_platform_name: link.custom_platform_name,
+            url: link.url,
+            is_custom: !link.platform_id
+          }))
+          setSelectedSocialLinks(formattedSocialLinks)
+        }
         
         const { data: servicesData } = await supabase
           .from('service_categories')
@@ -307,6 +332,11 @@ function EditListingContent() {
       setFormErrors(prev => ({ ...prev, business_features: '' }))
     }
   }, [formErrors])
+
+  // ADD THIS NEW HANDLER
+  const handleSocialLinksSave = useCallback((links: SelectedSocialLink[]) => {
+    setSelectedSocialLinks(links)
+  }, [])
 
   // Handler for ServiceAreaDrawer (expects string array)
   const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
@@ -502,11 +532,31 @@ function EditListingContent() {
       }
 
       // Handle business features
+      await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
+      
       if (selectedBusinessFeatures.length > 0) {
         await saveProviderBusinessFeatures(listing.id, selectedBusinessFeatures)
-      } else {
-        // Delete all features if none selected
-        await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
+      }
+
+      // Handle social links
+      await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
+      
+      if (selectedSocialLinks.length > 0) {
+        const socialLinksData = selectedSocialLinks.map((link, index) => ({
+          provider_id: listing.id,
+          platform_id: link.is_custom ? null : link.platform_id,
+          custom_platform_name: link.is_custom ? link.custom_platform_name : null,
+          url: link.url,
+          display_order: index
+        }))
+        
+        const { error: socialError } = await supabase
+          .from('provider_social_links')
+          .insert(socialLinksData)
+        
+        if (socialError) {
+          console.error('Error saving social links:', socialError)
+        }
       }
       
       await sendEmailNotifications(
@@ -543,6 +593,7 @@ function EditListingContent() {
       // First delete related records
       await supabase.from('provider_accreditations').delete().eq('provider_id', listing.id)
       await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
+      await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
       
       // Then delete the provider
       const { error } = await supabase.from('providers').delete().eq('id', listing.id)
@@ -666,6 +717,9 @@ function EditListingContent() {
             onAccreditationsChange={handleAccreditationsSave}
             selectedBusinessFeatures={selectedBusinessFeatures}
             onBusinessFeaturesChange={handleBusinessFeaturesSave}
+            // ADD THESE TWO NEW PROPS
+            selectedSocialLinks={selectedSocialLinks}
+            onSocialLinksChange={handleSocialLinksSave}
             serviceAreas={serviceAreas}
             onServiceAreasChange={handleServiceAreasChange}
             formData={formData}
@@ -676,6 +730,7 @@ function EditListingContent() {
             onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
             onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
             onOpenBusinessFeatureDrawer={() => setShowBusinessFeatureDrawer(true)}
+            onOpenSocialLinksDrawer={() => setShowSocialLinksDrawer(true)}
             statusInfo={statusInfo}
             disabledFields={[...lockedFields, ...(listing.status === 'deleted' ? ['all'] : [])]}
           />
@@ -756,6 +811,15 @@ function EditListingContent() {
         initialSelection={selectedBusinessFeatures}
         onSave={handleBusinessFeaturesSave}
         maxSelection={10}
+      />
+
+      <SocialLinksDrawer
+        isOpen={showSocialLinksDrawer}
+        onClose={() => setShowSocialLinksDrawer(false)}
+        providerId={listing?.id || "temp"}
+        initialLinks={selectedSocialLinks}
+        onSave={handleSocialLinksSave}
+        maxLinks={4}
       />
 
       <ServiceAreaDrawer

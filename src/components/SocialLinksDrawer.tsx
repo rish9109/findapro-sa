@@ -49,6 +49,7 @@ export default function SocialLinksDrawer({
   const browseSearchRef = useRef<HTMLInputElement>(null);
   const isInitialized = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const scrollPosition = useRef(0);
 
   // Icon mapping
   const getIconComponent = (iconName: string) => {
@@ -84,28 +85,43 @@ export default function SocialLinksDrawer({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle escape key and body scroll
+  // Handle escape key and body scroll - IMPROVED VERSION
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     
     if (isOpen) {
+      // Store current scroll position
+      scrollPosition.current = window.scrollY;
+      
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollPosition.current}px`;
       document.body.style.width = '100%';
-      document.body.style.top = `-${window.scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
     }
     
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      const scrollY = document.body.style.top;
+      
+      // Restore body styles
       document.body.style.overflow = '';
       document.body.style.position = '';
-      document.body.style.width = '';
       document.body.style.top = '';
-      window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      document.body.style.width = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      
+      // Use requestAnimationFrame to ensure DOM update before scrolling
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: scrollPosition.current,
+          behavior: 'auto' // Use 'auto' instead of 'smooth' to prevent jumping
+        });
+      });
     };
   }, [isOpen, onClose]);
 

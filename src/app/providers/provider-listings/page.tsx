@@ -10,7 +10,8 @@ import ServiceAreaDrawer from '@/components/ServiceAreaDrawer'
 import ServiceCategoryDrawer from '@/components/ServiceCategoryDrawer'
 import FormSubmissionDrawer from '@/components/FormSubmissionDrawer'
 import BusinessFeatureDrawer from '@/components/BusinessFeatureDrawer'
-import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, ProviderFormData } from '@/components/ProviderForm'
+import SocialLinksDrawer from '@/components/SocialLinksDrawer'
+import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, SelectedSocialLink, ProviderFormData } from '@/components/ProviderForm'
 import { ArrowLeft, Save } from 'lucide-react'
 
 function ProviderListingsContent() {
@@ -21,6 +22,7 @@ function ProviderListingsContent() {
   const [showServiceAreaDrawer, setShowServiceAreaDrawer] = useState(false)
   const [showAccreditationDrawer, setShowAccreditationDrawer] = useState(false)
   const [showBusinessFeatureDrawer, setShowBusinessFeatureDrawer] = useState(false)
+  const [showSocialLinksDrawer, setShowSocialLinksDrawer] = useState(false)
   
   // Submission drawer state
   const [showSubmissionDrawer, setShowSubmissionDrawer] = useState(false)
@@ -42,6 +44,7 @@ function ProviderListingsContent() {
   // Selection states
   const [selectedAccreditations, setSelectedAccreditations] = useState<SelectedAccreditation[]>([])
   const [selectedBusinessFeatures, setSelectedBusinessFeatures] = useState<SelectedBusinessFeature[]>([])
+  const [selectedSocialLinks, setSelectedSocialLinks] = useState<SelectedSocialLink[]>([])
   const [serviceAreas, setServiceAreas] = useState<{
     primaryArea: string;
     additionalAreas: string[];
@@ -186,6 +189,10 @@ function ProviderListingsContent() {
       setFormErrors(prev => ({ ...prev, business_features: '' }))
     }
   }, [formErrors])
+
+  const handleSocialLinksSave = useCallback((links: SelectedSocialLink[]) => {
+    setSelectedSocialLinks(links)
+  }, [])
 
   // Handler for ServiceAreaDrawer (expects string array)
   const handleServiceAreaDrawerSave = useCallback((areas: string[]) => {
@@ -355,6 +362,26 @@ function ProviderListingsContent() {
         await saveProviderBusinessFeatures(data.id, selectedBusinessFeatures)
       }
       
+      // ADD THIS CODE TO SAVE SOCIAL LINKS
+      if (selectedSocialLinks.length > 0 && data?.id) {
+        const socialLinksData = selectedSocialLinks.map((link, index) => ({
+          provider_id: data.id,
+          platform_id: link.is_custom ? null : link.platform_id,
+          custom_platform_name: link.is_custom ? link.custom_platform_name : null,
+          url: link.url,
+          display_order: index
+        }))
+        
+        const { error: socialError } = await supabase
+          .from('provider_social_links')
+          .insert(socialLinksData)
+        
+        if (socialError) {
+          console.error('Error saving social links:', socialError)
+          // Don't throw - still want to show success for the main listing
+        }
+      }
+      
       // Send notification (non-blocking)
       console.log('📤 Attempting to send email for:', data.business_name, 'Email:', data.contact_email)
       
@@ -474,6 +501,8 @@ function ProviderListingsContent() {
             onAccreditationsChange={handleAccreditationsSave}
             selectedBusinessFeatures={selectedBusinessFeatures}
             onBusinessFeaturesChange={handleBusinessFeaturesSave}
+            selectedSocialLinks={selectedSocialLinks}
+            onSocialLinksChange={handleSocialLinksSave}
             serviceAreas={serviceAreas}
             onServiceAreasChange={handleServiceAreasChange}
             formData={formData}
@@ -484,6 +513,7 @@ function ProviderListingsContent() {
             onOpenAreaDrawer={() => setShowServiceAreaDrawer(true)}
             onOpenAccreditationDrawer={() => setShowAccreditationDrawer(true)}
             onOpenBusinessFeatureDrawer={() => setShowBusinessFeatureDrawer(true)}
+            onOpenSocialLinksDrawer={() => setShowSocialLinksDrawer(true)}
           />
           
           {/* Form Actions with Cancel Button at Bottom */}
@@ -559,6 +589,15 @@ function ProviderListingsContent() {
         initialSelection={selectedBusinessFeatures}
         onSave={handleBusinessFeaturesSave}
         maxSelection={10} 
+      />
+
+      <SocialLinksDrawer
+        isOpen={showSocialLinksDrawer}
+        onClose={() => setShowSocialLinksDrawer(false)}
+        providerId="temp"
+        initialLinks={selectedSocialLinks}
+        onSave={handleSocialLinksSave}
+        maxLinks={4}
       />
 
       <ServiceAreaDrawer

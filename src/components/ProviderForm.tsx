@@ -32,6 +32,15 @@ export interface SelectedBusinessFeature {
   position: number
 }
 
+export interface SelectedSocialLink {
+  id: string
+  platform_id?: string
+  platform?: any
+  custom_platform_name?: string
+  url: string
+  is_custom: boolean
+}
+
 export interface ProviderFormData {
   // Business Information
   business_name: string
@@ -74,6 +83,9 @@ interface ProviderFormProps {
   selectedBusinessFeatures?: SelectedBusinessFeature[] // Optional
   onBusinessFeaturesChange: (features: SelectedBusinessFeature[]) => void
   
+  selectedSocialLinks?: SelectedSocialLink[] // Optional
+  onSocialLinksChange: (links: SelectedSocialLink[]) => void
+  
   serviceAreas: {
     primaryArea: string
     additionalAreas: string[]
@@ -90,7 +102,9 @@ interface ProviderFormProps {
   onOpenServiceDrawer: () => void
   onOpenAreaDrawer: () => void
   onOpenAccreditationDrawer: () => void
-  onOpenBusinessFeatureDrawer: () => void // New drawer control
+  onOpenBusinessFeatureDrawer: () => void
+  // ADD THIS NEW DRAWER CONTROL
+  onOpenSocialLinksDrawer: () => void
   
   // Mode
   mode: 'create' | 'edit'
@@ -117,6 +131,8 @@ function ProviderForm({
   onAccreditationsChange,
   selectedBusinessFeatures = [], // Default to empty array
   onBusinessFeaturesChange,
+  selectedSocialLinks = [], // Default to empty array
+  onSocialLinksChange,
   serviceAreas,
   onServiceAreasChange,
   formData,
@@ -127,6 +143,7 @@ function ProviderForm({
   onOpenAreaDrawer,
   onOpenAccreditationDrawer,
   onOpenBusinessFeatureDrawer,
+  onOpenSocialLinksDrawer,
   mode,
   statusInfo,
   disabledFields = []
@@ -739,6 +756,69 @@ function ProviderForm({
               </div>
             )}
           </div>
+
+          {/* ===== NEW SOCIAL LINKS SECTION ===== */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-[#FF7A45] flex items-center gap-1">
+                <span>Social Links</span>
+                <span className="text-xs text-gray-400 ml-2">(Optional)</span>
+              </label>
+              <span className="text-xs text-gray-500">
+                {selectedSocialLinks?.length || 0}/4 selected
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenSocialLinksDrawer}
+              disabled={disabledFields.includes('social_links')}
+              className={`w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white text-left flex justify-between items-center hover:border-orange-500 transition-colors ${disabledFields.includes('social_links') ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              <div className="flex-1">
+                <span className={selectedSocialLinks && selectedSocialLinks.length > 0 ? "text-white" : "text-gray-500"}>
+                  {selectedSocialLinks && selectedSocialLinks.length > 0 
+                    ? `${selectedSocialLinks.length} social link${selectedSocialLinks.length !== 1 ? 's' : ''} selected`
+                    : "Add your website and social media links"}
+                </span>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            
+            {/* Selected social links preview */}
+            {selectedSocialLinks && selectedSocialLinks.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedSocialLinks.slice(0, 4).map((link) => (
+                  <span key={link.id} className="px-3 py-1.5 bg-purple-500/20 text-purple-300 text-xs rounded-lg border border-purple-500/30 flex items-center gap-1">
+                    {link.is_custom ? (
+                      <span>🔗</span>
+                    ) : (
+                      <span>
+                        {link.platform?.icon_name === 'Globe' ? '🌐' : 
+                         link.platform?.icon_name === 'Facebook' ? '📘' :
+                         link.platform?.icon_name === 'Instagram' ? '📷' :
+                         link.platform?.icon_name === 'LinkedIn' ? '💼' :
+                         link.platform?.icon_name === 'Youtube' ? '▶️' :
+                         link.platform?.icon_name === 'Music2' ? '🎵' : '🔗'}
+                      </span>
+                    )}
+                    {link.is_custom 
+                      ? link.custom_platform_name?.substring(0, 10)
+                      : link.platform?.name || 'Link'
+                    }
+                  </span>
+                ))}
+                {selectedSocialLinks.length > 4 && (
+                  <span className="px-3 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg border border-gray-600">
+                    +{selectedSocialLinks.length - 4} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          {/* ===== END SOCIAL LINKS SECTION ===== */}
+
         </div>
       </div>
 

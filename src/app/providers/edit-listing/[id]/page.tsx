@@ -282,27 +282,28 @@ function EditListingContent() {
             setSelectedBusinessFeatures(formattedFeatures)
           }
           
-          const { data: socialLinksData } = await supabase
-            .from('provider_social_links')
-            .select(`
-              *,
-              platform:social_platforms(*)
-            `)
-            .eq('provider_id', listingId)
-            .order('display_order')
+// Load social links
+const { data: socialLinksData } = await supabase
+  .from('provider_social_links')
+  .select(`
+    *,
+    platform:social_platforms(*)
+  `)
+  .eq('provider_id', listingId)
+  .order('display_order')
 
-          if (socialLinksData) {
-            const formattedLinks: SelectedSocialLink[] = socialLinksData.map(item => ({
-              id: item.id,
-              platform_id: item.platform_id,
-              platform: item.platform,
-              custom_platform_name: item.custom_platform_name,
-              url: item.url,
-              is_custom: item.is_custom
-            }))
-            setSelectedSocialLinks(formattedLinks)
-          }
-          
+if (socialLinksData) {
+  const formattedLinks: SelectedSocialLink[] = socialLinksData.map(item => ({
+    id: item.id,
+    platform_id: item.platform_id, // CRITICAL: store this separately
+    platform: item.platform,
+    custom_platform_name: item.custom_platform_name,
+    url: item.url,
+    is_custom: item.is_custom
+  }))
+  console.log('Loaded social links:', formattedLinks) // Debug log
+  setSelectedSocialLinks(formattedLinks)
+}          
           const { data: servicesData } = await supabase
             .from('service_categories')
             .select('id, name, description, icon')
@@ -548,27 +549,81 @@ function EditListingContent() {
         await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
       }
       
-      // Handle social links
-      if (selectedSocialLinks.length > 0) {
-        // Delete existing links
-        await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
-        
-        // Insert new links
-        const socialLinksData = selectedSocialLinks.map((link, index) => ({
+ // Handle social links 
+try {
+  // Always delete existing links first
+  const { error: deleteError } = await supabase
+    .from('provider_social_links')
+    .delete()
+    .eq('provider_id', listing.id)
+  
+  if (deleteError) {
+    console.error('Error deleting existing social links:', deleteError)
+    throw deleteError
+  }
+  
+  // Insert new links if any exist
+  if (selectedSocialLinks.length > 0) {
+    console.log('Saving social links:', selectedSocialLinks) // Debug log
+    
+    // Prepare data for insertion - WITHOUT is_custom field
+    const socialLinksData = selectedSocialLinks.map((link, index) => {
+      // Handle custom links
+      if (link.is_custom) {
+        return {
           provider_id: listing.id,
-          platform_id: link.is_custom ? null : link.platform_id,
-          custom_platform_name: link.is_custom ? link.custom_platform_name : null,
+          platform_id: null,
+          custom_platform_name: link.custom_platform_name || link.platform?.name,
           url: link.url,
-          is_custom: link.is_custom,
           display_order: index
-        }))
-        
-        await supabase.from('provider_social_links').insert(socialLinksData)
-      } else {
-        // Delete all links if none selected
-        await supabase.from('provider_social_links').delete().eq('provider_id', listing.id)
+        }
       }
-
+      
+      // Handle predefined platform links - get platform_id from various possible locations
+      let platformId = null
+      
+      if (link.platform_id) {
+        // Direct platform_id
+        platformId = link.platform_id
+      } else if (link.platform?.id) {
+        // From nested platform object
+        platformId = link.platform.id
+      }
+      
+      if (!platformId) {
+        console.error('Missing platform_id for non-custom link:', link)
+        return null // Skip invalid links
+      }
+      
+      return {
+        provider_id: listing.id,
+        platform_id: platformId,
+        custom_platform_name: null,
+        url: link.url,
+        display_order: index
+        // REMOVED: is_custom: false
+      }
+    }).filter(link => link !== null) // Remove any invalid links
+    
+    console.log('Formatted social links data:', socialLinksData) // Debug log
+    
+    if (socialLinksData.length > 0) {
+      const { error: insertError } = await supabase
+        .from('provider_social_links')
+        .insert(socialLinksData)
+      
+      if (insertError) {
+        console.error('Error inserting social links:', insertError)
+        throw insertError
+      }
+      
+      console.log(`✅ Successfully saved ${socialLinksData.length} social links`)
+    }
+  }
+} catch (socialError) {
+  console.error('Failed to save social links:', socialError)
+  throw socialError // This will trigger the error state in the submission drawer
+}
       await sendEmailNotifications(
         listing.id,
         formData.business_name,

@@ -408,7 +408,7 @@ export default function SocialLinksDrawer({
               </button>
             </div>
             <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>
-              Select platforms and add your links ({selected.length}/{maxLinks})
+              Select platforms and add your links ()({selected.length}/{maxLinks})
             </p>
           </div>
           
@@ -499,183 +499,244 @@ export default function SocialLinksDrawer({
               </button>
             </div>
 
-            {/* Selected Links with URL Inputs */}
-            {selected.length > 0 && (
-              <div>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  marginBottom: '1rem' 
-                }}>
-                  <h4 style={{ 
-                    fontSize: '0.875rem', 
-                    fontWeight: '500', 
-                    color: '#f97316', 
-                    margin: 0,
-                  }}>
-                    Your Links
-                  </h4>
-                  {selected.length > 0 && (
-                    <button
-                      onClick={clearAllLinks}
-                      style={{
-                        fontSize: '0.75rem',
-                        color: '#9ca3af',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        padding: isMobile ? '0.75rem' : '0.5rem',
-                        minHeight: isMobile ? '44px' : 'auto',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = '#ef4444';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = '#9ca3af';
-                      }}
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {selected.map((link) => {
-                    const IconComponent = getIconComponent(link.platform?.icon_name || 'Globe');
-                    
-                    return (
-                      <div
-                        key={link.id}
-                        style={{
-                          padding: isMobile ? '1rem' : '0.875rem',
-                          background: 'linear-gradient(to right, rgba(17, 24, 39, 0.5), rgba(31, 41, 55, 0.3))',
-                          border: '1px solid #374151',
-                          borderRadius: '0.75rem',
-                        }}
-                      >
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '0.75rem',
-                          marginBottom: '0.75rem',
-                        }}>
-                          <IconComponent style={{ 
-                            width: '1.25rem', 
-                            height: '1.25rem', 
-                            color: '#f97316'
-                          }} />
-                          <span style={{ 
-                            fontWeight: '500', 
-                            color: 'white',
-                            flex: 1,
-                            fontSize: isMobile ? '1rem' : '0.9375rem',
-                          }}>
-                            {link.platform?.name}
-                          </span>
-                          
-                          <button
-                            onClick={() => removeLink(link.id)}
-                            style={{
-                              color: '#9ca3af',
-                              background: 'transparent',
-                              border: 'none',
-                              padding: isMobile ? '0.75rem' : '0.5rem',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderRadius: '0.5rem',
-                              minHeight: isMobile ? '44px' : '36px',
-                              minWidth: isMobile ? '44px' : '36px',
-                              WebkitTapHighlightColor: 'transparent',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = '#ef4444';
-                              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '#9ca3af';
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                          >
-                            <X style={{ width: '1.125rem', height: '1.125rem' }} />
-                          </button>
-                        </div>
+      {/* Selected Links with URL Inputs */}
+{selected.length > 0 && (
+  <div>
+    {/* Header with improved spacing for mobile */}
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'space-between', 
+      marginBottom: '1rem',
+      flexWrap: 'wrap',
+      gap: '0.5rem',
+    }}>
+      <h4 style={{ 
+        fontSize: '0.875rem', 
+        fontWeight: '600', 
+        color: '#f97316', 
+        margin: 0,
+      }}>
+        Your Links
+      </h4>
+      {selected.length > 0 && (
+        <button
+          onClick={clearAllLinks}
+          style={{
+            fontSize: '0.75rem',
+            color: '#9ca3af',
+            background: 'transparent',
+            border: '1px solid #4b5563',
+            borderRadius: '9999px',
+            cursor: 'pointer',
+            padding: isMobile ? '0.5rem 1rem' : '0.25rem 0.75rem',
+            minHeight: isMobile ? '40px' : 'auto',
+            minWidth: isMobile ? '80px' : 'auto',
+            transition: 'all 0.2s ease',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#ef4444';
+            e.currentTarget.style.borderColor = '#ef4444';
+            e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#9ca3af';
+            e.currentTarget.style.borderColor = '#4b5563';
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }}
+        >
+          Clear All
+        </button>
+      )}
+    </div>
 
-                        {/* URL Input - Always visible */}
-                        <div>
-                          <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            marginBottom: '0.375rem',
-                          }}>
-                            <label style={{ 
-                              fontSize: '0.75rem', 
-                              color: link.urlError ? '#fca5a5' : '#9ca3af',
-                              fontWeight: link.urlError ? '500' : 'normal',
-                            }}>
-                              {link.urlError || 'URL * Required'}
-                            </label>
-                            {link.url && !link.urlError && validateUrl(link.url) && (
-                              <a
-                                href={formatUrl(link.url)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  color: '#60a5fa',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem',
-                                  fontSize: '0.75rem',
-                                  textDecoration: 'none',
-                                  padding: '0.25rem',
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <ExternalLink style={{ width: '0.75rem', height: '0.75rem' }} />
-                                <span>Test</span>
-                              </a>
-                            )}
-                          </div>
-                          <input
-                            type="url"
-                            value={link.url}
-                            onChange={(e) => updateLinkUrl(link.id, e.target.value)}
-                            placeholder={`Enter ${link.platform?.name} URL...`}
-                            inputMode="url"
-                            enterKeyHint="done"
-                            style={{
-                              width: '100%',
-                              padding: isMobile ? '1rem' : '0.875rem',
-                              backgroundColor: '#111827',
-                              border: '1px solid',
-                              borderColor: link.urlError ? '#ef4444' : '#374151',
-                              borderRadius: '0.75rem',
-                              color: 'white',
-                              fontSize: isMobile ? '1rem' : '0.9375rem',
-                              outline: 'none',
-                              WebkitAppearance: 'none',
-                            }}
-                            onFocus={(e) => {
-                              e.currentTarget.style.borderColor = '#f97316';
-                              e.currentTarget.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.2)';
-                            }}
-                            onBlur={(e) => {
-                              e.currentTarget.style.borderColor = link.urlError ? '#ef4444' : '#374151';
-                              e.currentTarget.style.boxShadow = 'none';
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+    {/* 💡 TIP - Prominently displayed for mobile */}
+    <div style={{
+      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+      borderLeft: '4px solid #f59e0b',
+      borderRadius: '0.5rem',
+      padding: isMobile ? '1rem' : '0.75rem',
+      marginBottom: '1.5rem',
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '0.75rem',
+    }}>
+      <span style={{ fontSize: '1.25rem', lineHeight: '1.2' }}>💡</span>
+      <div style={{ flex: 1 }}>
+        <p style={{ 
+          fontSize: isMobile ? '0.875rem' : '0.8rem', 
+          color: '#fbbf24', 
+          margin: 0,
+          fontWeight: '500',
+          lineHeight: '1.4',
+        }}>
+          <strong>Pro Tip:</strong> Go to your profile, tap "share", copy the link, and paste it below.
+        </p>
+      </div>
+    </div>
+    
+    {/* Links List - Optimized for mobile touch */}
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: isMobile ? '1.25rem' : '1rem' 
+    }}>
+      {selected.map((link) => {
+        const IconComponent = getIconComponent(link.platform?.icon_name || 'Globe');
+        
+        return (
+          <div
+            key={link.id}
+            style={{
+              padding: isMobile ? '1.25rem 1rem' : '0.875rem',
+              background: 'linear-gradient(to right, rgba(17, 24, 39, 0.8), rgba(31, 41, 55, 0.5))',
+              border: '1px solid #374151',
+              borderRadius: '1rem',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            {/* Platform Header - Better touch targets */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.75rem',
+              marginBottom: '1rem',
+            }}>
+              <div style={{
+                width: isMobile ? '2.5rem' : '2rem',
+                height: isMobile ? '2.5rem' : '2rem',
+                borderRadius: '0.75rem',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <IconComponent style={{ 
+                  width: isMobile ? '1.25rem' : '1rem', 
+                  height: isMobile ? '1.25rem' : '1rem', 
+                  color: '#f97316'
+                }} />
               </div>
-            )}
+              
+              <span style={{ 
+                fontWeight: '600', 
+                color: 'white',
+                flex: 1,
+                fontSize: isMobile ? '1rem' : '0.9375rem',
+              }}>
+                {link.platform?.name}
+              </span>
+              
+              {/* Remove button - Large touch target */}
+              <button
+                onClick={() => removeLink(link.id)}
+                style={{
+                  color: '#9ca3af',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '0',
+                  cursor: 'pointer',
+                  width: isMobile ? '2.75rem' : '2rem',
+                  height: isMobile ? '2.75rem' : '2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '0.75rem',
+                  transition: 'all 0.2s ease',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ef4444';
+                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#9ca3af';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <X style={{ width: isMobile ? '1.25rem' : '1.125rem', height: isMobile ? '1.25rem' : '1.125rem' }} />
+              </button>
+            </div>
+
+            {/* URL Input - Full width on mobile */}
+            <div>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '0.5rem',
+                padding: '0 0.25rem',
+              }}>
+                <label style={{ 
+                  fontSize: isMobile ? '0.75rem' : '0.7rem', 
+                  color: link.urlError ? '#fca5a5' : '#9ca3af',
+                  fontWeight: link.urlError ? '600' : '400',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>
+                  {link.urlError || 'URL'}
+                </label>
+                {link.url && !link.urlError && validateUrl(link.url) && (
+                  <a
+                    href={formatUrl(link.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: '#60a5fa',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      fontSize: '0.75rem',
+                      textDecoration: 'none',
+                      padding: '0.375rem 0.5rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink style={{ width: '0.875rem', height: '0.875rem' }} />
+                    <span>Test Link</span>
+                  </a>
+                )}
+              </div>
+              
+              <input
+                type="url"
+                value={link.url}
+                onChange={(e) => updateLinkUrl(link.id, e.target.value)}
+                placeholder={`https://${link.platform?.name?.toLowerCase()}.com/yourprofile`}
+                inputMode="url"
+                enterKeyHint="done"
+                style={{
+                  width: '100%',
+                  padding: isMobile ? '1rem' : '0.875rem',
+                  backgroundColor: '#111827',
+                  border: '2px solid',
+                  borderColor: link.urlError ? '#ef4444' : '#374151',
+                  borderRadius: isMobile ? '1rem' : '0.75rem',
+                  color: 'white',
+                  fontSize: isMobile ? '1rem' : '0.9375rem',
+                  outline: 'none',
+                  transition: 'all 0.2s ease',
+                  WebkitAppearance: 'none',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#f97316';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.25)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = link.urlError ? '#ef4444' : '#374151';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
           </div>
           
           {/* Footer - Fixed at bottom with safe area */}

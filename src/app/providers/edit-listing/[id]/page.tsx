@@ -282,7 +282,7 @@ function EditListingContent() {
             setSelectedBusinessFeatures(formattedFeatures)
           }
           
-// Load social links - FIXED
+// Load social links
 const { data: socialLinksData } = await supabase
   .from('provider_social_links')
   .select(`
@@ -549,7 +549,7 @@ if (socialLinksData) {
         await supabase.from('provider_business_features').delete().eq('provider_id', listing.id)
       }
       
- // Handle social links - FIXED (removed is_custom from insert)
+ // Handle social links 
 try {
   // Always delete existing links first
   const { error: deleteError } = await supabase
@@ -576,7 +576,6 @@ try {
           custom_platform_name: link.custom_platform_name || link.platform?.name,
           url: link.url,
           display_order: index
-          // REMOVED: is_custom: true
         }
       }
       

@@ -106,6 +106,15 @@ export default function AdminLayout({
                 >
                   Pending Reviews
                 </Link>
+                <Link 
+  href="/admin/email" 
+  className="text-gray-300 hover:text-white hover:bg-gray-700/50 px-3 py-2 rounded-lg transition-colors"
+>
+  Bulk Email
+</Link>
+
+
+
               </div>
             </div>
             

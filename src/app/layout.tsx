@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent', // try 'black' if translucent stops working in newer iOS
-    title: 'FindAPro',
+    title: 'Find A Pro',
   },
 }
 

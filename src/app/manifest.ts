@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Find A Pro Connect (PTY) LTD',
-    short_name: 'FindAPro',
+    short_name: 'Find A Pro',
     description: 'Your go-to directory for verified professionals across Mzansi. Community-focused. Trust guaranteed. 🇿🇦',
     start_url: '/',
     scope: '/',                     // ← added this line (helps Android scope)

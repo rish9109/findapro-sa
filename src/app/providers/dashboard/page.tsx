@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, Provider, getUserListings } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import ProviderLogo from '@/components/ProviderLogo'
+import EditListingDrawer from '@/components/EditListingDrawer'
 import { 
   Building, 
   Edit, 
@@ -33,32 +34,28 @@ const statusConfig = {
     color: 'text-yellow-400',
     bgColor: 'bg-yellow-500/10',
     borderColor: 'border-yellow-500/20',
-    label: 'Pending Review',
-    action: 'edit'
+    label: 'Pending Review'
   },
   approved: {
     icon: CheckCircle,
     color: 'text-emerald-400',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/20',
-    label: 'Live',
-    action: 'edit'
+    label: 'Live'
   },
   rejected: {
     icon: XCircle,
     color: 'text-red-400',
     bgColor: 'bg-red-500/10',
     borderColor: 'border-red-500/20',
-    label: 'Rejected',
-    action: 'resubmit'
+    label: 'Rejected'
   },
   pause: {
     icon: Pause,
     color: 'text-orange-400',
     bgColor: 'bg-orange-500/10',
     borderColor: 'border-orange-500/20',
-    label: 'Paused',
-    action: 'edit'
+    label: 'Paused'
   }
 }
 
@@ -77,58 +74,59 @@ export default function ProviderDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [editingListingId, setEditingListingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const loadDashboard = async () => {
-      if (!user) return
+  const loadDashboard = useCallback(async () => {
+    if (!user) return
+    
+    setLoading(true)
+    try {
+      // Load user's listings
+      const userListings = await getUserListings(user.id)
+      console.log('Listings loaded:', userListings)
+      setListings(userListings)
       
-      setLoading(true)
-      try {
-        // Load user's listings
-        const userListings = await getUserListings(user.id)
-        console.log('Listings loaded:', userListings)
-        setListings(userListings)
+      // Load service areas for each listing
+      const areasData: Record<string, ServiceAreaData> = {}
+      
+      for (const listing of userListings) {
+        const { data: serviceAreasData } = await supabase
+          .from('provider_service_areas')
+          .select('area_name, is_primary')
+          .eq('provider_id', listing.id)
+          .order('position')
         
-        // Load service areas for each listing
-        const areasData: Record<string, ServiceAreaData> = {}
-        
-        for (const listing of userListings) {
-          const { data: serviceAreasData } = await supabase
-            .from('provider_service_areas')
-            .select('area_name, is_primary')
-            .eq('provider_id', listing.id)
-            .order('position')
+        if (serviceAreasData && serviceAreasData.length > 0) {
+          const primaryArea = serviceAreasData.find(area => area.is_primary)
+          const additionalAreas = serviceAreasData.filter(area => !area.is_primary)
           
-          if (serviceAreasData && serviceAreasData.length > 0) {
-            const primaryArea = serviceAreasData.find(area => area.is_primary)
-            const additionalAreas = serviceAreasData.filter(area => !area.is_primary)
-            
-            areasData[listing.id] = {
-              primaryArea: primaryArea?.area_name || '',
-              additionalAreas: additionalAreas.map(area => area.area_name)
-            }
-          } else {
-            areasData[listing.id] = {
-              primaryArea: listing.main_service || 'Not specified',
-              additionalAreas: []
-            }
+          areasData[listing.id] = {
+            primaryArea: primaryArea?.area_name || '',
+            additionalAreas: additionalAreas.map(area => area.area_name)
+          }
+        } else {
+          areasData[listing.id] = {
+            primaryArea: listing.main_service || 'Not specified',
+            additionalAreas: []
           }
         }
-        
-        setServiceAreas(areasData)
-        
-      } catch (err: any) {
-        console.error('Error loading dashboard:', err)
-        setError('Failed to load your listings')
-      } finally {
-        setLoading(false)
       }
+      
+      setServiceAreas(areasData)
+      
+    } catch (err: any) {
+      console.error('Error loading dashboard:', err)
+      setError('Failed to load your listings')
+    } finally {
+      setLoading(false)
     }
-    
+  }, [user])
+
+  useEffect(() => {
     if (!isLoading && user) {
       loadDashboard()
     }
-  }, [user, isLoading])
+  }, [user, isLoading, loadDashboard])
 
   const handleDeleteListing = async (listingId: string, listingName: string) => {
     if (!confirm(`Are you sure you want to delete "${listingName}"? This action cannot be undone.`)) {
@@ -186,38 +184,7 @@ export default function ProviderDashboard() {
   }
 
   const handleEditListing = (listingId: string) => {
-    router.push(`/providers/edit-listing/${listingId}`)
-  }
-
-  const handleResubmitListing = async (listingId: string) => {
-    try {
-      const { error } = await supabase
-        .from('providers')
-        .update({ 
-          status: 'pending',
-          rejection_reason: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', listingId)
-        .eq('user_id', user?.id)
-  
-      if (error) throw error
-      
-      setListings(prev => 
-        prev.map(listing => 
-          listing.id === listingId 
-            ? { ...listing, status: 'pending', rejection_reason: undefined }
-            : listing
-        )
-      )
-      
-      setSuccess('Listing submitted for review!')
-      setTimeout(() => setSuccess(''), 3000)
-      
-    } catch (err: any) {
-      console.error('Error resubmitting listing:', err)
-      setError(err.message || 'Failed to resubmit listing')
-    }
+    setEditingListingId(listingId)
   }
 
   const handleTogglePauseListing = async (listingId: string, currentStatus: string) => {
@@ -309,25 +276,6 @@ export default function ProviderDashboard() {
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
             <p className="text-red-400">{error}</p>
-          </div>
-        )}
-
-        {/* Edit Warning Notice */}
-        {listings.some(l => l.status === 'approved') && (
-          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-blue-400 font-medium mb-1">
-                  Important Note About Editing Live Listings
-                </p>
-                <p className="text-sm text-blue-300">
-                  When you edit a <span className="font-semibold">Live</span> listing and save changes, 
-                  it will need to be <span className="font-semibold">re-approved</span> by our team 
-                  before going live again.
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -506,16 +454,6 @@ export default function ProviderDashboard() {
                                 <Edit className="w-4 h-4 text-blue-400" />
                               </button>
                               
-                              {isRejected && (
-                                <button
-                                  onClick={() => handleResubmitListing(listing.id)}
-                                  className="p-2 bg-orange-600/20 hover:bg-orange-600/30 rounded-lg transition-colors"
-                                  title="Resubmit"
-                                >
-                                  <RefreshCw className="w-4 h-4 text-orange-400" />
-                                </button>
-                              )}
-                              
                               {(isLive || isPaused) && (
                                 <button
                                   onClick={() => handleTogglePauseListing(listing.id, listing.status)}
@@ -568,7 +506,7 @@ export default function ProviderDashboard() {
                                 <div className="flex items-start gap-2">
                                   <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   <div>
-                                    <span className="font-medium">Under Review:</span> Your listing is being reviewed by our team.
+                                    <span className="font-medium">Initial Review:</span> Your listing is being reviewed for the first time.
                                   </div>
                                 </div>
                               </div>
@@ -596,17 +534,6 @@ export default function ProviderDashboard() {
                                 </div>
                               </div>
                             )}
-                            
-                            {isLive && (
-                              <div className="text-xs text-blue-400 bg-blue-500/10 p-3 rounded-lg">
-                                <div className="flex items-start gap-2">
-                                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                  <div>
-                                    <span className="font-medium">Note:</span> Editing this live listing will require re-approval.
-                                  </div>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                         
@@ -629,16 +556,6 @@ export default function ProviderDashboard() {
                             <Edit className="w-4 h-4" />
                             Edit
                           </button>
-                          
-                          {isRejected && (
-                            <button
-                              onClick={() => handleResubmitListing(listing.id)}
-                              className="px-4 py-2 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/50 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                              Resubmit
-                            </button>
-                          )}
                           
                           {(isLive || isPaused) && (
                             <button
@@ -706,6 +623,17 @@ export default function ProviderDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Edit Listing Drawer */}
+      <EditListingDrawer
+        isOpen={!!editingListingId}
+        onClose={() => setEditingListingId(null)}
+        listingId={editingListingId || ''}
+        onSuccess={() => {
+          loadDashboard()
+          setEditingListingId(null)
+        }}
+      />
     </div>
   )
 }

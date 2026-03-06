@@ -1,7 +1,7 @@
 // File: src/app/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import SearchBar from '../components/SearchBar'
 import CategoryGrid from '../components/CategoryGrid'
@@ -14,6 +14,7 @@ export default function Home() {
   const router = useRouter()
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
+  const mainRef = useRef<HTMLDivElement>(null)
   
   useEffect(() => {
     const checkMobile = () => {
@@ -23,7 +24,37 @@ export default function Home() {
     checkMobile()
     window.addEventListener('resize', checkMobile)
     
-    return () => window.removeEventListener('resize', checkMobile)
+    // Ensure scroll is enabled when component mounts
+    document.body.style.overflow = 'auto'
+    document.documentElement.style.overflow = 'auto'
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+      // Clean up any potential scroll locks
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [])
+
+  // Handle scroll restoration on page load/return
+  useEffect(() => {
+    // Force scroll to be enabled
+    const enableScroll = () => {
+      document.body.style.overflow = 'auto'
+      document.documentElement.style.overflow = 'auto'
+      document.body.style.position = ''
+      document.body.style.width = ''
+      document.body.style.height = ''
+    }
+
+    enableScroll()
+
+    // Handle popstate events (browser back/forward)
+    window.addEventListener('popstate', enableScroll)
+    
+    return () => {
+      window.removeEventListener('popstate', enableScroll)
+    }
   }, [])
 
   const handleListBusinessClick = async (e: React.MouseEvent) => {
@@ -36,11 +67,28 @@ export default function Home() {
       router.push('/providers/provider-listings')
     }
     
-    setLoading(false)
+    // Don't set loading false immediately - let navigation happen
+    // Reset loading after a timeout in case navigation fails
+    setTimeout(() => setLoading(false), 5000)
+  }
+
+  // Handle search tip clicks
+  const handleSearchTipClick = (term: string) => {
+    setSearchTerm(term)
+    router.push(`/search?q=${encodeURIComponent(term)}`)
+    const popup = document.getElementById('search-tips-popup')
+    if (popup) {
+      popup.classList.remove('opacity-100')
+      popup.classList.add('pointer-events-none')
+    }
   }
 
   return (
-    <div className="space-y-8 md:space-y-12 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen overflow-x-hidden">
+    <div 
+      ref={mainRef}
+      className="space-y-8 md:space-y-12 bg-gradient-to-b from-gray-900 to-gray-800 min-h-screen"
+      style={{ overflow: 'visible' }}
+    >
       {/* Header Section - With Visible Design Elements */}
       <header className="relative bg-gray-950 text-white pt-6 md:pt-8 pb-4 md:pb-6 overflow-hidden">
         {/* Corporate Luxury Geometric Background */}
@@ -107,6 +155,10 @@ export default function Home() {
               <a 
                 href="/providers/provider-listings"
                 className="inline-flex items-center gap-2 mt-3 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all duration-300 group"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleListBusinessClick(e)
+                }}
               >
                 <span className="text-lg">✨</span>
                 <span className="whitespace-nowrap text-base md:text-lg font-semibold">List your business</span>
@@ -203,12 +255,7 @@ export default function Home() {
                         ].map((term) => (
                           <button 
                             key={term}
-                            onClick={() => {
-                              setSearchTerm(term)
-                              router.push(`/search?q=${encodeURIComponent(term)}`)
-                              document.getElementById('search-tips-popup')?.classList.remove('opacity-100')
-                              document.getElementById('search-tips-popup')?.classList.add('pointer-events-none')
-                            }}
+                            onClick={() => handleSearchTipClick(term)}
                             className="text-left text-gray-300 hover:text-amber-400 transition-colors"
                           >
                             • {term}
@@ -281,7 +328,24 @@ export default function Home() {
         /* Global fix for horizontal scroll */
         html, body {
           overflow-x: hidden;
+          overflow-y: auto !important;
           max-width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          position: relative;
+        }
+        
+        /* Ensure main content is scrollable */
+        body {
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Fix for iOS Safari */
+        #__next, main {
+          overflow: visible;
+          min-height: 100vh;
         }
         
         /* Floating search bar glow effect */
@@ -341,9 +405,9 @@ export default function Home() {
           }
         }
         
-        /* Smooth transitions */
-        * {
-          transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+        /* Smooth transitions - limited to specific properties */
+        a, button {
+          transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
         }
       `}</style>
     </div>

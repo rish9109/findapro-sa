@@ -665,13 +665,16 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
                   </p>
                   
                   <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="w-full sm:w-auto px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                    >
-                      Cancel
-                    </button>
+                  <button
+  type="button"
+  onClick={() => {
+    clearSavedData() // Clear saved form data
+    onClose()
+  }}
+  className="w-full sm:w-auto px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+>
+  Cancel
+</button>
                     
                     <button
                       type="button"

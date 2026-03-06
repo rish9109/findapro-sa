@@ -12,6 +12,7 @@ import SocialLinksDrawer from '@/components/SocialLinksDrawer'
 import Portal from '@/components/Portal'
 import ProviderForm, { ServiceCategory, SelectedAccreditation, SelectedBusinessFeature, SelectedSocialLink, ProviderFormData } from '@/components/ProviderForm'
 import { X, Save, Loader2, ArrowLeft } from 'lucide-react'
+import { useFormPersistence } from '@/hooks/useFormPersistence'
 
 interface NewListingDrawerProps {
   isOpen: boolean
@@ -83,6 +84,30 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
     fees_pricing: '',
     accept_terms: false
   })
+
+
+  const persistenceKey = `new_listing_${userId || 'temp'}`;
+
+  const restoreData = useCallback((saved: any) => {
+    if (saved.formData) setFormData(saved.formData);
+    if (saved.selectedAccreditations) setSelectedAccreditations(saved.selectedAccreditations);
+    if (saved.selectedBusinessFeatures) setSelectedBusinessFeatures(saved.selectedBusinessFeatures);
+    if (saved.selectedSocialLinks) setSelectedSocialLinks(saved.selectedSocialLinks);
+    if (saved.serviceAreas) setServiceAreas(saved.serviceAreas);
+  }, []);
+
+  const { clearSavedData } = useFormPersistence(
+    persistenceKey,
+    {
+      formData,
+      selectedAccreditations,
+      selectedBusinessFeatures,
+      selectedSocialLinks,
+      serviceAreas,
+      restore: restoreData
+    },
+    isOpen && !loadingData && !hasSubmitted.current
+  );
 
   // Track mounted state
   useEffect(() => {
@@ -529,6 +554,7 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
         setSubmissionStatus('success')
         setSubmissionMessage('Listing Created!')
         setSubmissionDetail('Your service listing has been submitted successfully.')
+        clearSavedData()
       }
       
     } catch (error: any) {

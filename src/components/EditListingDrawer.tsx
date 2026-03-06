@@ -14,6 +14,7 @@ import {
   X, Clock, CheckCircle, XCircle, AlertCircle, Shield,
   Loader2, Save  
 } from 'lucide-react'
+import { useFormPersistence } from '@/hooks/useFormPersistence'
 
 interface EditListingDrawerProps {
   isOpen: boolean
@@ -128,6 +129,29 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
     fees_pricing: '',
     status: ''
   })
+
+  const persistenceKey = `edit_listing_${listingId}`;
+
+  const restoreData = useCallback((saved: any) => {
+    if (saved.formData) setFormData(saved.formData);
+    if (saved.selectedAccreditations) setSelectedAccreditations(saved.selectedAccreditations);
+    if (saved.selectedBusinessFeatures) setSelectedBusinessFeatures(saved.selectedBusinessFeatures);
+    if (saved.selectedSocialLinks) setSelectedSocialLinks(saved.selectedSocialLinks);
+    if (saved.serviceAreas) setServiceAreas(saved.serviceAreas);
+  }, []);
+
+  const { clearSavedData } = useFormPersistence(
+    persistenceKey,
+    {
+      formData,
+      selectedAccreditations,
+      selectedBusinessFeatures,
+      selectedSocialLinks,
+      serviceAreas,
+      restore: restoreData
+    },
+    isOpen && !loading && !!listing
+  );
 
   useEffect(() => {
     isMounted.current = true
@@ -504,6 +528,7 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
         setSubmissionStatus('success')
         setSubmissionMessage('Changes Saved!')
         setSubmissionDetail('Your listing has been updated successfully!')
+        clearSavedData()
       }
       
     } catch (err: any) {

@@ -7,6 +7,7 @@ import { usePathname, useSearchParams, useParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
+import NewListingDrawer from '@/components/NewListingDrawer'
 import { 
   UserCircle, 
   LogOut,
@@ -29,7 +30,7 @@ export default function Header() {
   const [providerName, setProviderName] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  
+  const [showNewListingDrawer, setShowNewListingDrawer] = useState(false)
   const pathname = usePathname()
   const isAdminRoute = pathname?.startsWith('/admin')
   
@@ -323,21 +324,23 @@ export default function Header() {
                     
                     <div className="p-2 sm:p-3">
                       {/* List Your Business - Added to dropdown */}
-                      <Link 
-                        href="/providers/provider-listings" 
-                        className="group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300"
-                        onClick={() => setUserDropdownOpen(false)}
-                      >
-                        <div className="relative">
-                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-300">
-                            <Store className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm sm:text-base">List Your Business</div>
-                          <div className="text-xs text-gray-400">Get discovered by clients</div>
-                        </div>
-                      </Link>
+                      <button
+  onClick={() => {
+    setUserDropdownOpen(false)
+    setShowNewListingDrawer(true)
+  }}
+  className="w-full group flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all duration-300 text-left"
+>
+  <div className="relative">
+    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center border border-white/10 group-hover:border-white/20 transition-all duration-300">
+      <Store className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" />
+    </div>
+  </div>
+  <div>
+    <div className="font-medium text-sm sm:text-base">List Your Business</div>
+    <div className="text-xs text-gray-400">Get discovered by clients</div>
+  </div>
+</button>
 
                       <Link 
                         href="/favorites" 
@@ -436,6 +439,14 @@ export default function Header() {
         onClose={handleCloseOnboarding}
         onDontShowAgain={handleDontShowAgain}
       />
+      <NewListingDrawer
+  isOpen={showNewListingDrawer}
+  onClose={() => setShowNewListingDrawer(false)}
+  onSuccess={() => {
+    setShowNewListingDrawer(false)
+    // Optionally redirect to dashboard or show success
+  }}
+/>
     </>
   )
 }

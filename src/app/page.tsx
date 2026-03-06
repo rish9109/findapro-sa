@@ -7,12 +7,14 @@ import SearchBar from '../components/SearchBar'
 import CategoryGrid from '../components/CategoryGrid'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/contexts/AuthContext'
+import NewListingDrawer from '@/components/NewListingDrawer'
 
 export default function Home() {
   const [isMobile, setIsMobile] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showNewListingDrawer, setShowNewListingDrawer] = useState(false)
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, showAuthModal } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const mainRef = useRef<HTMLDivElement>(null)
   
@@ -57,19 +59,27 @@ export default function Home() {
     }
   }, [])
 
+  // Handle pending actions after login
+  useEffect(() => {
+    if (user) {
+      const pendingAction = localStorage.getItem('pendingAction')
+      if (pendingAction === 'createListing') {
+        localStorage.removeItem('pendingAction')
+        setShowNewListingDrawer(true)
+      }
+    }
+  }, [user])
+
   const handleListBusinessClick = async (e: React.MouseEvent) => {
     e.preventDefault()
-    setLoading(true)
     
     if (user) {
-      router.push('/providers/dashboard')
+      setShowNewListingDrawer(true)
     } else {
-      router.push('/providers/provider-listings')
+      // If not logged in, show auth modal first and store intent
+      localStorage.setItem('pendingAction', 'createListing')
+      showAuthModal('login')
     }
-    
-    // Don't set loading false immediately - let navigation happen
-    // Reset loading after a timeout in case navigation fails
-    setTimeout(() => setLoading(false), 5000)
   }
 
   // Handle search tip clicks
@@ -152,13 +162,9 @@ export default function Home() {
               
               <span className="absolute hidden sm:block -bottom-1 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               
-              <a 
-                href="/providers/provider-listings"
+              <button
+                onClick={handleListBusinessClick}
                 className="inline-flex items-center gap-2 mt-3 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all duration-300 group"
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleListBusinessClick(e)
-                }}
               >
                 <span className="text-lg">✨</span>
                 <span className="whitespace-nowrap text-base md:text-lg font-semibold">List your business</span>
@@ -173,7 +179,7 @@ export default function Home() {
                 >
                   <path d="M9 5l7 7-7 7" />
                 </svg>
-              </a>
+              </button>
             </p>
           </div>
         </div>
@@ -298,30 +304,27 @@ export default function Home() {
             <div className="pt-2">
               <button
                 onClick={handleListBusinessClick}
-                disabled={loading}
-                className={`group inline-flex items-center justify-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-sm md:text-base shadow-lg transform transition-all duration-300 ${
-                  loading 
-                    ? 'bg-gray-700 cursor-not-allowed text-gray-500' 
-                    : 'bg-gradient-to-r from-orange-600 to-yellow-600 hover:from-orange-700 hover:to-yellow-700 hover:shadow-xl hover:scale-105 text-white'
-                }`}
+                className="group inline-flex items-center justify-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold text-sm md:text-base shadow-lg transform transition-all duration-300 bg-gradient-to-r from-orange-600 to-yellow-600 hover:from-orange-700 hover:to-yellow-700 hover:shadow-xl hover:scale-105 text-white"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Processing...
-                  </span>
-                ) : (
-                  <>
-                    <span className="text-lg group-hover:rotate-12 transition-transform duration-300">🚀</span>
-                    <span>Start Free Trial Now</span>
-                    <span className="text-lg group-hover:-rotate-12 transition-transform duration-300">✨</span>
-                  </>
-                )}
+                <span className="text-lg group-hover:rotate-12 transition-transform duration-300">🚀</span>
+                <span>Start Free Trial Now</span>
+                <span className="text-lg group-hover:-rotate-12 transition-transform duration-300">✨</span>
               </button>
             </div>
           </div>
         </div>
       </section>
+
+      {/* New Listing Drawer */}
+      <NewListingDrawer
+        isOpen={showNewListingDrawer}
+        onClose={() => setShowNewListingDrawer(false)}
+        onSuccess={() => {
+          setShowNewListingDrawer(false)
+          // Optionally show a success message or redirect to dashboard
+          router.push('/providers/dashboard')
+        }}
+      />
 
       {/* Custom CSS */}
       <style jsx global>{`

@@ -9,7 +9,6 @@ interface LoadingScreenProps {
   messages?: string | string[];
   onComplete?: () => void;
   simulateProgress?: boolean;
-  // New prop for showcase duration
   showcaseDuration?: number;
 }
 
@@ -18,7 +17,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   messages = [], 
   onComplete,
   simulateProgress = true,
-  showcaseDuration = 800 // Time to show 100% completion before hiding
+  showcaseDuration = 800
 }) => {
   const [currentMessages, setCurrentMessages] = useState<string[]>([
     'Initializing Find A Pro...',
@@ -32,6 +31,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [shouldSkipLoading, setShouldSkipLoading] = useState(false);
   
   const [loadingStages, setLoadingStages] = useState([
     { label: 'Initializing...', progress: 15, duration: 600 },
@@ -42,6 +42,48 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
     { label: 'Ready!', progress: 100, duration: 400 }
   ]);
   const [currentStage, setCurrentStage] = useState(0);
+
+  // Check if we're returning from background
+  useEffect(() => {
+    // Check if app was in background
+    const wasInBackground = sessionStorage.getItem('findapro_app_in_background') === 'true';
+    
+    if (wasInBackground && isVisible) {
+      // Clear the flag
+      sessionStorage.removeItem('findapro_app_in_background');
+      
+      // Skip loading and complete immediately
+      setShouldSkipLoading(true);
+      setProgress(100);
+      setIsComplete(true);
+      setShowSuccess(true);
+      
+      // Call onComplete after a very short delay (just to show the success state briefly)
+      setTimeout(() => {
+        if (onComplete) onComplete();
+      }, 200); // Show success for 200ms instead of full loading
+      
+      return;
+    }
+    
+    // Normal loading logic continues...
+  }, [isVisible, onComplete]);
+
+  // Track when app goes to background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // App went to background
+        sessionStorage.setItem('findapro_app_in_background', 'true');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -54,19 +96,19 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       }
     }
     
-    // Reset states when loading starts
-    if (isVisible) {
+    // Reset states when loading starts (only if not skipping)
+    if (isVisible && !shouldSkipLoading) {
       setProgress(0);
       setIsComplete(false);
       setShowSuccess(false);
       setCurrentStage(0);
       setCurrentMessageIndex(0);
     }
-  }, [isVisible, messages]);
+  }, [isVisible, messages, shouldSkipLoading]);
 
   // Real progress simulation based on stages
   useEffect(() => {
-    if (!isVisible || !simulateProgress) return;
+    if (!isVisible || !simulateProgress || shouldSkipLoading) return;
 
     let isCancelled = false;
     
@@ -134,11 +176,11 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [isVisible, simulateProgress, onComplete, loadingStages, currentMessages, showcaseDuration]);
+  }, [isVisible, simulateProgress, onComplete, loadingStages, currentMessages, showcaseDuration, shouldSkipLoading]);
 
   // Auto-complete if not using simulated progress
   useEffect(() => {
-    if (isVisible && !simulateProgress) {
+    if (isVisible && !simulateProgress && !shouldSkipLoading) {
       const timeout = setTimeout(() => {
         setProgress(100);
         setIsComplete(true);
@@ -151,24 +193,24 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       
       return () => clearTimeout(timeout);
     }
-  }, [isVisible, simulateProgress, onComplete, showcaseDuration]);
+  }, [isVisible, simulateProgress, onComplete, showcaseDuration, shouldSkipLoading]);
 
   // Message cycling when not in progress simulation
   useEffect(() => {
-    if (!isVisible || !isMounted || simulateProgress || currentMessages.length <= 1) return;
+    if (!isVisible || !isMounted || simulateProgress || currentMessages.length <= 1 || shouldSkipLoading) return;
     
     const interval = setInterval(() => {
       setCurrentMessageIndex((prev) => (prev + 1) % currentMessages.length);
     }, 1500);
     
     return () => clearInterval(interval);
-  }, [isVisible, currentMessages.length, isMounted, simulateProgress]);
+  }, [isVisible, currentMessages.length, isMounted, simulateProgress, shouldSkipLoading]);
 
   if (!isMounted) return null;
 
   return (
     <AnimatePresence>
-      {isVisible && (
+      {isVisible && !shouldSkipLoading && (
         <motion.div
           key="loading-screen"
           initial={{ opacity: 0 }}

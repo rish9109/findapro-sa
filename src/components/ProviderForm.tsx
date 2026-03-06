@@ -827,7 +827,7 @@ function ProviderForm({
         <div className="pt-6 border-t border-gray-700">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">6</div>
-            <h2 className="text-xl font-bold text-white">Terms & Submission</h2>
+            <h2 className="text-xl font-bold text-white">Terms & Conditions</h2>
           </div>
           
           <div className="space-y-6">

@@ -7,6 +7,7 @@ import { supabase, Provider, getUserListings } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import ProviderLogo from '@/components/ProviderLogo'
 import EditListingDrawer from '@/components/EditListingDrawer'
+import NewListingDrawer from '@/components/NewListingDrawer'
 import { 
   Building, 
   Edit, 
@@ -75,6 +76,8 @@ export default function ProviderDashboard() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [editingListingId, setEditingListingId] = useState<string | null>(null)
+  const [showNewListingDrawer, setShowNewListingDrawer] = useState(false)
+
 
   const loadDashboard = useCallback(async () => {
     if (!user) return
@@ -336,23 +339,22 @@ export default function ProviderDashboard() {
             </div>
 
             {/* Add Listing Button */}
-            <Link
-              href={listings.length < 3 ? "/providers/provider-listings" : "#"}
-              className={`block w-full py-3 text-center rounded-xl font-semibold transition-all duration-300 ${
-                listings.length < 3
-                  ? 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white cursor-pointer'
-                  : 'bg-gray-800 text-gray-400 cursor-not-allowed'
-              }`}
-              onClick={(e) => {
-                if (listings.length >= 3) {
-                  e.preventDefault()
-                }
-              }}
-            >
-              <Plus className="w-5 h-5 inline-block mr-2" />
-              {listings.length < 3 ? 'Add New Listing' : 'Maximum Listings Reached'}
-            </Link>
-            
+            <button
+  onClick={() => {
+    if (listings.length < 3) {
+      setShowNewListingDrawer(true)
+    }
+  }}
+  disabled={listings.length >= 3}
+  className={`block w-full py-3 text-center rounded-xl font-semibold transition-all duration-300 ${
+    listings.length < 3
+      ? 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white cursor-pointer'
+      : 'bg-gray-800 text-gray-400 cursor-not-allowed'
+  }`}
+>
+  <Plus className="w-5 h-5 inline-block mr-2" />
+  {listings.length < 3 ? 'Add New Listing' : 'Maximum Listings Reached'}
+</button>
             {listings.length >= 3 && (
               <p className="text-xs text-gray-500 text-center mt-2">
                 Delete an existing listing to add a new one
@@ -385,13 +387,13 @@ export default function ProviderDashboard() {
                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
                   Create your first listing to start getting customers.
                 </p>
-                <Link
-                  href="/providers/provider-listings"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white rounded-lg font-medium transition-all"
-                >
-                  <Plus className="w-5 h-5" />
-                  Create Your First Listing
-                </Link>
+                <button
+  onClick={() => setShowNewListingDrawer(true)}
+  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white rounded-lg font-medium transition-all"
+>
+  <Plus className="w-5 h-5" />
+  Create Your First Listing
+</button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -602,12 +604,12 @@ export default function ProviderDashboard() {
                   <p className="text-sm text-gray-400">
                     You have {listings.length} of 3 listings used. {3 - listings.length} remaining.
                   </p>
-                  <Link
-                    href="/providers/provider-listings"
-                    className="text-sm text-orange-400 hover:text-orange-300 font-medium"
-                  >
-                    Add New Listing
-                  </Link>
+                  <button
+  onClick={() => setShowNewListingDrawer(true)}
+  className="text-sm text-orange-400 hover:text-orange-300 font-medium"
+>
+  Add New Listing
+</button>
                 </div>
               </div>
             )}
@@ -634,6 +636,14 @@ export default function ProviderDashboard() {
           setEditingListingId(null)
         }}
       />
+      <NewListingDrawer
+  isOpen={showNewListingDrawer}
+  onClose={() => setShowNewListingDrawer(false)}
+  onSuccess={() => {
+    loadDashboard() // Refresh the listings after successful creation
+    setShowNewListingDrawer(false)
+  }}
+/>
     </div>
   )
 }

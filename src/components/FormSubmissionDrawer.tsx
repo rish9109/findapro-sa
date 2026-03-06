@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import ScrollToTop from './ScrollToTop'
 
 interface FormSubmissionDrawerProps {
@@ -12,8 +11,6 @@ interface FormSubmissionDrawerProps {
   onClose?: () => void
   onRetry?: () => void
   disableClose?: boolean
-  redirectOnSuccess?: string // URL to redirect to on success
-  redirectDelay?: number // Delay before redirect (in ms)
 }
 
 export default function FormSubmissionDrawer({ 
@@ -23,11 +20,8 @@ export default function FormSubmissionDrawer({
   detail,
   onClose,
   onRetry,
-  disableClose = false,
-  redirectOnSuccess = '/providers/dashboard',
-  redirectDelay = 2000
+  disableClose = false
 }: FormSubmissionDrawerProps) {
-  const router = useRouter()
   
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -42,16 +36,16 @@ export default function FormSubmissionDrawer({
     }
   }, [isOpen])
 
-  // Handle success redirect
+  // Auto-close on success after a delay
   useEffect(() => {
-    if (status === 'success' && isOpen) {
+    if (status === 'success' && isOpen && onClose) {
       const timer = setTimeout(() => {
-        router.push(redirectOnSuccess)
-      }, redirectDelay)
+        onClose()
+      }, 2000) // Close after 2 seconds
       
       return () => clearTimeout(timer)
     }
-  }, [status, isOpen, router, redirectOnSuccess, redirectDelay])
+  }, [status, isOpen, onClose])
 
   // Prevent click events when submitting (cannot be stopped mid-process)
   const handleBackdropClick = () => {
@@ -149,7 +143,7 @@ export default function FormSubmissionDrawer({
 
           {status === 'success' && (
             <div className="success-message">
-              Redirecting to dashboard...
+              Closing automatically...
             </div>
           )}
         </div>
@@ -170,7 +164,7 @@ export default function FormSubmissionDrawer({
                 className="drawer-action-btn primary"
                 onClick={onClose}
               >
-                Cancel
+                Close
               </button>
             )}
           </div>

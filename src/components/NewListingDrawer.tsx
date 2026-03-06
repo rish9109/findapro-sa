@@ -344,9 +344,10 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
 
   const handleCancel = useCallback(() => {
     if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+      clearSavedData() // Clear saved form data
       onClose()
     }
-  }, [onClose])
+  }, [onClose, clearSavedData])
 
   const handleCloseDrawer = useCallback(() => {
     setShowSubmissionDrawer(false)

@@ -425,13 +425,17 @@ export default function ProviderDetailPage() {
                       {provider.business_name}
                     </h1>
                     
-                    <div className="flex flex-wrap items-center gap-4 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-emerald-400">
-                          {getPriceDisplay()}
-                        </span>
-                      </div>
-                    </div>
+                    <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1">
+    <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+    <span className="text-xs sm:text-sm font-medium text-gray-400">Fees & Pricing</span>
+  </div>
+              <div className="flex flex-wrap items-center gap-4 mb-3">
+  <div className="flex items-center gap-1.5">
+    <span className="font-bold text-emerald-400">
+      {getPriceDisplay()}
+    </span>
+  </div>
+</div>
 
                     {provider.experience_years && (
                       <div className="flex items-center gap-2 text-gray-300 text-sm">
@@ -472,14 +476,17 @@ export default function ProviderDetailPage() {
                 {provider.business_name}
               </h1>
               
+              <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1">
+    <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+    <span className="text-xs sm:text-sm font-medium text-gray-400">Fees & Pricing</span>
+  </div>
               <div className="flex flex-wrap items-center gap-4 mb-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-orange-500">
-                    {getPriceDisplay()}
-                  </span>
-                </div>
-              </div>
-
+  <div className="flex items-center gap-1.5">
+    <span className="font-bold text-emerald-400">
+      {getPriceDisplay()}
+    </span>
+  </div>
+</div>
               {provider.experience_years && (
                 <div className="flex items-center gap-2 text-gray-300 text-sm">
                   <Calendar className="w-4 h-4" />

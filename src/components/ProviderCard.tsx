@@ -175,13 +175,17 @@ export default function ProviderCard({
                 </button>
               </div>
               
-              <div className="flex items-center gap-4 mt-2 sm:mt-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-emerald-400 text-sm sm:text-base truncate max-w-[150px]" title={getPriceDisplay(provider)}>
-                    {getPriceDisplay(provider)}
-                  </span>
-                </div>
-              </div>
+              <div className="mt-2 sm:mt-3">
+  <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1">
+    <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+    <span className="text-xs sm:text-sm font-medium text-gray-400">Fees & Pricing</span>
+  </div>
+  <div className="flex items-center gap-1.5">
+    <span className="font-semibold text-emerald-400 text-sm sm:text-base truncate max-w-[150px]" title={getPriceDisplay(provider)}>
+      {getPriceDisplay(provider)}
+    </span>
+  </div>
+</div>
             </div>
           </div>
         </div>

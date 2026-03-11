@@ -93,6 +93,8 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
   // Form errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   
+  const [categoryError, setCategoryError] = useState<string>('')
+
   // Dynamic data
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   
@@ -113,6 +115,21 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
   const [existingBusinessName, setExistingBusinessName] = useState<string>('')
   const [lockedFields, setLockedFields] = useState<string[]>([])
   
+
+  const checkExistingCategoryListing = useCallback(async (categoryId: string): Promise<boolean> => {
+    if (!listing?.user_id || !categoryId || categoryId === listing.main_service_id) return false
+    
+    const { count } = await supabase
+      .from('providers')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', listing.user_id)
+      .eq('main_service_id', categoryId)
+      .in('status', ['pending', 'approved', 'paused'])
+      .neq('id', listing.id) // Exclude current listing
+    
+    return (count || 0) > 0
+  }, [listing])
+
   // Form state
   const [formData, setFormData] = useState<ProviderFormData>({
     business_name: '',
@@ -150,7 +167,9 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
       serviceAreas,
       restore: restoreData
     },
-    isOpen && !loading && !!listing
+    // Only enable persistence AFTER data is loaded AND we have a listing
+    // This prevents it from restoring stale data during the initial load
+    isOpen && !loading && !!listing && listing.id === listingId
   );
 
   useEffect(() => {
@@ -159,6 +178,39 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
       isMounted.current = false
     }
   }, [])
+
+// Reset all state when listingId changes
+useEffect(() => {
+  // When listingId changes, clear all state immediately
+  setLoading(true)
+  setListing(null)
+  setFormData({
+    business_name: '',
+    contact_person: '',
+    contact_email: '',
+    contact_phone: '',
+    alternate_phone: '',
+    primary_has_whatsapp: false,
+    alternate_has_whatsapp: false,
+    main_service: '',
+    main_service_id: '',
+    details: '',
+    experience_years: '',
+    fees_pricing: '',
+    status: ''
+  })
+  setSelectedAccreditations([])
+  setSelectedBusinessFeatures([])
+  setSelectedSocialLinks([])
+  setServiceAreas({ primaryArea: '', additionalAreas: [] })
+  setExistingBusinessName('')
+  setLockedFields([])
+  setError('')
+  setCategoryError('')
+  
+  // Clear any saved data for the old listing
+  clearSavedData()
+}, [listingId]) // This runs whenever the listingId prop changes
 
   // Load all data when drawer opens
   useEffect(() => {
@@ -304,16 +356,53 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
     loadData()
   }, [isOpen, listingId])
 
-  const handleServiceSelect = useCallback((service: ServiceCategory) => {
+  useEffect(() => {
+    if (!showServiceDrawer) {
+      setCategoryError('')
+    }
+  }, [showServiceDrawer])
+
+  const handleServiceSelect = useCallback(async (service: ServiceCategory) => {
+    setCategoryError('')
+    
+    const hasExisting = await checkExistingCategoryListing(service.id)
+    
+    if (hasExisting) {
+      // ===== USE EXISTING NOTIFICATION =====
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200] animate-slide-in';
+      notification.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span>⚠️</span>
+          <div>
+            <p class="font-semibold">Category Unavailable</p>
+            <p class="text-sm opacity-90">You already have a listing in "${service.name}"</p>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.add('animate-slide-out');
+        setTimeout(() => notification.remove(), 500);
+      }, 6000);
+      // ===== END NOTIFICATION =====
+      
+      return
+    }    
+
+    
     setFormData(prev => ({ 
       ...prev, 
       main_service: service.name,
       main_service_id: service.id 
     }))
+    
     if (formErrors.main_service) {
       setFormErrors(prev => ({ ...prev, main_service: '' }))
     }
-  }, [formErrors])
+  }, [formErrors, checkExistingCategoryListing])
 
   const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
     setSelectedAccreditations(accreditations)
@@ -397,6 +486,10 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
     if (!formData.main_service.trim()) {
       errors.main_service = 'Main service is required'
     }
+
+    if (categoryError) {
+      errors.main_service = categoryError
+    }
     if (!formData.experience_years.trim()) {
       errors.experience_years = 'Experience is required'
     }
@@ -406,8 +499,7 @@ export default function EditListingDrawer({ isOpen, onClose, listingId, onSucces
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
-  }, [formData, serviceAreas])
-
+  }, [formData, serviceAreas, categoryError])
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     e.stopPropagation()

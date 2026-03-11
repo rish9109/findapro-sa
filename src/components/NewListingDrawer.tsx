@@ -48,6 +48,10 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
   // Form errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   
+  // existing category check
+  const [categoryHasListing, setCategoryHasListing] = useState<Record<string, boolean>>({})
+  const [categoryError, setCategoryError] = useState<string>('')
+
   // Dynamic data
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([])
   
@@ -182,6 +186,13 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
     }
   }, [])
 
+  // Clear category error when drawer closes
+  useEffect(() => {
+    if (!showServiceDrawer) {
+      setCategoryError('')
+    }
+  }, [showServiceDrawer])
+
   // Fetch all initial data when drawer opens
   useEffect(() => {
     if (!isOpen) return
@@ -247,6 +258,19 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
     return (count || 0) < 3
   }
 
+  const checkExistingCategoryListing = useCallback(async (categoryId: string): Promise<boolean> => {
+    if (!userId || !categoryId) return false
+    
+    const { count } = await supabase
+      .from('providers')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('main_service_id', categoryId)
+      .in('status', ['pending', 'approved', 'paused']) // Active statuses only
+    
+    return (count || 0) > 0
+  }, [userId])
+
   // Get existing logo URL
   const getExistingLogoUrl = async (userId: string): Promise<string | null> => {
     try {
@@ -297,17 +321,48 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
   const handleCloseSocialLinksDrawer = useCallback(() => setShowSocialLinksDrawer(false), [])
 
   // Selection handlers
-  const handleServiceSelect = useCallback((service: ServiceCategory) => {
+  const handleServiceSelect = useCallback(async (service: ServiceCategory) => {
+    // Clear any previous error
+    setCategoryError('')
+    
+    // Check if provider already has a listing in this category
+    const hasExisting = await checkExistingCategoryListing(service.id)
+    
+    if (hasExisting) {
+      // ===== USE EXISTING NOTIFICATION =====
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-[200] animate-slide-in';
+      notification.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span>⚠️</span>
+          <div>
+            <p class="font-semibold">Category Unavailable</p>
+            <p class="text-sm opacity-90">You already have a listing in "${service.name}"</p>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.add('animate-slide-out');
+        setTimeout(() => notification.remove(), 500);
+      }, 6000);
+      // ===== END NOTIFICATION =====
+      
+      return
+    }    
+    // Proceed with selection
     setFormData(prev => ({ 
       ...prev, 
       main_service: service.name,
       main_service_id: service.id 
     }))
+    
     if (formErrors.main_service) {
       setFormErrors(prev => ({ ...prev, main_service: '' }))
     }
-  }, [formErrors])
-
+  }, [formErrors, checkExistingCategoryListing])
   const handleAccreditationsSave = useCallback((accreditations: SelectedAccreditation[]) => {
     setSelectedAccreditations(accreditations)
   }, [])
@@ -380,6 +435,11 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
     if (!formData.main_service.trim()) {
       errors.main_service = 'Main service is required'
     }
+    // Add category validation to form errors if there's an error
+    if (categoryError) {
+      errors.main_service = categoryError
+    }
+
     if (!formData.experience_years.trim()) {
       errors.experience_years = 'Experience is required'
     }
@@ -392,7 +452,7 @@ export default function NewListingDrawer({ isOpen, onClose, onSuccess }: NewList
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
-  }, [formData, existingBusinessName, serviceAreas])
+  }, [formData, existingBusinessName, serviceAreas, categoryError])
 
   const showIncompleteFormNotification = useCallback(() => {
     const notification = document.createElement('div');

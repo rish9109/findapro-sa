@@ -231,7 +231,7 @@ export async function searchProvidersInDB(
           score += (nameMatches / wordCount) * 40
           score += (serviceMatches / wordCount) * 25
           score += (areasMatches / wordCount) * 20
-          score += (detailsMatches / wordCount) * 15
+          score += (detailsMatches / wordCount) * 30
           
           if (name.includes(searchTerm)) score += 15
           if (provider.verified) score += 5

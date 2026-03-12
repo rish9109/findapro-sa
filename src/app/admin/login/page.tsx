@@ -1,7 +1,7 @@
 // File: src/app/admin/login/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // Added useEffect
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -11,6 +11,18 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+
+  // Optional: Check if we have a saved session
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        // Already logged in, redirect to admin
+        window.location.href = '/admin'
+      }
+    }
+    checkSession()
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,8 +57,12 @@ export default function AdminLoginPage() {
           console.log('Could not add user to admin table:', insertError.message)
         }
       }
-  
-      window.location.href = '/admin'
+
+      // Add a small delay to ensure the browser registers the form submission
+      // before redirecting. This helps with password save prompts
+      setTimeout(() => {
+        window.location.href = '/admin'
+      }, 100)
   
     } catch (error: any) {
       setError(error.message || 'Login failed')
@@ -68,7 +84,12 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="bg-gray-800/80 border border-gray-700 rounded-xl shadow-xl py-8 px-6 sm:px-8">
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form 
+            onSubmit={handleLogin} 
+            className="space-y-6"
+            autoComplete="on"
+            method="post" // Add method="post" - browsers like this for login forms
+          >
             {error && (
               <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
                 {error}
@@ -76,28 +97,34 @@ export default function AdminLoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-300">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
                 Admin Email
               </label>
               <input
+                id="email"
                 type="email"
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="username"
                 className="mt-2 block w-full bg-gray-900/50 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
                 placeholder="admin@findapro.co.za"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
                 Password
               </label>
               <input
+                id="password"
                 type="password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="mt-2 block w-full bg-gray-900/50 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500"
               />
             </div>

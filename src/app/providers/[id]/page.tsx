@@ -1,4 +1,5 @@
 // File: src/app/providers/[id]/page.tsx
+
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -19,6 +20,17 @@ import {
 } from 'lucide-react'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import WhatsAppButton from '@/components/WhatsAppButton'
+
+// Helper function
+function slugify(text: string) {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+}
 
 // Icon mapping function
 const getIconComponent = (iconName: string | null | undefined) => {
@@ -52,7 +64,6 @@ export default function ProviderDetailPage() {
   const [syncingFavorite, setSyncingFavorite] = useState(false)
   const [accreditations, setAccreditations] = useState<any[]>([])
   const [businessFeatures, setBusinessFeatures] = useState<any[]>([])
-  // ADD STATE FOR SOCIAL LINKS
   const [socialLinks, setSocialLinks] = useState<any[]>([])
   const [accreditationsMap, setAccreditationsMap] = useState<Map<string, any>>(new Map())
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details')
@@ -112,7 +123,6 @@ export default function ProviderDetailPage() {
       setLoading(true)
       setError('')
 
-      // Fetch provider with all relations INCLUDING social links
       const { data, error: providerError } = await supabase
         .from('providers')
         .select(`
@@ -641,8 +651,6 @@ export default function ProviderDetailPage() {
                     </div>
                   )}
 
-        
-
                   {/* Accreditations */}
                   {accreditations.length > 0 && (
                     <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
@@ -807,81 +815,77 @@ export default function ProviderDetailPage() {
                     </div>
                   </div>
 
-{/* ===== NEW SOCIAL LINKS SECTION ===== */}
-{socialLinks.length > 0 && (
-  <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
-    <div className="flex items-center gap-2 mb-4">
-      <Share2 className="w-5 h-5 text-blue-400" />
-      <h3 className="text-lg font-bold text-blue-400">Connect Online</h3>
-    </div>
-    
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {socialLinks.map((link: any) => {
-        const IconComponent = getIconComponent(link.platform?.icon_name || 'Globe');
-        
-        // UPDATED: Better colors for dark background
-        const platformColor = link.platform?.name === 'Facebook' ? '#1877F2' :
-                            link.platform?.name === 'Instagram' ? '#E4405F' :
-                            link.platform?.name === 'LinkedIn' ? '#0A66C2' :
-                            link.platform?.name === 'YouTube' ? '#FF0000' :
-                            link.platform?.name === 'TikTok' ? '#00f2ea' : // Changed from black to TikTok's cyan
-                            link.platform?.name === 'Website' ? '#3B82F6' : '#9CA3AF';
-        
-        // TikTok secondary color for background glow
-        const platformGlow = link.platform?.name === 'TikTok' ? 'rgba(0, 242, 234, 0.2)' : 
-                            link.platform?.name === 'Facebook' ? 'rgba(24, 119, 242, 0.2)' :
-                            link.platform?.name === 'Instagram' ? 'rgba(228, 64, 95, 0.2)' :
-                            link.platform?.name === 'LinkedIn' ? 'rgba(10, 102, 194, 0.2)' :
-                            link.platform?.name === 'YouTube' ? 'rgba(255, 0, 0, 0.2)' :
-                            link.platform?.name === 'Website' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(156, 163, 175, 0.2)';
-        
-        return (
-          <motion.a
-            key={link.id}
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="group relative overflow-hidden"
-          >
-            <div 
-              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"
-              style={{ background: `radial-gradient(circle at 30% 30%, ${platformGlow}, transparent 70%)` }}
-            />
-            
-            <div className="relative p-4 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-gray-600 transition-all duration-300">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <IconComponent 
-                      className="w-5 h-5" 
-                      style={{ color: platformColor }}
-                    />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-gray-900 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">
-                    {link.platform?.name}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate mt-0.5">
-                    {link.url.replace(/^https?:\/\//, '').replace(/^www\./, '')}
-                  </p>
-                </div>
-                
-                <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0" />
-              </div>
-            </div>
-          </motion.a>
-        );
-      })}
-    </div>
-  </div>
-)}
-{/* ===== END SOCIAL LINKS SECTION ===== */}
-
+                  {/* Social Links Section */}
+                  {socialLinks.length > 0 && (
+                    <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Share2 className="w-5 h-5 text-blue-400" />
+                        <h3 className="text-lg font-bold text-blue-400">Connect Online</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {socialLinks.map((link: any) => {
+                          const IconComponent = getIconComponent(link.platform?.icon_name || 'Globe');
+                          
+                          const platformColor = link.platform?.name === 'Facebook' ? '#1877F2' :
+                                              link.platform?.name === 'Instagram' ? '#E4405F' :
+                                              link.platform?.name === 'LinkedIn' ? '#0A66C2' :
+                                              link.platform?.name === 'YouTube' ? '#FF0000' :
+                                              link.platform?.name === 'TikTok' ? '#00f2ea' :
+                                              link.platform?.name === 'Website' ? '#3B82F6' : '#9CA3AF';
+                          
+                          const platformGlow = link.platform?.name === 'TikTok' ? 'rgba(0, 242, 234, 0.2)' : 
+                                              link.platform?.name === 'Facebook' ? 'rgba(24, 119, 242, 0.2)' :
+                                              link.platform?.name === 'Instagram' ? 'rgba(228, 64, 95, 0.2)' :
+                                              link.platform?.name === 'LinkedIn' ? 'rgba(10, 102, 194, 0.2)' :
+                                              link.platform?.name === 'YouTube' ? 'rgba(255, 0, 0, 0.2)' :
+                                              link.platform?.name === 'Website' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(156, 163, 175, 0.2)';
+                          
+                          return (
+                            <motion.a
+                              key={link.id}
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="group relative overflow-hidden"
+                            >
+                              <div 
+                                className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"
+                                style={{ background: `radial-gradient(circle at 30% 30%, ${platformGlow}, transparent 70%)` }}
+                              />
+                              
+                              <div className="relative p-4 bg-gray-900/50 rounded-xl border border-gray-700 hover:border-gray-600 transition-all duration-300">
+                                <div className="flex items-center gap-3">
+                                  <div className="relative">
+                                    <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                      <IconComponent 
+                                        className="w-5 h-5" 
+                                        style={{ color: platformColor }}
+                                      />
+                                    </div>
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-gray-900 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                  
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">
+                                      {link.platform?.name}
+                                    </p>
+                                    <p className="text-xs text-gray-400 truncate mt-0.5">
+                                      {link.url.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+                                    </p>
+                                  </div>
+                                  
+                                  <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                                </div>
+                              </div>
+                            </motion.a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

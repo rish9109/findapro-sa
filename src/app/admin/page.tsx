@@ -1,4 +1,4 @@
-// File: src/app/admin/providers/page.tsx
+// File: src/app/admin/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -13,7 +13,6 @@ export default function ProvidersPage() {
   const [adminEmail, setAdminEmail] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProviders()
@@ -25,20 +24,13 @@ export default function ProvidersPage() {
   }, [providers, statusFilter, searchQuery])
 
   async function fetchAdminEmail() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) setAdminEmail(user.email || '')
-    } catch (error) {
-      console.error('Error fetching admin email:', error)
-    }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) setAdminEmail(user.email || '')
   }
 
   async function fetchProviders() {
     try {
       setLoading(true)
-      setFetchError(null)
-      
-      // Simple query without any joins - just get all providers
       const { data, error } = await supabase
         .from('providers')
         .select('*')
@@ -48,7 +40,6 @@ export default function ProvidersPage() {
       setProviders(data || [])
     } catch (error) {
       console.error('Error fetching providers:', error)
-      setFetchError('Failed to load providers. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -74,60 +65,21 @@ export default function ProvidersPage() {
     setFilteredProviders(filtered)
   }
 
-  async function handleQuickAction(providerId: string, action: 'approve' | 'reject' | 'pause' | 'resume') {
+  async function handleQuickAction(providerId: string, action: 'approve' | 'reject' | 'pause') {
     if (action === 'reject') {
       const reason = prompt('Enter rejection reason:')
       if (!reason) return
       
       const result = await rejectProvider(providerId, reason, adminEmail)
       if (result.success) fetchProviders()
-    } else if (action === 'approve' || action === 'resume') {
+    } else if (action === 'approve') {
       const result = await approveProvider(providerId, adminEmail)
       if (result.success) fetchProviders()
     } else if (action === 'pause') {
       const reason = prompt('Enter pause reason (optional):')
-      const result = await pauseProvider(providerId, reason || undefined, adminEmail)
+      // Pass undefined if no reason, not empty string - THIS IS THE KEY PART
+      const result = await pauseProvider(providerId, reason?.trim() || undefined, adminEmail)
       if (result.success) fetchProviders()
-    }
-  }
-
-  // Format date helper
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A'
-    try {
-      return new Date(dateString).toLocaleDateString('en-ZA', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      })
-    } catch {
-      return 'Invalid date'
-    }
-  }
-
-  // Get status badge color
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, string> = {
-      'pending': 'bg-yellow-900/30 text-yellow-300 border border-yellow-700',
-      'approved': 'bg-green-900/30 text-green-300 border border-green-700',
-      'rejected': 'bg-red-900/30 text-red-300 border border-red-700',
-      'pause': 'bg-gray-700 text-gray-300 border border-gray-600'
-    }
-    return statusMap[status] || 'bg-gray-700 text-gray-300'
-  }
-
-  // Parse service areas safely (matching your provider detail page)
-  const parseServiceAreas = (serviceAreas: string | null) => {
-    if (!serviceAreas) return []
-    try {
-      const serviceAreasStr = serviceAreas.trim()
-      if (serviceAreasStr.startsWith('[') && serviceAreasStr.endsWith(']')) {
-        const parsed = JSON.parse(serviceAreasStr)
-        return Array.isArray(parsed) ? parsed.map((area: any) => String(area).trim()) : [serviceAreas]
-      }
-      return serviceAreasStr.split(',').map(area => area.trim()).filter(area => area !== '')
-    } catch {
-      return serviceAreas.split(',').map(area => area.trim()).filter(area => area !== '')
     }
   }
 
@@ -136,7 +88,7 @@ export default function ProvidersPage() {
     pending: providers.filter(p => p.status === 'pending').length,
     approved: providers.filter(p => p.status === 'approved').length,
     rejected: providers.filter(p => p.status === 'rejected').length,
-    pause: providers.filter(p => p.status === 'pause').length,
+    pause: providers.filter(p => p.status === 'pause').length, // Changed from 'paused' to 'pause'
   }
 
   return (
@@ -151,24 +103,6 @@ export default function ProvidersPage() {
           Total: <span className="font-semibold text-white">{providers.length}</span> providers
         </div>
       </div>
-
-      {/* Error Display */}
-      {fetchError && (
-        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="text-red-400">{fetchError}</span>
-          </div>
-          <button
-            onClick={fetchProviders}
-            className="text-sm text-red-400 hover:text-red-300 bg-red-900/20 px-3 py-1 rounded-lg"
-          >
-            Retry
-          </button>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="bg-gray-800 p-4 md:p-6 rounded-lg shadow border border-gray-700 mb-6">
@@ -255,30 +189,33 @@ export default function ProvidersPage() {
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {filteredProviders.map((provider) => {
-                  const serviceAreas = parseServiceAreas(provider.service_areas)
-                  
+                  // Parse service areas safely
+                  let serviceAreas = []
+                  try {
+                    if (provider.service_areas) {
+                      const areas = JSON.parse(provider.service_areas)
+                      serviceAreas = Array.isArray(areas) ? areas : [provider.service_areas]
+                    }
+                  } catch {
+                    serviceAreas = provider.service_areas?.split(',').map((s: string) => s.trim()) || []
+                  }
+
                   return (
                     <tr key={provider.id} className="hover:bg-gray-750 transition-colors">
                       <td className="px-4 py-4 md:px-6 md:py-4">
                         <div className="font-medium text-white">{provider.business_name}</div>
                         <div className="text-sm text-gray-400">
-                          {serviceAreas.length > 0 ? 
-                            serviceAreas.slice(0, 2).join(', ') + (serviceAreas.length > 2 ? '...' : '') 
-                            : 'No service areas'
-                          }
+                          {serviceAreas.length > 0 ? serviceAreas.slice(0, 2).join(', ') + (serviceAreas.length > 2 ? '...' : '') : 'No service areas'}
                         </div>
                       </td>
                       <td className="px-4 py-4 md:px-6 md:py-4">
                         <div className="text-sm text-white">{provider.contact_person}</div>
                         <div className="text-sm text-gray-400">{provider.contact_email}</div>
                         <div className="text-sm text-gray-500">{provider.contact_phone}</div>
-                        {provider.alternate_phone && (
-                          <div className="text-xs text-gray-600">Alt: {provider.alternate_phone}</div>
-                        )}
                       </td>
                       <td className="px-4 py-4 md:px-6 md:py-4">
                         <span className="text-sm bg-blue-900/30 text-blue-300 px-2 py-1 rounded">
-                          {provider.main_service || 'Not specified'}
+                          {provider.main_service}
                         </span>
                         {provider.experience_years && (
                           <div className="text-xs text-gray-500 mt-1">
@@ -307,35 +244,24 @@ export default function ProvidersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4 md:px-6 md:py-4">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(provider.status)}`}>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                          ${provider.status === 'approved' ? 'bg-green-900/30 text-green-300 border border-green-700' :
+                            provider.status === 'pending' ? 'bg-yellow-900/30 text-yellow-300 border border-yellow-700' :
+                            provider.status === 'rejected' ? 'bg-red-900/30 text-red-300 border border-red-700' :
+                            'bg-gray-700 text-gray-300 border border-gray-600'}`}>
                           {provider.status}
                         </span>
-                        {provider.status === 'rejected' && provider.rejection_reason && (
-                          <div className="text-xs text-red-400 mt-1 max-w-[150px] truncate" title={provider.rejection_reason}>
-                            Reason: {provider.rejection_reason}
-                          </div>
-                        )}
-                        {provider.status === 'pause' && provider.pause_reason && (
-                          <div className="text-xs text-gray-400 mt-1 max-w-[150px] truncate" title={provider.pause_reason}>
-                            Reason: {provider.pause_reason}
-                          </div>
-                        )}
                       </td>
                       <td className="px-4 py-4 md:px-6 md:py-4 text-sm text-gray-400">
-                        <div>{formatDate(provider.created_at)}</div>
-                        {provider.reviewed_at && (
-                          <div className="text-xs text-gray-500">
-                            Reviewed: {formatDate(provider.reviewed_at)}
-                          </div>
-                        )}
+                        {new Date(provider.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-4 md:px-6 md:py-4">
-                        <div className="flex flex-col items-start gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/admin/providers/${provider.id}`}
                             className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
                           >
-                            View Details
+                            View
                           </Link>
                           
                           {provider.status === 'pending' && (
@@ -366,7 +292,7 @@ export default function ProvidersPage() {
 
                           {provider.status === 'pause' && (
                             <button
-                              onClick={() => handleQuickAction(provider.id, 'resume')}
+                              onClick={() => handleQuickAction(provider.id, 'approve')}
                               className="text-green-400 hover:text-green-300 text-sm transition-colors"
                             >
                               Resume

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { approveProvider, rejectProvider, pauseProvider } from '@/lib/admin-actions'
+import { approveProvider, rejectProvider, pauseProvider, deleteProvider } from '@/lib/admin-actions'
 import Link from 'next/link'
 import ProviderLogoDisplay from '@/components/ProviderLogoDisplay'
 import { motion } from 'framer-motion'
@@ -13,7 +13,7 @@ import {
   Tag, FileText, Eye, CreditCard, ThumbsUp, Shield, Clock,
   Zap, AlertCircle, Percent, Gift, Truck, Languages,
   Fingerprint, Settings, Leaf, Globe, Facebook, Instagram,
-  Linkedin, Youtube, Music2
+  Linkedin, Youtube, Music2, MessageCircle, Heart, Trash2, Send
 } from 'lucide-react'
 
 // Icon mapping function (copied from your provider detail page)
@@ -41,6 +41,10 @@ export default function ProviderDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
   const [pauseReason, setPauseReason] = useState('')
+  const [deleteReason, setDeleteReason] = useState('')
+  const [notificationMessage, setNotificationMessage] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showNotifyModal, setShowNotifyModal] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [serviceAreas, setServiceAreas] = useState<string[]>([])
@@ -90,7 +94,7 @@ export default function ProviderDetailPage() {
     }
   }
 
-  // Parse service areas helper (exactly like your provider detail page)
+  // Parse service areas helper
   const parseServiceAreas = (serviceAreas: string | null) => {
     if (!serviceAreas) return []
     try {
@@ -109,7 +113,6 @@ export default function ProviderDetailPage() {
     try {
       setLoading(true)
       
-      // EXACT query from your working provider detail page
       const { data, error } = await supabase
         .from('providers')
         .select(`
@@ -125,37 +128,48 @@ export default function ProviderDetailPage() {
           )
         `)
         .eq('id', providerId)
-        .single() // Removed status filter for admin view
-
-      if (error) throw error
-      
-      if (data) {
-        console.log('Provider data:', data) // Debug log
-        console.log('Social links:', data.social_links) // Debug log
-        
-        setProvider(data)
-        
-        // Parse service areas
-        if (data.service_areas) {
-          setServiceAreas(parseServiceAreas(data.service_areas))
+        .maybeSingle()
+  
+      if (error) {
+        console.error('Error with full query:', error)
+        const { data: basicData, error: basicError } = await supabase
+          .from('providers')
+          .select('*')
+          .eq('id', providerId)
+          .maybeSingle()
+  
+        if (basicError) throw basicError
+        if (!basicData) throw new Error('Provider not found')
+  
+        setProvider(basicData)
+        if (basicData.service_areas) {
+          setServiceAreas(parseServiceAreas(basicData.service_areas))
         }
-
-        // Set accreditations
-        if (data.provider_accreditations && data.provider_accreditations.length > 0) {
-          setAccreditations(data.provider_accreditations)
-        }
-
-        // Set business features
-        if (data.business_features && data.business_features.length > 0) {
-          setBusinessFeatures(data.business_features)
-        }
-
-        // Set social links - using the 'social_links' alias from the query
-        if (data.social_links && data.social_links.length > 0) {
-          console.log('Setting social links:', data.social_links)
-          setSocialLinks(data.social_links)
-        }
+        return
       }
+  
+      if (!data) {
+        throw new Error('Provider not found')
+      }
+  
+      setProvider(data)
+      
+      if (data.service_areas) {
+        setServiceAreas(parseServiceAreas(data.service_areas))
+      }
+  
+      if (data.provider_accreditations?.length > 0) {
+        setAccreditations(data.provider_accreditations)
+      }
+  
+      if (data.business_features?.length > 0) {
+        setBusinessFeatures(data.business_features)
+      }
+  
+      if (data.social_links?.length > 0) {
+        setSocialLinks(data.social_links)
+      }
+  
     } catch (error) {
       console.error('Error fetching provider:', error)
       setActionMessage('Failed to load provider details')
@@ -164,15 +178,56 @@ export default function ProviderDetailPage() {
     }
   }
 
-  async function handleAction(action: 'approve' | 'reject' | 'pause' | 'resume') {
+  // Function to send notification email without changing status
+  async function sendNotificationEmail() {
+    if (!notificationMessage.trim()) {
+      setActionMessage('Please enter a notification message')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const emailResponse = await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'custom_notification',
+          provider: provider,
+          adminEmail,
+          message: notificationMessage,
+          action: 'notify'
+        }),
+      })
+
+      const emailResult = await emailResponse.json()
+      if (emailResponse.ok) {
+        setActionMessage('Notification sent successfully!')
+        setNotificationMessage('')
+        setShowNotifyModal(false)
+      } else {
+        setActionMessage('Failed to send notification')
+      }
+    } catch (error: any) {
+      setActionMessage(`Error: ${error.message}`)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleAction(action: 'approve' | 'reject' | 'pause' | 'resume' | 'delete') {
     if (!providerId) return
-  
+
+    if (action === 'delete') {
+      setShowDeleteConfirm(true)
+      return
+    }
+
     setActionLoading(true)
     setActionMessage('')
-  
+
     try {
       let result
-  
+
       switch (action) {
         case 'approve':
           result = await approveProvider(providerId, adminEmail)
@@ -186,7 +241,8 @@ export default function ProviderDetailPage() {
           result = await rejectProvider(providerId, rejectionReason, adminEmail)
           break
         case 'pause':
-          result = await pauseProvider(providerId, pauseReason || undefined, adminEmail)
+          const pauseReasonText = pauseReason.trim() || undefined
+          result = await pauseProvider(providerId, pauseReasonText, adminEmail)
           break
         case 'resume':
           result = await approveProvider(providerId, adminEmail)
@@ -195,7 +251,7 @@ export default function ProviderDetailPage() {
 
       if (result?.success) {
         setActionMessage(`${action.charAt(0).toUpperCase() + action.slice(1)} successful!`)
-        fetchProvider()
+        await fetchProvider()
         setRejectionReason('')
         setPauseReason('')
         
@@ -209,6 +265,26 @@ export default function ProviderDetailPage() {
       setActionMessage(`Error: ${error.message}`)
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  async function handleDelete() {
+    setActionLoading(true)
+    try {
+      const result = await deleteProvider(providerId, deleteReason || undefined, adminEmail)
+      
+      if (result.success) {
+        setActionMessage('Provider deleted successfully!')
+        setTimeout(() => router.push('/admin/providers'), 1500)
+      } else {
+        setActionMessage(`Failed to delete: ${result.error}`)
+      }
+    } catch (error: any) {
+      setActionMessage(`Error: ${error.message}`)
+    } finally {
+      setActionLoading(false)
+      setShowDeleteConfirm(false)
+      setDeleteReason('')
     }
   }
 
@@ -327,16 +403,91 @@ export default function ProviderDetailPage() {
 
         {/* Action Message */}
         {actionMessage && (
-          <div className={`mb-6 p-4 rounded-lg ${actionMessage.includes('successful') 
+          <div className={`mb-6 p-4 rounded-lg ${actionMessage.includes('successful') || actionMessage.includes('sent')
             ? 'bg-green-900/30 text-green-300 border border-green-700' 
             : 'bg-red-900/30 text-red-300 border border-red-700'}`}>
             <div className="flex items-start gap-3">
-              {actionMessage.includes('successful') ? (
+              {actionMessage.includes('successful') || actionMessage.includes('sent') ? (
                 <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
               )}
               <span>{actionMessage}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg border border-gray-700 max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-white mb-4">Confirm Deletion</h3>
+              <p className="text-gray-300 mb-4">
+                Are you sure you want to delete <span className="font-semibold text-white">{provider.business_name}</span>? 
+                This action cannot be undone.
+              </p>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Enter reason for deletion (optional)..."
+                className="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent mb-4"
+                rows={3}
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDelete}
+                  disabled={actionLoading}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {actionLoading ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setDeleteReason('')
+                  }}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notification Modal */}
+        {showNotifyModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg border border-gray-700 max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-white mb-4">Send Notification</h3>
+              <p className="text-gray-300 mb-4">
+                Send a message to <span className="font-semibold text-white">{provider.business_name}</span> without changing their status.
+              </p>
+              <textarea
+                value={notificationMessage}
+                onChange={(e) => setNotificationMessage(e.target.value)}
+                placeholder="Enter your message..."
+                className="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+                rows={4}
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={sendNotificationEmail}
+                  disabled={actionLoading || !notificationMessage.trim()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {actionLoading ? 'Sending...' : 'Send Message'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNotifyModal(false)
+                    setNotificationMessage('')
+                  }}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -523,7 +674,6 @@ export default function ProviderDetailPage() {
                             <h4 className="font-medium text-white mb-1">{accreditationName}</h4>
                             <p className="text-sm text-gray-300">{accreditationDescription}</p>
                             
-                            {/* Additional accreditation details */}
                             <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
                               {acc.issued_date && (
                                 <div>
@@ -560,7 +710,7 @@ export default function ProviderDetailPage() {
               </div>
             )}
 
-            {/* Social Links Card - Using the same structure as your provider page */}
+            {/* Social Links Card */}
             {socialLinks.length > 0 && (
               <div className="bg-gray-800 rounded-lg shadow border border-gray-700 p-5 md:p-6">
                 <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -654,6 +804,16 @@ export default function ProviderDetailPage() {
               </h2>
               
               <div className="space-y-4">
+                {/* Notification Button - Always visible */}
+                <button
+                  onClick={() => setShowNotifyModal(true)}
+                  disabled={actionLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-purple-900/30 text-purple-300 hover:bg-purple-900/40 border border-purple-700 py-3 px-4 rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  <Send className="w-5 h-5" />
+                  Send Notification (No Status Change)
+                </button>
+
                 {provider.status === 'pending' && (
                   <>
                     <button
@@ -720,6 +880,18 @@ export default function ProviderDetailPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     {actionLoading ? 'Processing...' : 'Resume Listing'}
+                  </button>
+                )}
+
+                {/* Delete Button - Always visible except for deleted providers */}
+                {provider.status !== 'deleted' && (
+                  <button
+                    onClick={() => handleAction('delete')}
+                    disabled={actionLoading}
+                    className="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-300 hover:bg-red-900/40 border border-red-700 py-3 px-4 rounded-lg hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    {actionLoading ? 'Processing...' : 'Delete Permanently'}
                   </button>
                 )}
 

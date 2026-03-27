@@ -1,4 +1,4 @@
-// File: src/app/admin/pages.tsx
+// File: src/app/admin/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -55,10 +55,10 @@ export default function ProvidersPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(p =>
-        p.business_name.toLowerCase().includes(query) ||
-        p.contact_person.toLowerCase().includes(query) ||
-        p.contact_email.toLowerCase().includes(query) ||
-        p.main_service.toLowerCase().includes(query)
+        p.business_name?.toLowerCase().includes(query) ||
+        p.contact_person?.toLowerCase().includes(query) ||
+        p.contact_email?.toLowerCase().includes(query) ||
+        p.main_service?.toLowerCase().includes(query)
       )
     }
 
@@ -77,7 +77,8 @@ export default function ProvidersPage() {
       if (result.success) fetchProviders()
     } else if (action === 'pause') {
       const reason = prompt('Enter pause reason (optional):')
-      const result = await pauseProvider(providerId, reason || undefined, adminEmail)
+      // Pass undefined if no reason, not empty string - THIS IS THE KEY PART
+      const result = await pauseProvider(providerId, reason?.trim() || undefined, adminEmail)
       if (result.success) fetchProviders()
     }
   }
@@ -87,7 +88,7 @@ export default function ProvidersPage() {
     pending: providers.filter(p => p.status === 'pending').length,
     approved: providers.filter(p => p.status === 'approved').length,
     rejected: providers.filter(p => p.status === 'rejected').length,
-    paused: providers.filter(p => p.status === 'pause').length,
+    pause: providers.filter(p => p.status === 'pause').length, // Changed from 'paused' to 'pause'
   }
 
   return (
@@ -109,18 +110,19 @@ export default function ProvidersPage() {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-3">Filter by Status</label>
             <div className="flex flex-wrap gap-2">
-              {['all', 'pending', 'approved', 'rejected', 'paused'].map(status => (
+              {['all', 'pending', 'approved', 'rejected', 'pause'].map(status => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
-                  className={`px-3 py-1.5 text-sm rounded-full transition-colors ${statusFilter === status
+                  className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                    statusFilter === status
                       ? status === 'pending' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700' :
                         status === 'approved' ? 'bg-green-900/30 text-green-400 border border-green-700' :
                         status === 'rejected' ? 'bg-red-900/30 text-red-400 border border-red-700' :
                         status === 'pause' ? 'bg-gray-700 text-gray-300 border border-gray-600' :
                         'bg-blue-900/30 text-blue-400 border border-blue-700'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
-                    }`}
+                  }`}
                 >
                   {status.charAt(0).toUpperCase() + status.slice(1)} ({statusCounts[status as keyof typeof statusCounts]})
                 </button>
@@ -179,77 +181,128 @@ export default function ProvidersPage() {
                   <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Business</th>
                   <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Contact</th>
                   <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Service</th>
+                  <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">WhatsApp</th>
                   <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Submitted</th>
                   <th className="px-4 py-3 md:px-6 md:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {filteredProviders.map((provider) => (
-                  <tr key={provider.id} className="hover:bg-gray-750 transition-colors">
-                    <td className="px-4 py-4 md:px-6 md:py-4">
-                      <div className="font-medium text-white">{provider.business_name}</div>
-                      <div className="text-sm text-gray-400">{provider.city}, {provider.province}</div>
-                    </td>
-                    <td className="px-4 py-4 md:px-6 md:py-4">
-                      <div className="text-sm text-white">{provider.contact_person}</div>
-                      <div className="text-sm text-gray-400">{provider.contact_email}</div>
-                    </td>
-                    <td className="px-4 py-4 md:px-6 md:py-4">
-                      <span className="text-sm bg-blue-900/30 text-blue-300 px-2 py-1 rounded">
-                        {provider.main_service}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 md:px-6 md:py-4">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                        ${provider.status === 'approved' ? 'bg-green-900/30 text-green-300' :
-                          provider.status === 'pending' ? 'bg-yellow-900/30 text-yellow-300' :
-                          provider.status === 'rejected' ? 'bg-red-900/30 text-red-300' :
-                          'bg-gray-700 text-gray-300'}`}>
-                        {provider.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 md:px-6 md:py-4 text-sm text-gray-400">
-                      {new Date(provider.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-4 md:px-6 md:py-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/admin/providers/${provider.id}`}
-                          className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
-                        >
-                          View
-                        </Link>
-                        
-                        {provider.status === 'pending' && (
-                          <>
+                {filteredProviders.map((provider) => {
+                  // Parse service areas safely
+                  let serviceAreas = []
+                  try {
+                    if (provider.service_areas) {
+                      const areas = JSON.parse(provider.service_areas)
+                      serviceAreas = Array.isArray(areas) ? areas : [provider.service_areas]
+                    }
+                  } catch {
+                    serviceAreas = provider.service_areas?.split(',').map((s: string) => s.trim()) || []
+                  }
+
+                  return (
+                    <tr key={provider.id} className="hover:bg-gray-750 transition-colors">
+                      <td className="px-4 py-4 md:px-6 md:py-4">
+                        <div className="font-medium text-white">{provider.business_name}</div>
+                        <div className="text-sm text-gray-400">
+                          {serviceAreas.length > 0 ? serviceAreas.slice(0, 2).join(', ') + (serviceAreas.length > 2 ? '...' : '') : 'No service areas'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 md:px-6 md:py-4">
+                        <div className="text-sm text-white">{provider.contact_person}</div>
+                        <div className="text-sm text-gray-400">{provider.contact_email}</div>
+                        <div className="text-sm text-gray-500">{provider.contact_phone}</div>
+                      </td>
+                      <td className="px-4 py-4 md:px-6 md:py-4">
+                        <span className="text-sm bg-blue-900/30 text-blue-300 px-2 py-1 rounded">
+                          {provider.main_service}
+                        </span>
+                        {provider.experience_years && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {provider.experience_years} years exp
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 md:px-6 md:py-4">
+                        <div className="flex flex-col gap-1">
+                          {provider.primary_has_whatsapp && (
+                            <span className="text-xs bg-emerald-900/30 text-emerald-300 px-2 py-1 rounded-full inline-flex items-center gap-1 w-fit">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2c-5.349 0-9.703 4.352-9.706 9.702 0 1.703.444 3.371 1.286 4.836L2 22l5.539-1.504c1.414.783 3.004 1.196 4.64 1.197h.004c5.347 0 9.701-4.353 9.704-9.703.001-2.598-1.01-5.041-2.897-6.928zM12.018 20.06h-.003c-1.446 0-2.864-.389-4.082-1.12l-.293-.174-3.288.875.88-3.2-.19-.305c-.758-1.215-1.158-2.617-1.158-4.064.003-4.445 3.619-8.06 8.067-8.06 2.153 0 4.178.841 5.699 2.368 1.521 1.527 2.358 3.553 2.357 5.71-.002 4.446-3.618 8.062-8.064 8.062z"/>
+                              </svg>
+                              Primary
+                            </span>
+                          )}
+                          {provider.alternate_has_whatsapp && provider.alternate_phone && (
+                            <span className="text-xs bg-emerald-900/30 text-emerald-300 px-2 py-1 rounded-full inline-flex items-center gap-1 w-fit">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2c-5.349 0-9.703 4.352-9.706 9.702 0 1.703.444 3.371 1.286 4.836L2 22l5.539-1.504c1.414.783 3.004 1.196 4.64 1.197h.004c5.347 0 9.701-4.353 9.704-9.703.001-2.598-1.01-5.041-2.897-6.928zM12.018 20.06h-.003c-1.446 0-2.864-.389-4.082-1.12l-.293-.174-3.288.875.88-3.2-.19-.305c-.758-1.215-1.158-2.617-1.158-4.064.003-4.445 3.619-8.06 8.067-8.06 2.153 0 4.178.841 5.699 2.368 1.521 1.527 2.358 3.553 2.357 5.71-.002 4.446-3.618 8.062-8.064 8.062z"/>
+                              </svg>
+                              Alternate
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 md:px-6 md:py-4">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full
+                          ${provider.status === 'approved' ? 'bg-green-900/30 text-green-300 border border-green-700' :
+                            provider.status === 'pending' ? 'bg-yellow-900/30 text-yellow-300 border border-yellow-700' :
+                            provider.status === 'rejected' ? 'bg-red-900/30 text-red-300 border border-red-700' :
+                            'bg-gray-700 text-gray-300 border border-gray-600'}`}>
+                          {provider.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 md:px-6 md:py-4 text-sm text-gray-400">
+                        {new Date(provider.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-4 md:px-6 md:py-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/admin/providers/${provider.id}`}
+                            className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                          >
+                            View
+                          </Link>
+                          
+                          {provider.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleQuickAction(provider.id, 'approve')}
+                                className="text-green-400 hover:text-green-300 text-sm transition-colors"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleQuickAction(provider.id, 'reject')}
+                                className="text-red-400 hover:text-red-300 text-sm transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          
+                          {provider.status === 'approved' && (
+                            <button
+                              onClick={() => handleQuickAction(provider.id, 'pause')}
+                              className="text-yellow-400 hover:text-yellow-300 text-sm transition-colors"
+                            >
+                              Pause
+                            </button>
+                          )}
+
+                          {provider.status === 'pause' && (
                             <button
                               onClick={() => handleQuickAction(provider.id, 'approve')}
                               className="text-green-400 hover:text-green-300 text-sm transition-colors"
                             >
-                              Approve
+                              Resume
                             </button>
-                            <button
-                              onClick={() => handleQuickAction(provider.id, 'reject')}
-                              className="text-red-400 hover:text-red-300 text-sm transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                        
-                        {provider.status === 'approved' && (
-                          <button
-                            onClick={() => handleQuickAction(provider.id, 'pause')}
-                            className="text-yellow-400 hover:text-yellow-300 text-sm transition-colors"
-                          >
-                            Pause
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

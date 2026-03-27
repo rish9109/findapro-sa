@@ -396,42 +396,6 @@ export default function ContactPage() {
             transition={{ delay: 0.9 }}
             className="mt-8 grid md:grid-cols-3 gap-4"
           >
-            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4 text-center group hover:border-gray-700 transition-all duration-300">
-              <div className="flex justify-center mb-3">
-                <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/20 group-hover:border-blue-500/40 transition-all">
-                  <Mail className="w-4 h-4 text-blue-400" />
-                </div>
-              </div>
-              <div className="text-blue-400 font-semibold mb-1">Email</div>
-              <a 
-                href="mailto:support@findapro.co.za" 
-                className="text-gray-400 hover:text-white transition-colors text-sm"
-              >
-                support@findapro.co.za
-              </a>
-            </div>
-            
-            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4 text-center group hover:border-gray-700 transition-all duration-300">
-              <div className="flex justify-center mb-3">
-                <div className="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center border border-purple-500/20 group-hover:border-purple-500/40 transition-all">
-                  <Clock className="w-4 h-4 text-purple-400" />
-                </div>
-              </div>
-              <div className="text-purple-400 font-semibold mb-1">Business Hours</div>
-              <div className="text-gray-400 text-sm">Mon-Fri: 8AM-5PM</div>
-              <div className="text-gray-400 text-xs mt-1">Sat: 9AM-1PM</div>
-            </div>
-            
-            <div className="bg-gray-900/30 border border-gray-800 rounded-xl p-4 text-center group hover:border-gray-700 transition-all duration-300">
-              <div className="flex justify-center mb-3">
-                <div className="w-10 h-10 bg-cyan-500/10 rounded-full flex items-center justify-center border border-cyan-500/20 group-hover:border-cyan-500/40 transition-all">
-                  <Building className="w-4 h-4 text-cyan-400" />
-                </div>
-              </div>
-              <div className="text-cyan-400 font-semibold mb-1">Company</div>
-              <div className="text-gray-400 text-sm">Find A Pro Connect (PTY) LTD</div>
-              <div className="text-gray-400 text-xs mt-1">findapro.co.za</div>
-            </div>
           </motion.div>
         </div>
       </div>
